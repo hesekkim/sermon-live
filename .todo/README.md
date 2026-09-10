@@ -12,8 +12,13 @@
 
 1. `002-operator-ui.md` — 방송실 React UI
 2. `003-openai-realtime.md` — OpenAI Realtime adapter
-3. `004-vad-segment.md` — 긴 설교 지연: VAD/구간 분할
+3. `004-vad-segment.md` — 긴 설교 지연: VAD/구간 분할 (보류)
 4. `005-translation-logging.md` — 번역 전후 backend 로그
+5. `006-openai-realtime.md` — OpenAI Realtime server-side VAD 준비
+
+## 참고 문서
+
+- `004-vad-segment-prework.md` — VAD 실험 결과와 다음 AI 작업 지침
 
 ## 완료 (`done/`)
 

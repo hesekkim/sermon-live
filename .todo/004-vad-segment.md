@@ -1,6 +1,6 @@
 # 004 긴 설교 VAD 구간 분할
 
-상태: 대기
+상태: 보류
 
 ## 배경
 
@@ -64,3 +64,14 @@ end-of-turn을 늦게 판단한다. 그 결과 번역 첫 조각이 늦게 나�
 - Gemini Live에서 activity 경계와 automatic activity detection을 함께 사용할 때의 동작 확인
 - 사용할 VAD의 frame size/샘플레이트 제약과 Windows 설치 가능성 확인
 - 짧은 한국어 조사·어미가 segment 경계에서 잘리는 실제 녹음 fixture 준비
+
+## 결론
+
+Gemini automatic VAD를 끄고 애플리케이션 VAD가 `activityStart`/`activityEnd`를
+직접 보내는 방식은 실환경에서 baseline보다 안정적이지 않았다. VAD segment는 생성됐지만
+번역 latency, 문맥 보존, 번역 audio 재생이 악화되는 사례가 있었다.
+
+현재 기본 경로는 Gemini automatic VAD를 사용하는 raw PCM streaming으로 유지한다.
+자체 VAD 구현은 폐기하지 않고 실험 기록으로만 보존하며, 다음 음성 provider 작업의
+기본 전제로 삼지 않는다. 상세 판단 근거와 다음 작업 지침은
+`004-vad-segment-prework.md`에 기록한다.
