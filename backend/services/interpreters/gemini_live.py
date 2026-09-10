@@ -80,7 +80,12 @@ class GeminiLiveInterpreter:
             "additional_headers": {"User-Agent": "sermon-live/1.0"},
         }
         self._ws = await websockets.connect(uri, **connect_kwargs)
-        setup = {
+        await self._ws.send(json.dumps(self._build_setup()))
+        self._recv_task = asyncio.create_task(self._receive_loop())
+        logger.info("Gemini Live WebSocket connected")
+
+    def _build_setup(self) -> dict[str, object]:
+        return {
             "setup": {
                 "model": f"models/{self._settings.gemini_model}",
                 "generationConfig": {
@@ -97,19 +102,18 @@ class GeminiLiveInterpreter:
                 },
                 "realtimeInputConfig": {
                     "automaticActivityDetection": {
-                        "disabled": False,
+                        "disabled": True,
                         "startOfSpeechSensitivity": "START_SENSITIVITY_HIGH",
                         "endOfSpeechSensitivity": "END_SENSITIVITY_HIGH",
                         "prefixPaddingMs": 20,
                         "silenceDurationMs": self._settings.turn_silence_ms,
                     }
                 },
+                "inputAudioTranscription": {},
+                "outputAudioTranscription": {},
                 "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
             }
         }
-        await self._ws.send(json.dumps(setup))
-        self._recv_task = asyncio.create_task(self._receive_loop())
-        logger.info("Gemini Live WebSocket connected")
 
     async def send_pcm(self, chunk: bytes) -> None:
         if self._ws is None or not chunk:
@@ -176,6 +180,20 @@ class GeminiLiveInterpreter:
         server_content = decoded.get("serverContent")
         if not isinstance(server_content, dict):
             return
+        input_transcription = server_content.get("inputTranscription")
+        if isinstance(input_transcription, dict):
+            input_text = input_transcription.get("text")
+            if isinstance(input_text, str):
+                cleaned_input = input_text.strip()
+                if cleaned_input:
+                    logger.info("[Translation input] %s", cleaned_input)
+        output_transcription = server_content.get("outputTranscription")
+        if isinstance(output_transcription, dict):
+            output_text = output_transcription.get("text")
+            if isinstance(output_text, str):
+                cleaned_output = output_text.strip()
+                if cleaned_output and not should_suppress_translation_text(cleaned_output):
+                    logger.info("[Translation output] %s", cleaned_output)
         model_turn = server_content.get("modelTurn") or {}
         parts = model_turn.get("parts") or []
         output_rate = self._settings.output_sample_rate
@@ -186,7 +204,7 @@ class GeminiLiveInterpreter:
             if isinstance(text, str):
                 cleaned = text.strip()
                 if cleaned and not should_suppress_translation_text(cleaned):
-                    logger.info("[Gemini text] %s", cleaned)
+                    logger.info("[Translation output] %s", cleaned)
                     await self._queue.put(
                         InterpreterEvent(kind="text", text=cleaned)
                     )

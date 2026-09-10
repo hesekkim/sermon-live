@@ -13,6 +13,7 @@
 1. `002-operator-ui.md` — 방송실 React UI
 2. `003-openai-realtime.md` — OpenAI Realtime adapter
 3. `004-vad-segment.md` — 긴 설교 지연: VAD/구간 분할
+4. `005-translation-logging.md` — 번역 전후 backend 로그
 
 ## 완료 (`done/`)
 
