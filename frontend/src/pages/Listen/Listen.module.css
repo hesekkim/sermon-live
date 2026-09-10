@@ -1,0 +1,52 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.app {
+  width: min(92vw, 700px);
+  background: rgba(21, 32, 48, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: 28px;
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: clamp(28px, 5vw, 38px);
+}
+
+p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+button {
+  border: 0;
+  background: linear-gradient(135deg, #34d399, #14b8a6);
+  color: #062b2b;
+  font-weight: 700;
+  padding: 14px 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 16px;
+}
+
+.status {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  min-height: 48px;
+}
+
+.subtitle {
+  margin-top: 16px;
+  color: var(--accent);
+  font-weight: 700;
+  min-height: 24px;
+}

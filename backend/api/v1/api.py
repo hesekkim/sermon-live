@@ -1,0 +1,6 @@
+from fastapi import APIRouter
+
+from api.v1.endpoints.listen import router as listen_router
+
+api_router = APIRouter()
+api_router.include_router(listen_router)

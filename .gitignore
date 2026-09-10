@@ -1,0 +1,14 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-cache-files*/
+.mypy_cache/
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+frontend/test-results/
+frontend/playwright-report/
