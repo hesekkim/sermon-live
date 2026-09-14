@@ -1,0 +1,92 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: var(--cf-space-16, 1rem);
+  box-sizing: border-box;
+}
+
+.dialog {
+  background: var(--cms-surface, var(--cf-white));
+  color: var(--cms-text, var(--cf-neutral-700));
+  border-radius: var(--cf-radius-card, 12px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 32rem;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog--sm {
+  max-width: 24rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--cf-space-12, 0.75rem);
+  padding: var(--cf-space-24, 1.5rem);
+  border-bottom: 1px solid var(--cms-border, var(--cf-neutral-300));
+  flex-shrink: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--cms-text, var(--cf-neutral-700));
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--cf-space-4, 0.25rem);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: var(--cms-text-secondary, var(--cf-neutral-500));
+  transition: background-color 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.closeButton:hover {
+  background-color: var(--cms-hover, var(--cf-neutral-200));
+  color: var(--cms-text, var(--cf-neutral-700));
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--cf-focus-color);
+  outline-offset: var(--cf-focus-offset);
+}
+
+.body {
+  padding: var(--cf-space-24, 1.5rem);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cf-space-12, 0.75rem);
+  justify-content: flex-end;
+  padding: var(--cf-space-24, 1.5rem);
+  border-top: 1px solid var(--cms-border, var(--cf-neutral-300));
+  flex-shrink: 0;
+}
+
+.footer--noDivider {
+  border-top: none;
+  padding-top: 0;
+}

@@ -1,0 +1,165 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cf-space-4);
+  margin: 0;
+  appearance: none;
+  border: none;
+  border-radius: var(--cf-radius-input);
+  cursor: pointer;
+  font-family: var(--cf-font-family, inherit);
+  box-sizing: border-box;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--cf-focus-color);
+  outline-offset: var(--cf-focus-offset);
+}
+
+.button--full-width {
+  width: 100%;
+}
+
+.button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.button__label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.button:disabled {
+  opacity: var(--cf-disabled-opacity);
+  cursor: not-allowed;
+}
+
+/* primary */
+.button--primary {
+  padding: var(--cf-space-8) var(--cf-space-16);
+  background-color: var(--primary-color, var(--cf-neutral-700));
+  color: var(--vscode-button-foreground, var(--cf-white));
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+}
+
+.button--primary:hover:not(:disabled) {
+  background-color: var(--primary-hover, var(--cf-neutral-600));
+}
+
+.button--primary:active:not(:disabled) {
+  background-color: var(--cms-primary-active, var(--cf-blue-88));
+}
+
+/* primary-big */
+.button--primary-big {
+  padding: var(--cf-space-12) var(--cf-space-24);
+  background-color: var(--primary-color, var(--cf-neutral-700));
+  color: var(--vscode-button-foreground, var(--cf-white));
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 26px;
+}
+
+.button--primary-big:hover:not(:disabled) {
+  background-color: var(--primary-hover, var(--cf-neutral-600));
+}
+
+.button--primary-big:active:not(:disabled) {
+  background-color: var(--cms-primary-active, var(--cf-blue-88));
+}
+
+/* secondary */
+.button--secondary {
+  padding: var(--cf-space-8) var(--cf-space-16);
+  background-color: var(--card-bg, var(--cf-neutral-100));
+  color: var(--text-primary, var(--cf-neutral-700));
+  border: 1px solid var(--border-color, var(--cf-neutral-300));
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.button--secondary:hover:not(:disabled) {
+  background-color: var(--hover-bg, var(--cf-neutral-200));
+}
+
+.button--secondary:active:not(:disabled) {
+  background-color: var(--cf-neutral-300);
+}
+
+/* secondary-big */
+.button--secondary-big {
+  padding: var(--cf-space-12) var(--cf-space-24);
+  background-color: var(--card-bg, var(--cf-neutral-100));
+  color: var(--text-primary, var(--cf-neutral-700));
+  border: 1px solid var(--border-color, var(--cf-neutral-300));
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 26px;
+}
+
+.button--secondary-big:hover:not(:disabled) {
+  background-color: var(--hover-bg, var(--cf-neutral-200));
+}
+
+.button--secondary-big:active:not(:disabled) {
+  background-color: var(--cf-neutral-300);
+}
+
+/* danger — destructive confirm actions */
+.button--danger {
+  padding: var(--cf-space-8) var(--cf-space-16);
+  background-color: var(--cms-danger, var(--cf-red-63));
+  color: var(--cf-white);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+}
+
+.button--danger:hover:not(:disabled) {
+  background-color: color-mix(
+    in srgb,
+    var(--cms-danger, var(--cf-red-63)) 85%,
+    black
+  );
+}
+
+.button--danger:active:not(:disabled) {
+  background-color: color-mix(
+    in srgb,
+    var(--cms-danger, var(--cf-red-63)) 70%,
+    black
+  );
+}
+
+.button--text {
+  padding: var(--cf-space-8) 0;
+  background-color: transparent;
+  color: var(--cms-primary, var(--cf-blue-63));
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.button--text:hover:not(:disabled) {
+  color: var(--cms-primary-hover, var(--cf-blue-75));
+}
+
+.button--text:active:not(:disabled) {
+  color: var(--cms-primary-active, var(--cf-blue-88));
+}

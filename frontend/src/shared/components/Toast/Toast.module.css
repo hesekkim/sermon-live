@@ -1,0 +1,112 @@
+.viewport {
+  position: fixed;
+  top: var(--cf-space-16, 1rem);
+  right: var(--cf-space-16, 1rem);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-8, 0.5rem);
+  width: min(22rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cf-space-12, 0.75rem);
+  padding: var(--cf-space-12, 0.75rem) var(--cf-space-12, 0.75rem)
+    var(--cf-space-12, 0.75rem) var(--cf-space-16, 1rem);
+  border-radius: var(--cf-radius-input, 8px);
+  border: 1px solid var(--cms-border, var(--cf-neutral-300));
+  background-color: var(--cms-surface, var(--cf-white));
+  color: var(--cms-text, var(--cf-neutral-700));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: toast-in 160ms ease-out;
+}
+
+.toast--info {
+  border-color: var(--cf-blue-50);
+}
+
+.toast--info .icon {
+  color: var(--cms-primary, var(--cf-blue-63));
+}
+
+.toast--warning {
+  border-color: var(--cf-yellow-50);
+  background-color: var(--cf-yellow-13);
+}
+
+.toast--warning .icon {
+  color: var(--cf-yellow-63);
+}
+
+.toast--error {
+  border-color: var(--cms-danger, var(--cf-red-63));
+  background-color: var(--cf-red-13);
+}
+
+.toast--error .icon {
+  color: var(--cms-danger, var(--cf-red-63));
+}
+
+.icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.1rem;
+}
+
+.message {
+  flex: 1;
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  white-space: pre-line;
+}
+
+.closeButton {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cf-space-4, 0.25rem);
+  margin: -0.15rem -0.15rem 0 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--cms-text-secondary, var(--cf-neutral-500));
+  font-size: 1.15rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.closeButton:hover {
+  background-color: var(--cms-hover, var(--cf-neutral-200));
+  color: var(--cms-text, var(--cf-neutral-700));
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--cf-focus-color);
+  outline-offset: var(--cf-focus-offset);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .viewport {
+    left: var(--cf-space-16, 1rem);
+    right: var(--cf-space-16, 1rem);
+    width: auto;
+  }
+}
