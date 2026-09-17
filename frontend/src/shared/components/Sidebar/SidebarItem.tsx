@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './Sidebar.module.css';
 
 type IconComponent = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
@@ -27,15 +27,29 @@ export default function SidebarItem({
   onClick,
   title,
 }: SidebarItemProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const navigateTo = () => {
+    onClick?.();
+    if (to) {
+      navigate(to);
+    }
+  };
+
   if (variant === 'brand') {
     if (collapsed || !to) {
       return null;
     }
 
     return (
-      <Link to={to} className={styles.brand} onClick={onClick} title={title}>
+      <button
+        type="button"
+        className={styles.brand}
+        onClick={navigateTo}
+        title={title}
+      >
         {label}
-      </Link>
+      </button>
     );
   }
 
@@ -55,26 +69,31 @@ export default function SidebarItem({
 
   if (to && nav) {
     return (
-      <NavLink
-        to={to}
-        end={end}
+      <button
+        type="button"
         title={commonProps.title}
         aria-label={commonProps['aria-label']}
-        onClick={onClick}
-        className={({ isActive }) =>
-          [styles.link, isActive ? styles.active : ''].filter(Boolean).join(' ')
-        }
+        onClick={navigateTo}
+        className={[
+          styles.link,
+          location.pathname === to ||
+          (!end && location.pathname.startsWith(`${to}/`))
+            ? styles.active
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
       >
         {content}
-      </NavLink>
+      </button>
     );
   }
 
   if (to) {
     return (
-      <Link to={to} {...commonProps}>
+      <button type="button" {...commonProps} onClick={navigateTo}>
         {content}
-      </Link>
+      </button>
     );
   }
 

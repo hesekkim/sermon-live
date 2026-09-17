@@ -37,6 +37,9 @@
 }
 
 .brand {
+  border: none;
+  background: transparent;
+  cursor: pointer;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -46,6 +49,7 @@
   font-size: 1.125rem;
   font-weight: 600;
   font-style: italic;
+  text-align: left;
   color: var(--cms-text, var(--cf-neutral-700));
   text-decoration: none;
 }
