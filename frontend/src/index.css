@@ -1,3 +1,5 @@
+@import './shared/styles/cms-tokens.css';
+
 :root {
   --bg: #0d1321;
   --panel: #1b2a41;

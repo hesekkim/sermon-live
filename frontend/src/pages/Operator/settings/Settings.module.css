@@ -1,0 +1,29 @@
+.page {
+  max-width: 36rem;
+}
+
+.page h1 {
+  margin: 0 0 var(--cf-space-24);
+  font-size: 1.5rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space-16);
+  margin-bottom: var(--cf-space-24);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-16);
+}
+
+.hint,
+.status {
+  margin: 0;
+  color: var(--cms-text-secondary);
+  font-size: 0.875rem;
+}
