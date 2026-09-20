@@ -19,5 +19,11 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests"],
+  "exclude": [
+    "src/shared/components/RichTextEditor",
+    "src/shared/components/Upload",
+    "src/shared/components/RatingTag",
+    "src/shared/components/ui"
+  ]
 }

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     ]
     interpreter: InterpreterName = "echo"
     gemini_api_key: str = ""
+    openai_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash-native-audio-preview-12-2025"
     gemini_voice: str = "Aoede"
     turn_silence_ms: int = 180

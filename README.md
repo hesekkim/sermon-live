@@ -7,7 +7,7 @@ Congregation members open a phone browser on the same Wi-Fi. The operator laptop
 ## Layout
 
 - `backend/` — FastAPI, capture, interpreter adapters, broadcast
-- `frontend/` — Vite React listen page
+- `frontend/` — Vite React listen page and operator desk
 - `.agent/rules/` — agent rules (not `.cursor`)
 
 ## Run
@@ -20,9 +20,10 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 copy .env.example .env
-# set APP_INTERPRETER=echo for a free capture/playback test
 python main.py
 ```
+
+Open `http://<LAN-IP>:8080/operator` (or Vite `http://localhost:5173/operator`) to choose the interpreter, save the API key, then start capture. Congregation URL is `/listen`.
 
 Frontend (dev):
 

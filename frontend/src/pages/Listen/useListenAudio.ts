@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { mergeOddPcmByte, pcm16ToFloat32 } from '../../shared/audio/pcm';
 
 const DEFAULT_SAMPLE_RATE = 24000;
@@ -12,6 +12,20 @@ export function useListenAudio() {
   const pendingPcmRef = useRef<Uint8Array | null>(null);
   const sampleRateRef = useRef(DEFAULT_SAMPLE_RATE);
   const receivedChunksRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      const socket = socketRef.current;
+      if (
+        socket &&
+        (socket.readyState === WebSocket.CONNECTING ||
+          socket.readyState === WebSocket.OPEN)
+      ) {
+        socket.close(1000, 'Page closed');
+      }
+      socketRef.current = null;
+    };
+  }, []);
 
   const ensureAudioContext = useCallback(async () => {
     if (!audioContextRef.current) {
@@ -27,9 +41,15 @@ export function useListenAudio() {
     return ctx;
   }, []);
 
-  const queueAudioChunk = useCallback((chunkBuffer: ArrayBuffer) => {
+  const queueAudioChunk = useCallback(async (chunkBuffer: ArrayBuffer) => {
     const ctx = audioContextRef.current;
     if (!ctx) {
+      return;
+    }
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    if (ctx.state !== 'running') {
       return;
     }
 
@@ -91,7 +111,7 @@ export function useListenAudio() {
         `Audio connected. Received ${receivedChunksRef.current} audio chunks.`
       );
       try {
-        queueAudioChunk(
+        void queueAudioChunk(
           chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)
         );
       } catch (error) {

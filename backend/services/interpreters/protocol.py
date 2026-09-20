@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import AsyncIterator, Literal, Protocol
 
-EventKind = Literal["audio", "text", "error"]
+EventKind = Literal["audio", "text", "input_text", "output_text", "error"]
 
 
 @dataclass(slots=True)

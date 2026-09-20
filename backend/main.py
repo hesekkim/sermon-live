@@ -15,9 +15,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.v1.api import api_router
-from core.config import get_settings
 from services.broadcast import hub
-from services.session_service import SessionService
+from services.runtime import session, settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,10 +24,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
-
-settings = get_settings()
-session = SessionService(settings, hub)
-
 
 def lan_ip() -> str:
     try:
@@ -43,12 +38,7 @@ def lan_ip() -> str:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    logger.info("Starting interpreter session (%s)", settings.interpreter)
-    try:
-        await session.start()
-    except Exception:
-        logger.exception("Failed to start capture session")
-        raise
+    logger.info("HTTP ready. Start capture from the operator page.")
     yield
     await session.stop()
     await hub.close_all()
@@ -97,6 +87,7 @@ if __name__ == "__main__":
     ip = lan_ip()
     logger.info("HTTP http://%s:%s", settings.host, settings.port)
     logger.info("Listen page http://%s:%s/listen", ip, settings.port)
+    logger.info("Operator page http://%s:%s/operator", ip, settings.port)
     logger.info("WebSocket ws://%s:%s/ws/listen", ip, settings.port)
     uvicorn.run(
         "main:app",

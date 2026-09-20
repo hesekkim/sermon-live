@@ -1,4 +1,5 @@
 .env
+backend/data/*.json
 .venv/
 venv/
 __pycache__/

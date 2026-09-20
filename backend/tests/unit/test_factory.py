@@ -18,6 +18,6 @@ def test_factory_selects_gemini():
 
 
 def test_factory_selects_openai_stub():
-    settings = Settings(interpreter="openai")
+    settings = Settings(interpreter="openai", openai_api_key="test-key")
     adapter = create_interpreter(settings)
     assert isinstance(adapter, OpenAIRealtimeInterpreter)

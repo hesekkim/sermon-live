@@ -24,7 +24,7 @@ p {
   line-height: 1.5;
 }
 
-button {
+.startButton {
   border: 0;
   background: linear-gradient(135deg, #34d399, #14b8a6);
   color: #062b2b;

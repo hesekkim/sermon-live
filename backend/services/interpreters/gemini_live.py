@@ -102,7 +102,7 @@ class GeminiLiveInterpreter:
                 },
                 "realtimeInputConfig": {
                     "automaticActivityDetection": {
-                        "disabled": True,
+                        "disabled": False,
                         "startOfSpeechSensitivity": "START_SENSITIVITY_HIGH",
                         "endOfSpeechSensitivity": "END_SENSITIVITY_HIGH",
                         "prefixPaddingMs": 20,
@@ -184,16 +184,28 @@ class GeminiLiveInterpreter:
         if isinstance(input_transcription, dict):
             input_text = input_transcription.get("text")
             if isinstance(input_text, str):
-                cleaned_input = input_text.strip()
+                cleaned_input = _preserve_transcription_spacing(input_text)
                 if cleaned_input:
                     logger.info("[Translation input] %s", cleaned_input)
+                    await self._queue.put(
+                        InterpreterEvent(kind="input_text", text=cleaned_input)
+                    )
+        emitted_output = False
         output_transcription = server_content.get("outputTranscription")
         if isinstance(output_transcription, dict):
             output_text = output_transcription.get("text")
             if isinstance(output_text, str):
-                cleaned_output = output_text.strip()
-                if cleaned_output and not should_suppress_translation_text(cleaned_output):
+                cleaned_output = _preserve_transcription_spacing(output_text)
+                if cleaned_output and not should_suppress_translation_text(
+                    cleaned_output
+                ):
                     logger.info("[Translation output] %s", cleaned_output)
+                    await self._queue.put(
+                        InterpreterEvent(
+                            kind="output_text", text=cleaned_output
+                        )
+                    )
+                    emitted_output = True
         model_turn = server_content.get("modelTurn") or {}
         parts = model_turn.get("parts") or []
         output_rate = self._settings.output_sample_rate
@@ -202,12 +214,16 @@ class GeminiLiveInterpreter:
                 continue
             text = part.get("text")
             if isinstance(text, str):
-                cleaned = text.strip()
+                cleaned = _preserve_transcription_spacing(text)
                 if cleaned and not should_suppress_translation_text(cleaned):
                     logger.info("[Translation output] %s", cleaned)
-                    await self._queue.put(
-                        InterpreterEvent(kind="text", text=cleaned)
-                    )
+                    if not emitted_output:
+                        await self._queue.put(
+                            InterpreterEvent(
+                                kind="output_text", text=cleaned
+                            )
+                        )
+                        emitted_output = True
             inline = part.get("inlineData")
             if not isinstance(inline, dict):
                 continue
@@ -222,3 +238,8 @@ class GeminiLiveInterpreter:
                         sample_rate=output_rate,
                     )
                 )
+
+
+def _preserve_transcription_spacing(text: str) -> str:
+    normalized = text.replace("\r", "").replace("\n", " ")
+    return normalized.rstrip() if normalized.strip() else ""

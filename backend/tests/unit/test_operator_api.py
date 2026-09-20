@@ -1,0 +1,27 @@
+from fastapi.testclient import TestClient
+
+from main import app
+from services.operator_store import store
+
+
+def test_session_is_idle_until_started():
+    with TestClient(app) as client:
+        response = client.get("/api/v1/session")
+    assert response.status_code == 200
+    assert response.json()["running"] is False
+
+
+def test_operator_settings_roundtrip(tmp_path):
+    store._path = tmp_path / "operator.json"
+    with TestClient(app) as client:
+        empty = client.get("/api/v1/operator/settings")
+        assert empty.status_code == 200
+        saved = client.put(
+            "/api/v1/operator/settings",
+            json={"interpreter": "gemini", "gemini_api_key": "unit-test-key"},
+        )
+        assert saved.status_code == 200
+        body = saved.json()
+        assert body["interpreter"] == "gemini"
+        assert body["gemini_key_set"] is True
+        assert "unit-test-key" not in str(body)

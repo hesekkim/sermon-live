@@ -1,8 +1,12 @@
+from core.config import Settings
 from services.interpreters.protocol import InterpreterEvent
 
 
 class OpenAIRealtimeInterpreter:
     """Stub. Implement OpenAI Realtime behind the same LiveInterpreter protocol."""
+
+    def __init__(self, settings: Settings | None = None) -> None:
+        self._settings = settings
 
     async def start(self) -> None:
         raise NotImplementedError(

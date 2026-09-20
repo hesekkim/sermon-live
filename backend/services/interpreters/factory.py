@@ -18,5 +18,5 @@ def create_interpreter(settings: Settings) -> LiveInterpreter:
     if name == "gemini":
         return GeminiLiveInterpreter(settings)
     if name == "openai":
-        return OpenAIRealtimeInterpreter()
+        return OpenAIRealtimeInterpreter(settings)
     raise ValueError(f"Unknown interpreter: {name}")

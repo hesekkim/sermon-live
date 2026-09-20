@@ -12,7 +12,11 @@ export default function Listen() {
           Connect to the local Wi-Fi broadcast and start listening to the sermon
           in real time. Use the laptop LAN IP, not localhost.
         </p>
-        <button type="button" onClick={() => void startListening()}>
+        <button
+          type="button"
+          className={styles.startButton}
+          onClick={() => void startListening()}
+        >
           Start Listening
         </button>
         <div className={styles.status}>{status}</div>

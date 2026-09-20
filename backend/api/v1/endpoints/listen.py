@@ -12,11 +12,17 @@ def health_check() -> dict[str, str]:
 
 @router.websocket("/ws/listen")
 async def listen_socket(websocket: WebSocket) -> None:
-    await hub.register(websocket)
+    await hub.register(websocket, kind="listen")
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
         hub.unregister(websocket)
+        await hub.broadcast_operator(
+            {"type": "status", "listenerCount": hub.listener_count}
+        )
     except Exception:
         hub.unregister(websocket)
+        await hub.broadcast_operator(
+            {"type": "status", "listenerCount": hub.listener_count}
+        )
