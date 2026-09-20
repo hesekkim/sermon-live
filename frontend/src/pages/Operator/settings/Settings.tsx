@@ -68,12 +68,13 @@ export default function Settings() {
   const handleSave = async () => {
     setStatus('');
     try {
+      const trimmedKey = apiKey.trim();
       const body: Record<string, string> = { interpreter };
-      if (interpreter === 'gemini' && apiKey.trim()) {
-        body.gemini_api_key = apiKey.trim();
+      if (interpreter === 'gemini' && trimmedKey) {
+        body.gemini_api_key = trimmedKey;
       }
-      if (interpreter === 'openai' && apiKey.trim()) {
-        body.openai_api_key = apiKey.trim();
+      if (interpreter === 'openai' && trimmedKey) {
+        body.openai_api_key = trimmedKey;
       }
       const response = await fetch('/api/v1/operator/settings', {
         method: 'PUT',

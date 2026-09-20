@@ -1,6 +1,6 @@
 # 007 Operator settings API key 저장 수정
 
-상태: 대기
+상태: 완료
 
 ## 목표
 

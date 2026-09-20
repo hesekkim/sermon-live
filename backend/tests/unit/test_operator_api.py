@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from main import app
@@ -25,3 +27,14 @@ def test_operator_settings_roundtrip(tmp_path):
         assert body["interpreter"] == "gemini"
         assert body["gemini_key_set"] is True
         assert "unit-test-key" not in str(body)
+
+
+def test_operator_settings_storage_error_returns_generic_http_500():
+    with TestClient(app) as client:
+        with patch.object(store, "save", side_effect=OSError("disk full")):
+            response = client.put(
+                "/api/v1/operator/settings",
+                json={"interpreter": "gemini", "gemini_api_key": "unit-test-key"},
+            )
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Failed to save operator settings"}

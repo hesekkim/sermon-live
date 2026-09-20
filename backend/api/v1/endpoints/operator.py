@@ -22,11 +22,17 @@ def get_operator_settings() -> dict[str, object]:
 
 @router.put("/api/v1/operator/settings")
 def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]:
-    store.save(
-        interpreter=body.interpreter,
-        gemini_api_key=body.gemini_api_key,
-        openai_api_key=body.openai_api_key,
-    )
+    try:
+        store.save(
+            interpreter=body.interpreter,
+            gemini_api_key=body.gemini_api_key,
+            openai_api_key=body.openai_api_key,
+        )
+    except (OSError, ValueError, TypeError) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to save operator settings",
+        ) from exc
     return store.public_view(get_settings())
 
 

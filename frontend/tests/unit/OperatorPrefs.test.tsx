@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import Settings from '../../src/pages/Operator/settings/Settings';
 import {
   OperatorPrefsProvider,
   useOperatorPrefs,
@@ -61,6 +62,7 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.replaceChildren();
+  vi.restoreAllMocks();
 });
 
 describe('OperatorPrefsProvider', () => {
@@ -97,5 +99,106 @@ describe('OperatorPrefsProvider', () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
 
     cleanup();
+  });
+});
+
+describe('Settings save flow', () => {
+  it('sends the selected provider key in the PUT payload and clears the input after save', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interpreter: 'gemini', gemini_key_set: false, openai_key_set: false }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interpreter: 'gemini', gemini_key_set: true, openai_key_set: false }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <Settings />
+        </OperatorPrefsProvider>
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const passwordInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    expect(passwordInput).not.toBeNull();
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+      passwordInput,
+      'abc123'
+    );
+    passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '저장'
+    );
+    expect(saveButton).not.toBeNull();
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    const putCall = fetchMock.mock.calls.find(
+      ([url, init]) => url === '/api/v1/operator/settings' && (init as RequestInit | undefined)?.method === 'PUT'
+    );
+    expect(putCall).toBeDefined();
+    expect((putCall?.[1] as RequestInit | undefined)?.body).toBe(
+      JSON.stringify({ interpreter: 'gemini', gemini_api_key: 'abc123' })
+    );
+    expect((container.querySelector('input[type="password"]') as HTMLInputElement).value).toBe('');
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('shows a failure status when the save request fails', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interpreter: 'gemini', gemini_key_set: false, openai_key_set: false }),
+      })
+      .mockRejectedValueOnce(new Error('network'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <Settings />
+        </OperatorPrefsProvider>
+      );
+    });
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => ['저장', 'Save'].includes(button.textContent?.trim() ?? '')
+    );
+    expect(saveButton).not.toBeNull();
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    const text = container.textContent ?? '';
+    expect(text.includes('저장에 실패했습니다') || text.includes('Could not save') || text.includes('Speichern fehlgeschlagen')).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
   });
 });
