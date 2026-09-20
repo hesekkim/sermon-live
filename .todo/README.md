@@ -14,6 +14,11 @@
 2. `004-vad-segment.md` — 긴 설교 지연: VAD/구간 분할 (보류)
 3. `005-translation-logging.md` — 번역 전후 backend 로그
 4. `006-openai-realtime.md` — OpenAI Realtime server-side VAD 준비
+5. `007-operator-settings-api-key.md` — Operator API key 저장 수정
+6. `008-toast-dark-mode.md` — Toast foundation + Dark Mode
+7. `009-operator-settings-ux.md` — Operator Settings 저장 UX
+8. `010-operator-broadcast-toast.md` — Operator Broadcast lifecycle Toast
+9. `011-settings-toast-regression-tests.md` — Settings + Toast 회귀 검증
 
 ## 참고 문서
 
