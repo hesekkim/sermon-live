@@ -4,6 +4,14 @@ import OperatorLayout from './pages/Operator/layout/OperatorLayout.tsx';
 import { OperatorPrefsProvider } from './pages/Operator/OperatorPrefs.tsx';
 import Settings from './pages/Operator/settings/Settings.tsx';
 import Listen from './pages/Listen/Listen.tsx';
+import { ToastProvider } from './shared/components/Toast/ToastProvider.tsx';
+import { useOperatorPrefs } from './pages/Operator/OperatorPrefs.tsx';
+
+function OperatorProviders({ children }: { children: React.ReactNode }) {
+  const { labels } = useOperatorPrefs();
+
+  return <ToastProvider closeLabel={labels.toastClose}>{children}</ToastProvider>;
+}
 
 export default function App() {
   return (
@@ -14,7 +22,9 @@ export default function App() {
         path="/operator"
         element={
           <OperatorPrefsProvider>
-            <OperatorLayout />
+            <OperatorProviders>
+              <OperatorLayout />
+            </OperatorProviders>
           </OperatorPrefsProvider>
         }
       >

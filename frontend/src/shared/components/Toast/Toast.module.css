@@ -27,29 +27,30 @@
 }
 
 .toast--info {
-  border-color: var(--cf-blue-50);
+  border-color: var(--toast-info-border);
+  background-color: var(--toast-info-background);
 }
 
 .toast--info .icon {
-  color: var(--cms-primary, var(--cf-blue-63));
+  color: var(--toast-info-icon);
 }
 
 .toast--warning {
-  border-color: var(--cf-yellow-50);
-  background-color: var(--cf-yellow-13);
+  border-color: var(--toast-warning-border);
+  background-color: var(--toast-warning-background);
 }
 
 .toast--warning .icon {
-  color: var(--cf-yellow-63);
+  color: var(--toast-warning-icon);
 }
 
 .toast--error {
-  border-color: var(--cms-danger, var(--cf-red-63));
-  background-color: var(--cf-red-13);
+  border-color: var(--toast-error-border);
+  background-color: var(--toast-error-background);
 }
 
 .toast--error .icon {
-  color: var(--cms-danger, var(--cf-red-63));
+  color: var(--toast-error-icon);
 }
 
 .icon {

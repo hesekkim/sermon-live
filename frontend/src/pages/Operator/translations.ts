@@ -36,6 +36,7 @@ export interface OperatorCopy {
   startFailed: string;
   stopFailed: string;
   sessionError: string;
+  toastClose: string;
 }
 
 export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
@@ -74,6 +75,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     startFailed: '방송을 시작하지 못했습니다',
     stopFailed: '방송을 중지하지 못했습니다',
     sessionError: '방송 처리 중 오류가 발생했습니다',
+    toastClose: '닫기',
   },
   en: {
     brand: 'Sermon Live',
@@ -110,6 +112,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     startFailed: 'Could not start the broadcast',
     stopFailed: 'Could not stop the broadcast',
     sessionError: 'A broadcast error occurred',
+    toastClose: 'Close',
   },
   de: {
     brand: 'Sermon Live',
@@ -146,5 +149,6 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     startFailed: 'Sendung konnte nicht gestartet werden',
     stopFailed: 'Sendung konnte nicht gestoppt werden',
     sessionError: 'Während der Sendung ist ein Fehler aufgetreten',
+    toastClose: 'Schließen',
   },
 };

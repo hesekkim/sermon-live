@@ -10,13 +10,16 @@ const ToastContext = createContext<ToastApi | null>(null);
 export type ToastProviderProps = {
   children: React.ReactNode;
   closeLabel?: string;
+  durationMs?: number;
 };
 
 export function ToastProvider({
   children,
   closeLabel = 'Close',
+  durationMs,
 }: ToastProviderProps) {
-  const { toasts, info, warning, error, dismiss } = useToastStore();
+  const { toasts, info, warning, error, dismiss } =
+    useToastStore(durationMs);
   const api = useMemo<ToastApi>(
     () => ({ info, warning, error, dismiss }),
     [info, warning, error, dismiss]

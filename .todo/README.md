@@ -14,11 +14,10 @@
 2. `004-vad-segment.md` — 긴 설교 지연: VAD/구간 분할 (보류)
 3. `005-translation-logging.md` — 번역 전후 backend 로그
 4. `006-openai-realtime.md` — OpenAI Realtime server-side VAD 준비
-5. `008-toast-dark-mode.md` — Toast foundation + Dark Mode
-6. `009-operator-settings-ux.md` — Operator Settings 저장 UX
-7. `010-operator-broadcast-toast.md` — Operator Broadcast lifecycle Toast
-8. `011-settings-toast-regression-tests.md` — Settings + Toast 회귀 검증
-9. `012-broadcast-start-key-runtime-error.md` — Broadcast start with saved key fails
+5. `009-operator-settings-ux.md` — Operator Settings 저장 UX
+6. `010-operator-broadcast-toast.md` — Operator Broadcast lifecycle Toast
+7. `011-settings-toast-regression-tests.md` — Settings + Toast 회귀 검증
+8. `012-broadcast-start-key-runtime-error.md` — Broadcast start with saved key fails
 
 ## 참고 문서
 
@@ -33,6 +32,7 @@
 5. `done/002c-operator-settings.md` — 제공자 + API KEY JSON
 6. `done/002d-operator-broadcast.md` — 세션, 전사, 다운로드
 7. `done/007-operator-settings-api-key.md` — Operator API key 저장 수정
+8. `done/008-toast-dark-mode.md` — Toast foundation + Dark Mode
 
 ## 결정 사항
 

@@ -20,6 +20,9 @@
   --cf-red-13: #fdf4f4;
   --cf-red-50: #e96f6f;
   --cf-red-63: #e03232;
+  --cf-yellow-13: #fff8e1;
+  --cf-yellow-50: #d99a00;
+  --cf-yellow-63: #9a6700;
 
   --cf-space-4: 0.25rem;
   --cf-space-8: 0.5rem;
@@ -71,6 +74,16 @@
   --hover-bg: var(--cms-hover);
   --cf-focus-color: var(--cms-focus);
 
+  --toast-info-border: var(--cf-blue-50);
+  --toast-info-background: var(--cf-blue-13);
+  --toast-info-icon: var(--cf-blue-75);
+  --toast-warning-border: var(--cf-yellow-50);
+  --toast-warning-background: var(--cf-yellow-13);
+  --toast-warning-icon: var(--cf-yellow-63);
+  --toast-error-border: var(--cf-red-63);
+  --toast-error-background: var(--cf-red-13);
+  --toast-error-icon: var(--cf-red-63);
+
   color: var(--cms-text);
   background-color: var(--cms-bg);
   font-family: var(--cf-font-family);
@@ -104,4 +117,13 @@ html[data-theme='dark'] .cms-theme {
   --hover-bg: var(--cms-hover);
   --text-primary: var(--cms-text);
   --border-color: var(--cms-border);
+  --toast-info-border: #60a5fa;
+  --toast-info-background: #12304b;
+  --toast-info-icon: #93c5fd;
+  --toast-warning-border: #fbbf24;
+  --toast-warning-background: #3b2f0b;
+  --toast-warning-icon: #fcd34d;
+  --toast-error-border: #f87171;
+  --toast-error-background: #461c25;
+  --toast-error-icon: #fca5a5;
 }
