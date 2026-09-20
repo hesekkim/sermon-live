@@ -6,6 +6,7 @@ import {
   OperatorPrefsProvider,
   useOperatorPrefs,
 } from '../../src/pages/Operator/OperatorPrefs';
+import { ToastProvider } from '../../src/shared/components/Toast/ToastProvider';
 
 (globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -113,7 +114,12 @@ describe('Settings save flow', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ interpreter: 'gemini', gemini_key_set: true, openai_key_set: false }),
+        json: async () => ({
+          interpreter: 'gemini',
+          gemini_key_set: true,
+          openai_key_set: false,
+          gemini_key_masked: 'abc1...c123',
+        }),
       });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -124,7 +130,9 @@ describe('Settings save flow', () => {
     await act(async () => {
       root.render(
         <OperatorPrefsProvider>
-          <Settings />
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
         </OperatorPrefsProvider>
       );
       await Promise.resolve();
@@ -133,14 +141,30 @@ describe('Settings save flow', () => {
 
     const passwordInput = container.querySelector('input[type="password"]') as HTMLInputElement;
     expect(passwordInput).not.toBeNull();
-    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-      passwordInput,
-      'abc123'
-    );
-    passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+    const showPasswordButton = container.querySelector(
+      'button[aria-label="API KEY 표시"]'
+    ) as HTMLButtonElement;
+    expect(showPasswordButton).not.toBeNull();
+    await act(async () => {
+      showPasswordButton.click();
+    });
+    expect(container.querySelector('input[type="text"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-label="API KEY 숨기기"]')).not.toBeNull();
+
+    await act(async () => {
+      const visibleInput = container.querySelector('input[type="text"]') as HTMLInputElement;
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        visibleInput,
+        'abc123'
+      );
+      visibleInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      (container.querySelector('button[aria-label="API KEY 숨기기"]') as HTMLButtonElement).click();
+    });
 
     const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.trim() === '저장'
+      (button) => button.textContent?.trim() === '적용'
     );
     expect(saveButton).not.toBeNull();
     await act(async () => {
@@ -155,6 +179,9 @@ describe('Settings save flow', () => {
       JSON.stringify({ interpreter: 'gemini', gemini_api_key: 'abc123' })
     );
     expect((container.querySelector('input[type="password"]') as HTMLInputElement).value).toBe('');
+    expect((container.querySelector('input[type="password"]') as HTMLInputElement).placeholder).toBe(
+      'abc1...c123'
+    );
 
     await act(async () => {
       root.unmount();
@@ -162,7 +189,7 @@ describe('Settings save flow', () => {
     container.remove();
   });
 
-  it('shows a failure status when the save request fails', async () => {
+  it('shows an error toast when the apply request fails with HTTP error', async () => {
     installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
     const fetchMock = vi
       .fn()
@@ -170,7 +197,7 @@ describe('Settings save flow', () => {
         ok: true,
         json: async () => ({ interpreter: 'gemini', gemini_key_set: false, openai_key_set: false }),
       })
-      .mockRejectedValueOnce(new Error('network'));
+      .mockResolvedValueOnce({ ok: false });
     vi.stubGlobal('fetch', fetchMock);
 
     const container = document.createElement('div');
@@ -180,21 +207,49 @@ describe('Settings save flow', () => {
     await act(async () => {
       root.render(
         <OperatorPrefsProvider>
-          <Settings />
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
         </OperatorPrefsProvider>
       );
     });
 
     const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => ['저장', 'Save'].includes(button.textContent?.trim() ?? '')
+      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
     );
     expect(saveButton).not.toBeNull();
     await act(async () => {
       saveButton?.click();
     });
 
-    const text = container.textContent ?? '';
-    expect(text.includes('저장에 실패했습니다') || text.includes('Could not save') || text.includes('Speichern fehlgeschlagen')).toBe(true);
+    expect(document.body.textContent).toContain('설정 적용에 실패했습니다');
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('shows an error toast when loading settings fails', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')));
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>
+      );
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain('설정을 불러오지 못했습니다');
 
     await act(async () => {
       root.unmount();

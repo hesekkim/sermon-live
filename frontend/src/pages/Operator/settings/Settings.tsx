@@ -3,6 +3,7 @@ import Button from '../../../shared/components/Button/Button';
 import InputField from '../../../shared/components/InputField/InputField';
 import Select from '../../../shared/components/Select/Select';
 import SlideToggle from '../../../shared/components/SlideToggle/SlideToggle';
+import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
 import styles from './Settings.module.css';
 
@@ -12,6 +13,8 @@ interface SettingsResponse {
   interpreter: InterpreterName;
   gemini_key_set: boolean;
   openai_key_set: boolean;
+  gemini_key_masked?: string;
+  openai_key_masked?: string;
 }
 
 export default function Settings() {
@@ -20,20 +23,30 @@ export default function Settings() {
   const [apiKey, setApiKey] = useState('');
   const [geminiKeySet, setGeminiKeySet] = useState(false);
   const [openaiKeySet, setOpenaiKeySet] = useState(false);
-  const [status, setStatus] = useState('');
+  const [geminiKeyMasked, setGeminiKeyMasked] = useState('');
+  const [openaiKeyMasked, setOpenaiKeyMasked] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const { info, error } = useToast();
 
   useEffect(() => {
     void (async () => {
-      const response = await fetch('/api/v1/operator/settings');
-      if (!response.ok) {
-        return;
+      try {
+        const response = await fetch('/api/v1/operator/settings');
+        if (!response.ok) {
+          error(labels.settingsLoadFailed);
+          return;
+        }
+        const data = (await response.json()) as SettingsResponse;
+        setInterpreter(data.interpreter);
+        setGeminiKeySet(data.gemini_key_set);
+        setOpenaiKeySet(data.openai_key_set);
+        setGeminiKeyMasked(data.gemini_key_masked ?? '');
+        setOpenaiKeyMasked(data.openai_key_masked ?? '');
+      } catch {
+        error(labels.settingsLoadFailed);
       }
-      const data = (await response.json()) as SettingsResponse;
-      setInterpreter(data.interpreter);
-      setGeminiKeySet(data.gemini_key_set);
-      setOpenaiKeySet(data.openai_key_set);
     })();
-  }, []);
+  }, [error, labels.settingsLoadFailed]);
 
   const interpreterOptions = useMemo(
     () => [
@@ -64,9 +77,14 @@ export default function Settings() {
         : geminiKeySet
           ? labels.apiKeySaved
           : undefined;
+  const savedKeyPreview =
+    interpreter === 'gemini' ? geminiKeyMasked : openaiKeyMasked;
 
   const handleSave = async () => {
-    setStatus('');
+    if (isSaving) {
+      return;
+    }
+    setIsSaving(true);
     try {
       const trimmedKey = apiKey.trim();
       const body: Record<string, string> = { interpreter };
@@ -82,60 +100,75 @@ export default function Settings() {
         body: JSON.stringify(body),
       });
       if (!response.ok) {
-        setStatus(labels.saveFailed);
+        error(labels.applyFailed);
         return;
       }
       const data = (await response.json()) as SettingsResponse;
       setInterpreter(data.interpreter);
       setGeminiKeySet(data.gemini_key_set);
       setOpenaiKeySet(data.openai_key_set);
+      setGeminiKeyMasked(data.gemini_key_masked ?? '');
+      setOpenaiKeyMasked(data.openai_key_masked ?? '');
       setApiKey('');
-      setStatus(labels.saved);
+      info(labels.applySaved);
     } catch {
-      setStatus(labels.saveFailed);
+      error(labels.applyFailed);
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <h1>{labels.navSettings}</h1>
-        <SlideToggle
-          label={labels.darkMode}
-          checked={theme === 'dark'}
-          onChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-        />
-      </div>
+      <h1>{labels.navSettings}</h1>
       <div className={styles.stack}>
-        <Select
-          label={labels.interpreter}
-          options={interpreterOptions}
-          value={interpreter}
-          onChange={(value) => {
-            setInterpreter(value as InterpreterName);
-            setApiKey('');
-            setStatus('');
-          }}
-        />
-        <InputField
-          label={labels.apiKey}
-          type="password"
-          value={apiKey}
-          disabled={keyDisabled}
-          placeholder={keyDisabled ? labels.echoNoKey : labels.apiKeyPlaceholder}
-          onChange={setApiKey}
-        />
-        {keyHint ? <p className={styles.hint}>{keyHint}</p> : null}
-        <Select
-          label={labels.language}
-          options={languageOptions}
-          value={language}
-          onChange={(value) => setLanguage(value as 'ko' | 'en' | 'de')}
-        />
-        <div>
-          <Button onClick={() => void handleSave()}>{labels.save}</Button>
-        </div>
-        {status ? <p className={styles.status}>{status}</p> : null}
+        <section className={styles.section}>
+          <h2>{labels.appearance}</h2>
+          <Select
+            label={labels.language}
+            options={languageOptions}
+            value={language}
+            onChange={(value) => setLanguage(value as 'ko' | 'en' | 'de')}
+          />
+          <SlideToggle
+            label={labels.darkMode}
+            checked={theme === 'dark'}
+            onChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+          />
+        </section>
+        <section className={styles.section}>
+          <h2>{labels.interpreter}</h2>
+          <Select
+            label={labels.interpreter}
+            options={interpreterOptions}
+            value={interpreter}
+            onChange={(value) => {
+              setInterpreter(value as InterpreterName);
+              setApiKey('');
+            }}
+          />
+          <InputField
+            label={labels.apiKey}
+            type="password"
+            showPasswordToggle
+            showPasswordLabel={labels.showApiKey}
+            hidePasswordLabel={labels.hideApiKey}
+            value={apiKey}
+            disabled={keyDisabled}
+            placeholder={
+              keyDisabled
+                ? labels.echoNoKey
+                : savedKeyPreview || labels.apiKeyPlaceholder
+            }
+            onChange={setApiKey}
+          />
+          {keyHint ? <p className={styles.hint}>{keyHint}</p> : null}
+          <div>
+            <Button disabled={isSaving} onClick={() => void handleSave()}>
+              {labels.apply}
+            </Button>
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -26,6 +26,7 @@ def test_operator_settings_roundtrip(tmp_path):
         body = saved.json()
         assert body["interpreter"] == "gemini"
         assert body["gemini_key_set"] is True
+        assert body["gemini_key_masked"] == "unit...-key"
         assert "unit-test-key" not in str(body)
 
 

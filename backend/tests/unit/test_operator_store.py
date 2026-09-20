@@ -10,6 +10,7 @@ def test_save_and_public_view_masks_keys(tmp_path):
     assert view["interpreter"] == "gemini"
     assert view["gemini_key_set"] is True
     assert view["openai_key_set"] is False
+    assert view["gemini_key_masked"] == "secr...-key"
     raw = (tmp_path / "operator.json").read_text(encoding="utf-8")
     assert "secret-key" in raw
     assert "secret-key" not in str(view)
@@ -48,3 +49,4 @@ def test_public_view_includes_openai_environment_key(tmp_path):
     )
 
     assert view["openai_key_set"] is True
+    assert view["openai_key_masked"] == "fr...nv"

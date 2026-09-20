@@ -8,6 +8,7 @@ export interface OperatorCopy {
   collapseSidebar: string;
   expandSidebar: string;
   language: string;
+  appearance: string;
   languageKo: string;
   languageEn: string;
   languageDe: string;
@@ -15,9 +16,12 @@ export interface OperatorCopy {
   apiKey: string;
   apiKeyPlaceholder: string;
   apiKeySaved: string;
-  save: string;
-  saved: string;
-  saveFailed: string;
+  showApiKey: string;
+  hideApiKey: string;
+  apply: string;
+  applySaved: string;
+  applyFailed: string;
+  settingsLoadFailed: string;
   darkMode: string;
   echo: string;
   gemini: string;
@@ -47,6 +51,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     collapseSidebar: '사이드바 접기',
     expandSidebar: '사이드바 펼치기',
     language: '언어',
+    appearance: '화면',
     languageKo: '한국어',
     languageEn: '영어',
     languageDe: '독일어',
@@ -54,9 +59,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'API KEY를 입력하세요',
     apiKeySaved: '저장된 키가 있습니다',
-    save: '저장',
-    saved: '저장했습니다',
-    saveFailed: '저장에 실패했습니다',
+    showApiKey: 'API KEY 표시',
+    hideApiKey: 'API KEY 숨기기',
+    apply: '적용',
+    applySaved: '설정을 적용했습니다',
+    applyFailed: '설정 적용에 실패했습니다',
+    settingsLoadFailed: '설정을 불러오지 못했습니다',
     darkMode: '다크 모드',
     echo: 'Echo (로컬)',
     gemini: 'Gemini',
@@ -84,6 +92,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     collapseSidebar: 'Collapse sidebar',
     expandSidebar: 'Expand sidebar',
     language: 'Language',
+    appearance: 'Appearance',
     languageKo: 'Korean',
     languageEn: 'English',
     languageDe: 'German',
@@ -91,9 +100,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'Enter API KEY',
     apiKeySaved: 'A key is already saved',
-    save: 'Save',
-    saved: 'Saved',
-    saveFailed: 'Could not save',
+    showApiKey: 'Show API KEY',
+    hideApiKey: 'Hide API KEY',
+    apply: 'Apply',
+    applySaved: 'Settings applied',
+    applyFailed: 'Could not apply settings',
+    settingsLoadFailed: 'Could not load settings',
     darkMode: 'Dark mode',
     echo: 'Echo (local)',
     gemini: 'Gemini',
@@ -121,6 +133,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     collapseSidebar: 'Seitenleiste einklappen',
     expandSidebar: 'Seitenleiste ausklappen',
     language: 'Sprache',
+    appearance: 'Darstellung',
     languageKo: 'Koreanisch',
     languageEn: 'Englisch',
     languageDe: 'Deutsch',
@@ -128,9 +141,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'API KEY eingeben',
     apiKeySaved: 'Ein Schlüssel ist gespeichert',
-    save: 'Speichern',
-    saved: 'Gespeichert',
-    saveFailed: 'Speichern fehlgeschlagen',
+    showApiKey: 'API KEY anzeigen',
+    hideApiKey: 'API KEY ausblenden',
+    apply: 'Anwenden',
+    applySaved: 'Einstellungen angewendet',
+    applyFailed: 'Einstellungen konnten nicht angewendet werden',
+    settingsLoadFailed: 'Einstellungen konnten nicht geladen werden',
     darkMode: 'Dunkelmodus',
     echo: 'Echo (lokal)',
     gemini: 'Gemini',

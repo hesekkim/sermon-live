@@ -1,4 +1,10 @@
-import { forwardRef, type FocusEvent, type HTMLInputTypeAttribute } from 'react';
+import {
+  forwardRef,
+  useState,
+  type FocusEvent,
+  type HTMLInputTypeAttribute,
+} from 'react';
+import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import styles from './InputField.module.css';
 import { useInputField } from './useInputField';
 
@@ -14,6 +20,9 @@ export interface InputFieldProps {
   multiline?: boolean;
   clearable?: boolean;
   clearButtonLabel?: string;
+  showPasswordToggle?: boolean;
+  showPasswordLabel?: string;
+  hidePasswordLabel?: string;
   autoFocus?: boolean;
   id?: string;
   rows?: number;
@@ -51,6 +60,9 @@ const InputField = forwardRef<
     multiline = false,
     clearable = false,
     clearButtonLabel = 'Clear input',
+    showPasswordToggle = false,
+    showPasswordLabel = 'Show password',
+    hidePasswordLabel = 'Hide password',
     onBlur,
     onFocus,
     autoFocus = false,
@@ -65,6 +77,7 @@ const InputField = forwardRef<
   },
   ref
 ) {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const {
     inputId,
     currentValue,
@@ -139,6 +152,22 @@ const InputField = forwardRef<
               ×
             </button>
           ) : null}
+          {showPasswordToggle && type === 'password' && !disabled ? (
+            <button
+              type="button"
+              className={styles['input-field__password-button']}
+              onClick={() => setIsPasswordVisible((visible) => !visible)}
+              onMouseDown={(event) => event.preventDefault()}
+              aria-label={isPasswordVisible ? hidePasswordLabel : showPasswordLabel}
+              title={isPasswordVisible ? hidePasswordLabel : showPasswordLabel}
+            >
+              {isPasswordVisible ? (
+                <MdVisibilityOff aria-hidden="true" />
+              ) : (
+                <MdVisibility aria-hidden="true" />
+              )}
+            </button>
+          ) : null}
         </div>
 
         {multiline ? (
@@ -151,7 +180,7 @@ const InputField = forwardRef<
           <input
             {...sharedProps}
             ref={ref as React.Ref<HTMLInputElement>}
-            type={type}
+            type={isPasswordVisible && type === 'password' ? 'text' : type}
             pattern={pattern}
             inputMode={inputMode}
           />

@@ -93,6 +93,32 @@
   outline-offset: 2px;
 }
 
+.input-field__password-button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary, var(--cf-neutral-500));
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.input-field__password-button:hover {
+  background-color: var(--cf-neutral-200);
+  color: var(--text-primary, var(--cf-neutral-700));
+}
+
+.input-field__password-button:focus-visible {
+  outline: 2px solid var(--cf-focus-color);
+  outline-offset: 2px;
+}
+
 .input-field__label--error {
   color: var(--cf-red-63);
 }

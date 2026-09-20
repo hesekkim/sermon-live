@@ -80,6 +80,8 @@ class OperatorSettingsStore:
             "interpreter": interpreter,
             "gemini_key_set": bool(gemini_key),
             "openai_key_set": bool(openai_key),
+            "gemini_key_masked": _mask_key(gemini_key),
+            "openai_key_masked": _mask_key(openai_key),
         }
 
     def overlay_settings(self, settings: Settings) -> Settings:
@@ -100,6 +102,14 @@ def _as_str(value: object) -> str:
     if isinstance(value, str):
         return value
     return ""
+
+
+def _mask_key(value: str) -> str:
+    if not value:
+        return ""
+    if len(value) <= 8:
+        return f"{value[:2]}...{value[-2:]}"
+    return f"{value[:4]}...{value[-4:]}"
 
 
 store = OperatorSettingsStore()
