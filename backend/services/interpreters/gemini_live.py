@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import websockets
 
-from services.interpreters.protocol import InterpreterEvent
+from services.interpreters.protocol import InterpreterEvent, KeyValidationError
 from services.text_filter import should_suppress_translation_text
 
 if TYPE_CHECKING:
@@ -68,6 +68,29 @@ class GeminiLiveInterpreter:
         self._queue: asyncio.Queue[InterpreterEvent | None] = asyncio.Queue()
         self._recv_task: asyncio.Task[None] | None = None
         self._closed = False
+
+    async def validate_key(self) -> None:
+        _strip_proxy_env()
+        uri = build_live_uri(self._settings.gemini_api_key)
+        connect_kwargs: dict[str, object] = {
+            "ping_interval": None,
+            "ping_timeout": None,
+            "open_timeout": 15,
+            "close_timeout": 5,
+            "additional_headers": {"User-Agent": "sermon-live/1.0"},
+        }
+        websocket = await websockets.connect(uri, **connect_kwargs)
+        try:
+            await websocket.send(json.dumps(self._build_setup()))
+            raw = await asyncio.wait_for(websocket.recv(), timeout=15)
+            message = json.loads(raw)
+            if isinstance(message, dict) and "setupComplete" in message:
+                return
+            if isinstance(message, dict) and "error" in message:
+                raise KeyValidationError(_error_message(message["error"]))
+            raise KeyValidationError("Gemini API key validation failed")
+        finally:
+            await websocket.close()
 
     async def start(self) -> None:
         _strip_proxy_env()
@@ -243,3 +266,9 @@ class GeminiLiveInterpreter:
 def _preserve_transcription_spacing(text: str) -> str:
     normalized = text.replace("\r", "").replace("\n", " ")
     return normalized.rstrip() if normalized.strip() else ""
+
+
+def _error_message(error: object) -> str:
+    if isinstance(error, dict) and isinstance(error.get("message"), str):
+        return error["message"]
+    return "Gemini API key validation failed"

@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from core.config import InterpreterName, get_settings
 from services.broadcast import hub
+from services.key_validation import validate_operator_key
 from services.operator_store import store
 from services.runtime import session
 
@@ -16,12 +17,13 @@ class OperatorSettingsBody(BaseModel):
 
 
 @router.get("/api/v1/operator/settings")
-def get_operator_settings() -> dict[str, object]:
+async def get_operator_settings() -> dict[str, object]:
+    await validate_operator_key(get_settings(), store)
     return store.public_view(get_settings())
 
 
 @router.put("/api/v1/operator/settings")
-def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]:
+async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]:
     try:
         store.save(
             interpreter=body.interpreter,
@@ -33,6 +35,7 @@ def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]:
             status_code=500,
             detail="Failed to save operator settings",
         ) from exc
+    await validate_operator_key(get_settings(), store)
     return store.public_view(get_settings())
 
 

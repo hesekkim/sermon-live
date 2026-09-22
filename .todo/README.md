@@ -10,17 +10,8 @@
 
 ## 지금 (미완료)
 
-1. `003-openai-realtime.md` — OpenAI Realtime adapter
-2. `004-vad-segment.md` — 긴 설교 지연: VAD/구간 분할 (보류)
-3. `005-translation-logging.md` — 번역 전후 backend 로그
-4. `006-openai-realtime.md` — OpenAI Realtime server-side VAD 준비
-5. `010-operator-broadcast-toast.md` — Operator Broadcast lifecycle Toast
-6. `011-settings-toast-regression-tests.md` — Settings + Toast 회귀 검증
-7. `012-broadcast-start-key-runtime-error.md` — Broadcast start with saved key fails
-
-## 참고 문서
-
-- `004-vad-segment-prework.md` — VAD 실험 결과와 다음 AI 작업 지침
+1. `006-openai-realtime.md` — OpenAI Realtime server-side VAD 준비
+2. `014-operator-ui-language-json.md` — Operator UI 언어 설정을 operator.json으로 저장
 
 ## 완료 (`done/`)
 
@@ -33,6 +24,10 @@
 7. `done/007-operator-settings-api-key.md` — Operator API key 저장 수정
 8. `done/008-toast-dark-mode.md` — Toast foundation + Dark Mode
 9. `done/009-operator-settings-ux.md` — Operator Settings 저장 UX
+10. `done/010-operator-broadcast-toast.md` — Operator Broadcast lifecycle Toast
+11. `done/011-settings-toast-regression-tests.md` — Settings + Toast 회귀 검증
+12. `done/012-broadcast-start-key-runtime-error.md` — Broadcast start with saved key fails
+13. `done/013-settings-key-status-tagselector.md` — Settings key status StatusTag
 
 ## 결정 사항
 

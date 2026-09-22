@@ -3,11 +3,13 @@ import Button from '../../../shared/components/Button/Button';
 import InputField from '../../../shared/components/InputField/InputField';
 import Select from '../../../shared/components/Select/Select';
 import SlideToggle from '../../../shared/components/SlideToggle/SlideToggle';
+import StatusTag from '../../../shared/components/StatusTag/StatusTag';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
 import styles from './Settings.module.css';
 
 type InterpreterName = 'echo' | 'gemini' | 'openai';
+type KeyStatus = 'valid' | 'missing' | 'invalid';
 
 interface SettingsResponse {
   interpreter: InterpreterName;
@@ -15,18 +17,32 @@ interface SettingsResponse {
   openai_key_set: boolean;
   gemini_key_masked?: string;
   openai_key_masked?: string;
+  gemini_key_status?: KeyStatus;
+  openai_key_status?: KeyStatus;
+  gemini_key_warning?: string | null;
+  openai_key_warning?: string | null;
 }
 
 export default function Settings() {
   const { labels, language, theme, setLanguage, setTheme } = useOperatorPrefs();
   const [interpreter, setInterpreter] = useState<InterpreterName>('echo');
   const [apiKey, setApiKey] = useState('');
-  const [geminiKeySet, setGeminiKeySet] = useState(false);
-  const [openaiKeySet, setOpenaiKeySet] = useState(false);
+  const [geminiKeyStatus, setGeminiKeyStatus] = useState<KeyStatus>('missing');
+  const [openaiKeyStatus, setOpenaiKeyStatus] = useState<KeyStatus>('missing');
   const [geminiKeyMasked, setGeminiKeyMasked] = useState('');
   const [openaiKeyMasked, setOpenaiKeyMasked] = useState('');
+  const [keyWarning, setKeyWarning] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const { info, error } = useToast();
+  const { info, warning, error } = useToast();
+
+  const applySettingsResponse = (data: SettingsResponse) => {
+    setInterpreter(data.interpreter);
+    setGeminiKeyStatus(data.gemini_key_status ?? 'missing');
+    setOpenaiKeyStatus(data.openai_key_status ?? 'missing');
+    setGeminiKeyMasked(data.gemini_key_masked ?? '');
+    setOpenaiKeyMasked(data.openai_key_masked ?? '');
+    setKeyWarning(getSelectedWarning(data));
+  };
 
   useEffect(() => {
     void (async () => {
@@ -37,11 +53,12 @@ export default function Settings() {
           return;
         }
         const data = (await response.json()) as SettingsResponse;
-        setInterpreter(data.interpreter);
-        setGeminiKeySet(data.gemini_key_set);
-        setOpenaiKeySet(data.openai_key_set);
-        setGeminiKeyMasked(data.gemini_key_masked ?? '');
-        setOpenaiKeyMasked(data.openai_key_masked ?? '');
+        applySettingsResponse(data);
+        if (data.gemini_key_status === 'invalid' && data.gemini_key_warning) {
+          warning(summarizeWarning(data.gemini_key_warning));
+        } else if (data.openai_key_status === 'invalid' && data.openai_key_warning) {
+          warning(summarizeWarning(data.openai_key_warning));
+        }
       } catch {
         error(labels.settingsLoadFailed);
       }
@@ -67,16 +84,24 @@ export default function Settings() {
   );
 
   const keyDisabled = interpreter === 'echo';
-  const keyHint =
-    interpreter === 'echo'
-      ? labels.echoNoKey
+  const currentKeyStatus =
+    interpreter === 'gemini'
+      ? geminiKeyStatus
       : interpreter === 'openai'
-        ? openaiKeySet
-          ? labels.apiKeySaved
-          : labels.openaiUnavailable
-        : geminiKeySet
-          ? labels.apiKeySaved
-          : undefined;
+        ? openaiKeyStatus
+        : 'missing';
+  const keyStatusLabel =
+    currentKeyStatus === 'valid'
+      ? labels.keyStatusValid
+      : currentKeyStatus === 'invalid'
+        ? labels.keyStatusInvalid
+        : labels.keyStatusMissing;
+  const keyStatusVariant =
+    currentKeyStatus === 'valid'
+      ? 'decided'
+      : currentKeyStatus === 'invalid'
+        ? 'deprecated'
+        : 'readonly';
   const savedKeyPreview =
     interpreter === 'gemini' ? geminiKeyMasked : openaiKeyMasked;
 
@@ -104,12 +129,12 @@ export default function Settings() {
         return;
       }
       const data = (await response.json()) as SettingsResponse;
-      setInterpreter(data.interpreter);
-      setGeminiKeySet(data.gemini_key_set);
-      setOpenaiKeySet(data.openai_key_set);
-      setGeminiKeyMasked(data.gemini_key_masked ?? '');
-      setOpenaiKeyMasked(data.openai_key_masked ?? '');
+      applySettingsResponse(data);
       setApiKey('');
+      const responseWarning = getSelectedWarning(data);
+      if (responseWarning && data.interpreter !== 'echo') {
+        warning(summarizeWarning(responseWarning));
+      }
       info(labels.applySaved);
     } catch {
       error(labels.applyFailed);
@@ -137,7 +162,15 @@ export default function Settings() {
           />
         </section>
         <section className={styles.section}>
-          <h2>{labels.interpreter}</h2>
+          <h2 className={styles.sectionTitle}>
+            {labels.interpreter}
+            {interpreter !== 'echo' ? (
+              <StatusTag
+                label={keyStatusLabel}
+                variant={keyStatusVariant}
+              />
+            ) : null}
+          </h2>
           <Select
             label={labels.interpreter}
             options={interpreterOptions}
@@ -147,23 +180,29 @@ export default function Settings() {
               setApiKey('');
             }}
           />
-          <InputField
-            label={labels.apiKey}
-            type="password"
-            showPasswordToggle
-            showPasswordLabel={labels.showApiKey}
-            hidePasswordLabel={labels.hideApiKey}
-            value={apiKey}
-            disabled={keyDisabled}
-            placeholder={
-              keyDisabled
-                ? labels.echoNoKey
-                : savedKeyPreview || labels.apiKeyPlaceholder
-            }
-            onChange={setApiKey}
-          />
-          {keyHint ? <p className={styles.hint}>{keyHint}</p> : null}
+          <div className={styles.keyRow}>
+            <div className={styles.inputWrap}>
+              <InputField
+                label={labels.apiKey}
+                type="password"
+                showPasswordToggle
+                showPasswordLabel={labels.showApiKey}
+                hidePasswordLabel={labels.hideApiKey}
+                value={apiKey}
+                disabled={keyDisabled}
+                placeholder={
+                  keyDisabled
+                    ? labels.echoNoKey
+                    : savedKeyPreview || labels.apiKeyPlaceholder
+                }
+                onChange={setApiKey}
+              />
+            </div>
+          </div>
           <div>
+            {keyWarning && currentKeyStatus === 'invalid' ? (
+              <p role="status">{keyWarning}</p>
+            ) : null}
             <Button disabled={isSaving} onClick={() => void handleSave()}>
               {labels.apply}
             </Button>
@@ -172,4 +211,21 @@ export default function Settings() {
       </div>
     </div>
   );
+}
+
+function getSelectedWarning(data: SettingsResponse): string {
+  const warning =
+    data.interpreter === 'gemini'
+      ? data.gemini_key_warning
+      : data.interpreter === 'openai'
+        ? data.openai_key_warning
+        : null;
+  return warning ? summarizeWarning(warning) : '';
+}
+
+function summarizeWarning(value: string): string {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > 160
+    ? `${normalized.slice(0, 157).trimEnd()}...`
+    : normalized;
 }

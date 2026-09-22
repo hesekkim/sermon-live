@@ -12,6 +12,9 @@ class EchoInterpreter:
         self._queue: asyncio.Queue[InterpreterEvent | None] = asyncio.Queue()
         self._started = False
 
+    async def validate_key(self) -> None:
+        return None
+
     async def start(self) -> None:
         self._started = True
 

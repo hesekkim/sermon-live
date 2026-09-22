@@ -131,3 +131,45 @@ async def test_concurrent_start_creates_one_session(monkeypatch):
     assert created == 1
     assert service.running is True
     await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_start_marks_missing_for_openai_without_key(tmp_path):
+    hub = FakeHub()
+    store = session_service_module.OperatorSettingsStore(
+        tmp_path / "operator.json"
+    )
+    store.save(interpreter="openai")
+    service = SessionService(Settings(interpreter="echo"), hub, store)
+
+    with pytest.raises(RuntimeError, match="Openai API key is not set"):
+        await service.start()
+
+    view = store.public_view(Settings(interpreter="echo"))
+    assert view["openai_key_status"] == "missing"
+
+
+@pytest.mark.asyncio
+async def test_start_does_not_mark_connection_failure_as_invalid(monkeypatch, tmp_path):
+    hub = FakeHub()
+    store = session_service_module.OperatorSettingsStore(
+        tmp_path / "operator.json"
+    )
+    store.save(interpreter="gemini", gemini_api_key="saved-key")
+
+    class FailingInterpreter(FakeInterpreter):
+        async def start(self) -> None:
+            raise RuntimeError("connection failed")
+
+    monkeypatch.setattr(
+        session_service_module,
+        "create_interpreter",
+        lambda _settings: FailingInterpreter([]),
+    )
+    service = SessionService(Settings(interpreter="echo"), hub, store)
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await service.start()
+
+    view = store.public_view(Settings(interpreter="echo"))
+    assert view["gemini_key_status"] != "invalid"

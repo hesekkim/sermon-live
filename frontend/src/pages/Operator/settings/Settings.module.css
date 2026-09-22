@@ -29,8 +29,19 @@
   font-size: 1rem;
 }
 
-.hint {
-  margin: 0;
-  color: var(--cms-text-secondary);
-  font-size: 0.875rem;
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space-12);
+}
+
+.keyRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--cf-space-12);
+}
+
+.inputWrap {
+  flex: 1;
 }

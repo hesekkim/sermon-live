@@ -8,6 +8,9 @@ class OpenAIRealtimeInterpreter:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings
 
+    async def validate_key(self) -> None:
+        raise NotImplementedError("OpenAI Realtime adapter is not implemented.")
+
     async def start(self) -> None:
         raise NotImplementedError(
             "OpenAI Realtime adapter is not implemented. "

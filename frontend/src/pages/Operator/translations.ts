@@ -28,6 +28,9 @@ export interface OperatorCopy {
   openai: string;
   openaiUnavailable: string;
   echoNoKey: string;
+  keyStatusValid: string;
+  keyStatusMissing: string;
+  keyStatusInvalid: string;
   sessionOn: string;
   sessionOff: string;
   listeners: string;
@@ -39,6 +42,9 @@ export interface OperatorCopy {
   emptyOutput: string;
   startFailed: string;
   stopFailed: string;
+  invalidApiKey: string;
+  sessionStarted: string;
+  sessionStopped: string;
   sessionError: string;
   toastClose: string;
 }
@@ -71,6 +77,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI는 아직 사용할 수 없습니다',
     echoNoKey: 'Echo는 API KEY가 필요 없습니다',
+    keyStatusValid: '유효함',
+    keyStatusMissing: '없음',
+    keyStatusInvalid: '유효하지 않음',
     sessionOn: '방송 중지',
     sessionOff: '방송 시작',
     listeners: '참여 인원',
@@ -82,6 +91,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     emptyOutput: '번역된 독일어가 여기에 나타납니다',
     startFailed: '방송을 시작하지 못했습니다',
     stopFailed: '방송을 중지하지 못했습니다',
+    invalidApiKey: 'API 키가 올바르지 않습니다',
+    sessionStarted: '방송을 시작했습니다',
+    sessionStopped: '방송을 중지했습니다',
     sessionError: '방송 처리 중 오류가 발생했습니다',
     toastClose: '닫기',
   },
@@ -112,6 +124,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI is not available yet',
     echoNoKey: 'Echo does not need an API KEY',
+    keyStatusValid: 'Valid',
+    keyStatusMissing: 'Missing',
+    keyStatusInvalid: 'Invalid',
     sessionOn: 'Stop broadcast',
     sessionOff: 'Start broadcast',
     listeners: 'Listeners',
@@ -123,6 +138,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     emptyOutput: 'Translated German appears here',
     startFailed: 'Could not start the broadcast',
     stopFailed: 'Could not stop the broadcast',
+    invalidApiKey: 'The API key is invalid',
+    sessionStarted: 'Broadcast started',
+    sessionStopped: 'Broadcast stopped',
     sessionError: 'A broadcast error occurred',
     toastClose: 'Close',
   },
@@ -153,6 +171,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI ist noch nicht verfügbar',
     echoNoKey: 'Echo braucht keinen API KEY',
+    keyStatusValid: 'Gültig',
+    keyStatusMissing: 'Fehlt',
+    keyStatusInvalid: 'Ungültig',
     sessionOn: 'Sendung stoppen',
     sessionOff: 'Sendung starten',
     listeners: 'Zuhörer',
@@ -164,6 +185,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     emptyOutput: 'Übersetztes Deutsch erscheint hier',
     startFailed: 'Sendung konnte nicht gestartet werden',
     stopFailed: 'Sendung konnte nicht gestoppt werden',
+    invalidApiKey: 'Der API-Schlüssel ist ungültig',
+    sessionStarted: 'Sendung gestartet',
+    sessionStopped: 'Sendung gestoppt',
     sessionError: 'Während der Sendung ist ein Fehler aufgetreten',
     toastClose: 'Schließen',
   },

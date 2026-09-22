@@ -53,6 +53,7 @@
   --cf-radius-toc: 8px;
   --cf-radius-input: 8px;
   --cf-radius-card: 12px;
+  --cf-radius-tag: 999px;
 
   --cms-bg: var(--cf-neutral-100);
   --cms-surface: var(--cf-white);

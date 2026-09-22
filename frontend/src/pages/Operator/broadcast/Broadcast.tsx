@@ -1,7 +1,9 @@
+import { useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { LiaFileDownloadSolid } from 'react-icons/lia';
 import { LuPower, LuPowerOff } from 'react-icons/lu';
 import Button from '../../../shared/components/Button/Button';
+import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import type { OperatorOutletContext } from '../layout/OperatorLayout';
 import { useOperatorPrefs } from '../OperatorPrefs';
 import { buildTranscriptPaneDownload, downloadTextFile } from './transcriptFile';
@@ -9,28 +11,57 @@ import { useBroadcastSession } from './useBroadcastSession';
 import styles from './Broadcast.module.css';
 
 export default function Broadcast() {
-  const { showInputPane } = useOutletContext<OperatorOutletContext>();
+  const outletContext = useOutletContext<OperatorOutletContext | null>();
+  const showInputPane = outletContext?.showInputPane ?? true;
   const { labels } = useOperatorPrefs();
-  const {
-    running,
-    listenerCount,
-    inputLines,
-    outputLines,
-    error,
-    setError,
-    start,
-    stop,
-  } = useBroadcastSession(labels);
+  const { info, error: toastError } = useToast();
+  const [togglePending, setTogglePending] = useState(false);
+  const togglePendingRef = useRef(false);
+  const sessionErrorDuringAttemptRef = useRef(false);
+  const { running, listenerCount, inputLines, outputLines, start, stop } =
+    useBroadcastSession(labels, (message) => {
+      sessionErrorDuringAttemptRef.current = true;
+      toastError(message);
+    });
 
   const toggleSession = async () => {
+    if (togglePendingRef.current) {
+      return;
+    }
+
+    const isStopping = running;
+    togglePendingRef.current = true;
+    sessionErrorDuringAttemptRef.current = false;
+    setTogglePending(true);
+
     try {
-      if (running) {
+      if (isStopping) {
         await stop();
+        info(labels.sessionStopped);
       } else {
         await start();
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        if (sessionErrorDuringAttemptRef.current) {
+          return;
+        }
+        info(labels.sessionStarted);
       }
-    } catch {
-      setError(running ? labels.stopFailed : labels.startFailed);
+    } catch (caught) {
+      const detail = caught instanceof Error ? caught.message : '';
+      const invalidApiKey =
+        detail.includes('invalid_api_key') ||
+        (detail.toLowerCase().includes('api key') &&
+          detail.toLowerCase().includes('not valid'));
+      toastError(
+        invalidApiKey
+          ? labels.invalidApiKey
+          : isStopping
+            ? labels.stopFailed
+            : labels.startFailed
+      );
+    } finally {
+      togglePendingRef.current = false;
+      setTogglePending(false);
     }
   };
 
@@ -50,6 +81,7 @@ export default function Broadcast() {
             aria-pressed={running}
             aria-label={running ? labels.sessionOn : labels.sessionOff}
             title={running ? labels.sessionOn : labels.sessionOff}
+            disabled={togglePending}
             onClick={() => void toggleSession()}
           >
             {running ? (
@@ -60,7 +92,6 @@ export default function Broadcast() {
           </button>
         </div>
       </header>
-      {error ? <p className={styles.error}>{error}</p> : null}
       <div className={showInputPane ? styles.panes : styles.panesSingle}>
         {showInputPane ? (
           <TranscriptPane

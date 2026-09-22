@@ -4,6 +4,10 @@ from typing import AsyncIterator, Literal, Protocol
 EventKind = Literal["audio", "text", "input_text", "output_text", "error"]
 
 
+class KeyValidationError(Exception):
+    pass
+
+
 @dataclass(slots=True)
 class InterpreterEvent:
     kind: EventKind
@@ -13,6 +17,8 @@ class InterpreterEvent:
 
 
 class LiveInterpreter(Protocol):
+    async def validate_key(self) -> None: ...
+
     async def start(self) -> None: ...
 
     async def send_pcm(self, chunk: bytes) -> None: ...

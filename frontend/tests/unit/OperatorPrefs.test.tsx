@@ -230,6 +230,45 @@ describe('Settings save flow', () => {
     container.remove();
   });
 
+  it('shows the provider key status tag when the server reports invalid credentials', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        interpreter: 'gemini',
+        gemini_key_set: true,
+        openai_key_set: false,
+        gemini_key_masked: 'abc1...c123',
+        gemini_key_status: 'invalid',
+        gemini_key_warning: '서버가 Gemini API 키를 확인하지 못했습니다.',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('유효하지 않음');
+    expect(container.textContent).toContain('서버가 Gemini API 키를 확인하지 못했습니다.');
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
   it('shows an error toast when loading settings fails', async () => {
     installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')));

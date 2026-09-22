@@ -50,3 +50,33 @@ def test_public_view_includes_openai_environment_key(tmp_path):
 
     assert view["openai_key_set"] is True
     assert view["openai_key_masked"] == "fr...nv"
+
+
+def test_public_view_reports_key_status_for_saved_values(tmp_path):
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+    store.save(interpreter="gemini", gemini_api_key="secret-key")
+    view = store.public_view(Settings(interpreter="gemini", gemini_api_key=""))
+
+    assert view["gemini_key_status"] == "missing"
+    assert view["openai_key_status"] == "missing"
+    assert view["gemini_key_warning"] == "Gemini API key is not set"
+
+
+def test_set_key_status_persists_public_status_without_exposing_key(tmp_path):
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+    store.save(interpreter="gemini", gemini_api_key="secret-key")
+    store.set_key_status("gemini", "invalid", "Gemini API key is invalid")
+
+    view = store.public_view(Settings(interpreter="gemini", gemini_api_key=""))
+
+    assert view["gemini_key_status"] == "invalid"
+    assert view["gemini_key_warning"] == "Gemini API key is invalid"
+    assert "secret-key" not in str(view)
+
+
+def test_public_view_reports_missing_when_key_is_empty(tmp_path):
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+    view = store.public_view(Settings(interpreter="gemini", gemini_api_key=""))
+
+    assert view["gemini_key_status"] == "missing"
+    assert view["gemini_key_warning"] == "Gemini API key is not set"

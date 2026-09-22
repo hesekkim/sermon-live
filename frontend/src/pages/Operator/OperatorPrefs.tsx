@@ -31,9 +31,13 @@ function readLanguage(): UiLanguage {
   if (typeof window === 'undefined') {
     return 'ko';
   }
-  const stored = localStorage.getItem(LANGUAGE_KEY);
-  if (stored === 'en' || stored === 'de' || stored === 'ko') {
-    return stored;
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_KEY);
+    if (stored === 'en' || stored === 'de' || stored === 'ko') {
+      return stored;
+    }
+  } catch {
+    return 'ko';
   }
   return 'ko';
 }
@@ -42,7 +46,11 @@ function readTheme(): UiTheme {
   if (typeof window === 'undefined') {
     return 'light';
   }
-  return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light';
+  try {
+    return window.localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light';
+  } catch {
+    return 'light';
+  }
 }
 
 export function OperatorPrefsProvider({ children }: { children: ReactNode }) {
@@ -50,12 +58,20 @@ export function OperatorPrefsProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<UiTheme>(readTheme);
 
   useEffect(() => {
-    localStorage.setItem(LANGUAGE_KEY, language);
+    try {
+      window.localStorage.setItem(LANGUAGE_KEY, language);
+    } catch {
+      // Ignore unavailable storage in restricted test/browser environments.
+    }
     document.documentElement.lang = language;
   }, [language]);
 
   useEffect(() => {
-    localStorage.setItem(THEME_KEY, theme);
+    try {
+      window.localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Ignore unavailable storage in restricted test/browser environments.
+    }
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
