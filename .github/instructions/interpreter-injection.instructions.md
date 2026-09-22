@@ -1,6 +1,6 @@
 ---
 description: 통역 API는 injection. 파이프라인에 vendor 분기 금지
-applyTo: "**"
+applyTo: '**/*'
 ---
 
 # Interpreter injection

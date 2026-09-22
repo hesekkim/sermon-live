@@ -1,6 +1,6 @@
 ---
 description: FastAPI backend 구조와 unit test 범위
-applyTo: "**"
+applyTo: 'backend/**/*.py'
 ---
 
 # FastAPI
