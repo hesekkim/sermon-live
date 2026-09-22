@@ -1,0 +1,8 @@
+# 코파일럿이 크레딧을 써가며 굳이 읽을 필요가 없는 무거운 폴더들
+node_modules/
+dist/
+build/
+.next/
+.venv/
+*.log
+backend/tests/unit/__pycache__/
