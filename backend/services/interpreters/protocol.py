@@ -17,6 +17,10 @@ class InterpreterEvent:
 
 
 class LiveInterpreter(Protocol):
+    required_sample_rate: int
+    required_channels: int
+    required_sample_width: int
+
     async def validate_key(self) -> None: ...
 
     async def start(self) -> None: ...

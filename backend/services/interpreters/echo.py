@@ -12,6 +12,18 @@ class EchoInterpreter:
         self._queue: asyncio.Queue[InterpreterEvent | None] = asyncio.Queue()
         self._started = False
 
+    @property
+    def required_sample_rate(self) -> int:
+        return self._sample_rate
+
+    @property
+    def required_channels(self) -> int:
+        return 1
+
+    @property
+    def required_sample_width(self) -> int:
+        return 2
+
     async def validate_key(self) -> None:
         return None
 

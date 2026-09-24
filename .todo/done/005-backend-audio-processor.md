@@ -1,6 +1,6 @@
 # 005 AudioProcessor (포맷 변환)
 
-상태: 대기
+상태: 완료
 
 ## Goal
 

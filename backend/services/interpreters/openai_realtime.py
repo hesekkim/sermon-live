@@ -5,6 +5,10 @@ from services.interpreters.protocol import InterpreterEvent
 class OpenAIRealtimeInterpreter:
     """Stub. Implement OpenAI Realtime behind the same LiveInterpreter protocol."""
 
+    required_sample_rate = 24000
+    required_channels = 1
+    required_sample_width = 2
+
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings
 

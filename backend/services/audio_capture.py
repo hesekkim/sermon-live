@@ -22,8 +22,24 @@ class AudioCapture:
         self._input_format: tuple[int, int, int] | None = None
 
     @property
-    def input_format(self) -> tuple[int, int, int] | None:
+    def native_format(self) -> tuple[int, int, int] | None:
         return self._input_format
+
+    @property
+    def native_sample_rate(self) -> int | None:
+        return self._input_format[0] if self._input_format is not None else None
+
+    @property
+    def native_channels(self) -> int | None:
+        return self._input_format[1] if self._input_format is not None else None
+
+    @property
+    def native_sample_width(self) -> int | None:
+        return self._input_format[2] if self._input_format is not None else None
+
+    @property
+    def input_format(self) -> tuple[int, int, int] | None:
+        return self.native_format
 
     def _resolve_device_index(self, audio: pyaudio.PyAudio) -> int | None:
         raw = self._settings.audio_device.strip()

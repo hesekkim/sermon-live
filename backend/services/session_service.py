@@ -5,6 +5,7 @@ import logging
 
 from core.config import Settings
 from services.audio_capture import AudioCapture
+from services.audio_processor import AudioProcessor
 from services.broadcast import BroadcastHub
 from services.interpreters.factory import create_interpreter
 from services.interpreters.protocol import LiveInterpreter
@@ -25,6 +26,7 @@ class SessionService:
         self._store = operator_store or default_store
         self._interpreter: LiveInterpreter | None = None
         self._capture: AudioCapture | None = None
+        self._processor: AudioProcessor | None = None
         self._tasks: list[asyncio.Task[None]] = []
         self._running = False
         self._lifecycle_lock = asyncio.Lock()
@@ -101,6 +103,7 @@ class SessionService:
         if self._capture is not None:
             await self._capture.stop()
             self._capture = None
+        self._processor = None
         if self._interpreter is not None:
             await self._interpreter.close()
             self._interpreter = None
@@ -116,15 +119,30 @@ class SessionService:
     async def _pump_capture(self) -> None:
         assert self._capture is not None
         assert self._interpreter is not None
+        native_format = self._capture.native_format
+        if native_format is None:
+            raise RuntimeError("Audio capture format is unavailable")
+        self._processor = AudioProcessor(
+            *native_format,
+            self._interpreter.required_sample_rate,
+            self._interpreter.required_channels,
+            self._interpreter.required_sample_width,
+        )
         try:
             async for chunk in self._capture.chunks():
                 if not self._running:
                     break
-                await self._interpreter.send_pcm(chunk)
+                processed = self._processor.process(chunk)
+                if processed:
+                    await self._interpreter.send_pcm(processed)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             logger.error("Capture pump error: %s", exc)
+        finally:
+            processed = self._processor.flush()
+            if processed:
+                await self._interpreter.send_pcm(processed)
 
     async def _pump_events(self) -> None:
         assert self._interpreter is not None
