@@ -10,6 +10,31 @@
 
 ## 지금 (미완료)
 
+OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 진행.
+
+1. `001-remove-gemini.md` — Gemini 코드/설정/UI 제거 (git baseline tag 존재, 최우선)
+2. `002-backend-openai-settings.md` — OpenAI 모델/타겟 오디오 포맷 설정 추가
+3. `003-backend-audio-device-api.md` — 오디오 입력 장치 목록 API
+4. `004-backend-audio-capture-native-format.md` — AudioCapture 네이티브 포맷 대응
+5. `005-backend-audio-processor.md` — AudioProcessor (포맷 변환)
+6. `006-backend-session-service-processor-wiring.md` — SessionService에 AudioProcessor 연결
+7. `007-backend-openai-realtime-adapter.md` — OpenAI Realtime Translation adapter 구현
+8. `008-backend-openai-e2e-verify.md` — OpenAI end-to-end 검증
+9. `009-backend-operator-audio-device-setting.md` — Operator 설정에 오디오 장치 저장
+10. `010-frontend-audio-device-ui.md` — 오디오 장치 선택 UI
+11. `011-backend-audio-level-broadcast.md` — 오디오 입력 레벨 브로드캐스트
+12. `012-frontend-audio-level-meter.md` — 오디오 레벨 미터 UI
+13. `013-backend-audio-test-endpoint.md` — 오디오 테스트 엔드포인트
+14. `014-frontend-audio-test-ux.md` — 오디오 테스트 UX
+15. `015-backend-sermon-session-model.md` — Sermon Session 모델
+16. `016-frontend-sermon-session-ui.md` — Sermon Session UI
+17. `017-backend-translation-profile-model.md` — Translation Profile 모델
+18. `018-frontend-translation-profile-ui.md` — Translation Profile UI
+19. `019-backend-glossary-model.md` — Glossary 모델 (Global + Sermon)
+20. `020-backend-glossary-injection.md` — Glossary 세션 주입 (지원 여부에 따라 보류 가능)
+21. `021-frontend-glossary-ui.md` — Glossary UI
+22. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
+23. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
 
 ## 완료 (`done/`)
 
@@ -20,3 +45,7 @@
 - 룰은 `.agent/rules`. `.cursor/rules` 없음
 - 통역 API는 `LiveInterpreter` injection. 파이프라인에 vendor 분기 금지
 - 1차 UI: 성도 Listen + 방송실 Operator React
+- 최종 제품은 OpenAI(`gpt-realtime-translate`)만 사용. Gemini는 baseline으로만 git tag 보존 후 001에서 제거
+- 언어 방향: SOURCE Korean -> TARGET German 고정
+- API key는 코드·테스트 fixture·로그·API 응답에 평문으로 남기지 않으며, 노출 시 폐기·재발급을 먼저 수행
+- 외부 API 구현은 공식 문서 확인 결과(endpoint/model/event/audio format)를 ticket에 기록한 후 진행
