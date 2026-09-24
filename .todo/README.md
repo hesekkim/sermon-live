@@ -10,24 +10,9 @@
 
 ## 지금 (미완료)
 
-1. `006-openai-realtime.md` — OpenAI Realtime server-side VAD 준비
-2. `014-operator-ui-language-json.md` — Operator UI 언어 설정을 operator.json으로 저장
 
 ## 완료 (`done/`)
 
-1. `done/001-port-prototype.md` — FastAPI + React Listen 이식
-2. `done/002-operator-ui.md` — 방송실 Operator UI
-3. `done/002a-operator-shell.md` — Sidebar, `/operator` 셸
-4. `done/002b-operator-i18n-theme.md` — UI 언어, dark mode
-5. `done/002c-operator-settings.md` — 제공자 + API KEY JSON
-6. `done/002d-operator-broadcast.md` — 세션, 전사, 다운로드
-7. `done/007-operator-settings-api-key.md` — Operator API key 저장 수정
-8. `done/008-toast-dark-mode.md` — Toast foundation + Dark Mode
-9. `done/009-operator-settings-ux.md` — Operator Settings 저장 UX
-10. `done/010-operator-broadcast-toast.md` — Operator Broadcast lifecycle Toast
-11. `done/011-settings-toast-regression-tests.md` — Settings + Toast 회귀 검증
-12. `done/012-broadcast-start-key-runtime-error.md` — Broadcast start with saved key fails
-13. `done/013-settings-key-status-tagselector.md` — Settings key status StatusTag
 
 ## 결정 사항
 
