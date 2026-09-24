@@ -15,6 +15,7 @@ STORE_PATH = DATA_DIR / "operator.json"
 class OperatorRecord:
     interpreter: InterpreterName | None = None
     openai_api_key: str = ""
+    audio_device: str = ""
 
 
 class OperatorSettingsStore:
@@ -37,6 +38,7 @@ class OperatorSettingsStore:
         return OperatorRecord(
             interpreter=name,
             openai_api_key=_as_str(raw.get("openai_api_key")),
+            audio_device=_as_str(raw.get("audio_device")),
         )
 
     def save(
@@ -44,19 +46,25 @@ class OperatorSettingsStore:
         *,
         interpreter: InterpreterName,
         openai_api_key: str | None = None,
+        audio_device: str | None = None,
     ) -> OperatorRecord:
         current = self.load()
         openai = current.openai_api_key
         if openai_api_key is not None and openai_api_key != "":
             openai = openai_api_key
+        device = current.audio_device
+        if audio_device is not None and audio_device != "":
+            device = audio_device
         record = OperatorRecord(
             interpreter=interpreter,
             openai_api_key=openai,
+            audio_device=device,
         )
         self._path.parent.mkdir(parents=True, exist_ok=True)
         payload: dict[str, Any] = {
             "interpreter": record.interpreter,
             "openai_api_key": record.openai_api_key,
+            "audio_device": record.audio_device,
         }
         self._path.write_text(
             json.dumps(payload, indent=2) + "\n", encoding="utf-8"
@@ -66,11 +74,13 @@ class OperatorSettingsStore:
     def public_view(self, settings: Settings) -> dict[str, Any]:
         record = self.load()
         interpreter = record.interpreter or settings.interpreter
+        audio_device = record.audio_device or settings.audio_device
         openai_key = record.openai_api_key or settings.openai_api_key
         openai_raw = self._read_status_overrides().get("openai")
         openai_status = _normalize_key_status(openai_raw[0] if openai_raw else None, bool(openai_key))
         return {
             "interpreter": interpreter,
+            "audio_device": audio_device,
             "openai_key_set": bool(openai_key),
             "openai_key_masked": _mask_key(openai_key),
             "openai_key_status": openai_status,
@@ -122,6 +132,8 @@ class OperatorSettingsStore:
             updates["interpreter"] = record.interpreter
         if record.openai_api_key:
             updates["openai_api_key"] = record.openai_api_key
+        if record.audio_device:
+            updates["audio_device"] = record.audio_device
         if not updates:
             return settings
         return settings.model_copy(update=updates)

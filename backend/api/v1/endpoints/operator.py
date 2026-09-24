@@ -13,6 +13,7 @@ router = APIRouter()
 class OperatorSettingsBody(BaseModel):
     interpreter: InterpreterName
     openai_api_key: str | None = Field(default=None)
+    audio_device: str | None = Field(default=None)
 
 
 @router.get("/api/v1/operator/settings")
@@ -27,6 +28,7 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
         store.save(
             interpreter=body.interpreter,
             openai_api_key=body.openai_api_key,
+            audio_device=body.audio_device,
         )
     except (OSError, ValueError, TypeError) as exc:
         raise HTTPException(

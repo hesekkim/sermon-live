@@ -20,11 +20,16 @@ def test_operator_settings_roundtrip(tmp_path):
         assert empty.status_code == 200
         saved = client.put(
             "/api/v1/operator/settings",
-            json={"interpreter": "openai", "openai_api_key": "unit-test-key"},
+            json={
+                "interpreter": "openai",
+                "openai_api_key": "unit-test-key",
+                "audio_device": "USB Audio",
+            },
         )
         assert saved.status_code == 200
         body = saved.json()
         assert body["interpreter"] == "openai"
+        assert body["audio_device"] == "USB Audio"
         assert body["openai_key_set"] is True
         assert body["openai_key_masked"] == "unit...-key"
         assert "unit-test-key" not in str(body)

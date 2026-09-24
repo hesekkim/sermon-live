@@ -13,21 +13,20 @@
 OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 진행.
 
 1. `008-backend-openai-e2e-verify.md` — OpenAI end-to-end 검증
-3. `009-backend-operator-audio-device-setting.md` — Operator 설정에 오디오 장치 저장
-4. `010-frontend-audio-device-ui.md` — 오디오 장치 선택 UI
-5. `011-backend-audio-level-broadcast.md` — 오디오 입력 레벨 브로드캐스트
-6. `012-frontend-audio-level-meter.md` — 오디오 레벨 미터 UI
-7. `013-backend-audio-test-endpoint.md` — 오디오 테스트 엔드포인트
-8. `014-frontend-audio-test-ux.md` — 오디오 테스트 UX
-9. `015-backend-sermon-session-model.md` — Sermon Session 모델
-10. `016-frontend-sermon-session-ui.md` — Sermon Session UI
-11. `017-backend-translation-profile-model.md` — Translation Profile 모델
-12. `018-frontend-translation-profile-ui.md` — Translation Profile UI
-13. `019-backend-glossary-model.md` — Glossary 모델 (Global + Sermon)
-14. `020-backend-glossary-injection.md` — Glossary 세션 주입 (지원 여부에 따라 보류 가능)
-15. `021-frontend-glossary-ui.md` — Glossary UI
-16. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
-17. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
+2. `010-frontend-audio-device-ui.md` — 오디오 장치 선택 UI
+3. `011-backend-audio-level-broadcast.md` — 오디오 입력 레벨 브로드캐스트
+4. `012-frontend-audio-level-meter.md` — 오디오 레벨 미터 UI
+5. `013-backend-audio-test-endpoint.md` — 오디오 테스트 엔드포인트
+6. `014-frontend-audio-test-ux.md` — 오디오 테스트 UX
+7. `015-backend-sermon-session-model.md` — Sermon Session 모델
+8. `016-frontend-sermon-session-ui.md` — Sermon Session UI
+9. `017-backend-translation-profile-model.md` — Translation Profile 모델
+10. `018-frontend-translation-profile-ui.md` — Translation Profile UI
+11. `019-backend-glossary-model.md` — Glossary 모델 (Global + Sermon)
+12. `020-backend-glossary-injection.md` — Glossary 세션 주입 (지원 여부에 따라 보류 가능)
+13. `021-frontend-glossary-ui.md` — Glossary UI
+14. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
+15. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
 
 ## 완료 (`done/`)
 
@@ -38,6 +37,7 @@ OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 �
 5. `005-backend-audio-processor.md — AudioProcessor (포맷 변환)`
 6. `006-backend-session-service-processor-wiring.md — SessionService에 AudioProcessor 연결`
 7. `007-backend-openai-realtime-adapter.md — OpenAI Realtime Translation adapter 구현`
+8. `009-backend-operator-audio-device-setting.md — Operator 설정에 오디오 장치 저장`
 
 ## 결정 사항
 

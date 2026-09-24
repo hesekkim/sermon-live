@@ -13,6 +13,7 @@ Operator가 UI에서 장치를 고를 수 있어야 003/009의 백엔드 기능�
 ## Related files
 
 - `frontend/src/pages/Operator/settings/Settings.tsx`
+- `frontend/src/shared/components/Select/Select.tsx`
 - 신규 `frontend/src/pages/Operator/settings/useAudioDevices.ts`
 - 신규 `frontend/tests/unit/useAudioDevices.test.ts(x)`
 

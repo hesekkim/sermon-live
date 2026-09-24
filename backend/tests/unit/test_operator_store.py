@@ -25,12 +25,13 @@ def test_empty_key_keeps_previous(tmp_path):
 
 def test_overlay_uses_json_over_env(tmp_path):
     store = OperatorSettingsStore(tmp_path / "operator.json")
-    store.save(interpreter="openai", openai_api_key="from-json")
+    store.save(interpreter="openai", openai_api_key="from-json", audio_device="USB-1")
     overlay = store.overlay_settings(
-        Settings(interpreter="echo", openai_api_key="from-env")
+        Settings(interpreter="echo", openai_api_key="from-env", audio_device="Built-in")
     )
     assert overlay.interpreter == "openai"
     assert overlay.openai_api_key == "from-json"
+    assert overlay.audio_device == "USB-1"
 
 
 def test_public_view_includes_openai_environment_key(tmp_path):

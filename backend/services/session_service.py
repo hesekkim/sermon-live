@@ -56,7 +56,7 @@ class SessionService:
                     )
                     raise RuntimeError(f"{label} API key is not set")
             interpreter = create_interpreter(runtime)
-            capture = AudioCapture(self._settings)
+            capture = AudioCapture(runtime)
             try:
                 await interpreter.start()
             except Exception:
