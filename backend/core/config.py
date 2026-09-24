@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     # Verify the model name against the official API when the OpenAI adapter is implemented.
     openai_model: str = "gpt-realtime-translate"
+    translation_target_language: str = "de"
+    translation_source_transcription_model: str = "gpt-realtime-whisper"
     audio_device: str = ""
     audio_chunk_frames: int = 1024
     input_sample_rate: int | None = 16000

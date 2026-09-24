@@ -107,15 +107,15 @@ class SessionService:
     async def _stop_locked(self) -> None:
         self._running = False
         current_task = asyncio.current_task()
-        for task in self._tasks:
-            if task is not current_task:
-                task.cancel()
-        other_tasks = [
-            task for task in self._tasks if task is not current_task
+        capture_tasks = [
+            task
+            for task in self._tasks
+            if task is not current_task and task.get_name() == "pump-capture"
         ]
-        if other_tasks:
-            await asyncio.gather(*other_tasks, return_exceptions=True)
-        self._tasks = []
+        for task in capture_tasks:
+            task.cancel()
+        if capture_tasks:
+            await asyncio.gather(*capture_tasks, return_exceptions=True)
         if self._capture is not None:
             await self._capture.stop()
             self._capture = None
@@ -123,6 +123,16 @@ class SessionService:
         if self._interpreter is not None:
             await self._interpreter.close()
             self._interpreter = None
+        event_tasks = [
+            task
+            for task in self._tasks
+            if task is not current_task and task.get_name() == "pump-events"
+        ]
+        for task in event_tasks:
+            task.cancel()
+        if event_tasks:
+            await asyncio.gather(*event_tasks, return_exceptions=True)
+        self._tasks = []
         logger.info("Session stopped")
         await self._hub.broadcast_operator(
             {
