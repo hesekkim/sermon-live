@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 import pyaudio
 
 from core.config import Settings
+from services.audio_devices import enumerate_input_devices
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,11 @@ class AudioCapture:
         if raw.isdigit():
             return int(raw)
         lowered = raw.lower()
-        for index in range(audio.get_device_count()):
-            info = audio.get_device_info_by_index(index)
-            name = str(info.get("name", ""))
-            max_input = int(info.get("maxInputChannels") or 0)
-            if max_input > 0 and lowered in name.lower():
-                logger.info("Using input device %s (%s)", index, name)
-                return index
+        for device in enumerate_input_devices(audio):
+            name = str(device["name"])
+            if lowered in name.lower():
+                logger.info("Using input device %s (%s)", device["index"], name)
+                return int(device["index"])
         logger.warning("Audio device %r not found, using default", raw)
         return None
 
