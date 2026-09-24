@@ -250,3 +250,45 @@ async def test_start_does_not_mark_connection_failure_as_invalid(monkeypatch, tm
 
     view = store.public_view(Settings(interpreter="echo"))
     assert view["openai_key_status"] != "invalid"
+
+
+@pytest.mark.asyncio
+async def test_openai_session_lifecycle_broadcasts_final_transcript_and_stops(monkeypatch):
+    hub = FakeHub()
+    settings = Settings(interpreter="openai", openai_api_key="test-key")
+    service = SessionService(settings, hub)
+
+    class FakeCapture:
+        def __init__(self, _settings: Settings) -> None:
+            self.input_format = (16000, 1, 2)
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+        async def chunks(self):
+            if False:
+                yield b""
+
+    class OpenAIFlowInterpreter(FakeInterpreter):
+        async def events(self):
+            yield InterpreterEvent(kind="output_text", text="Letzte")
+
+    interpreter = OpenAIFlowInterpreter([InterpreterEvent(kind="output_text", text="Letzte")])
+
+    monkeypatch.setattr(session_service_module, "AudioCapture", FakeCapture)
+    monkeypatch.setattr(
+        session_service_module,
+        "create_interpreter",
+        lambda _settings: interpreter,
+    )
+
+    await service.start()
+    await asyncio.sleep(0.05)
+
+    assert hub.listen_text == ["Letzte"]
+    assert interpreter.closed is True
+    assert service.running is False
+    assert hub.operator[-1]["running"] is False
