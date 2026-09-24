@@ -19,6 +19,11 @@ class AudioCapture:
         self._stream: pyaudio.Stream | None = None
         self._queue: asyncio.Queue[bytes | None] = asyncio.Queue()
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._input_format: tuple[int, int, int] | None = None
+
+    @property
+    def input_format(self) -> tuple[int, int, int] | None:
+        return self._input_format
 
     def _resolve_device_index(self, audio: pyaudio.PyAudio) -> int | None:
         raw = self._settings.audio_device.strip()
@@ -50,18 +55,31 @@ class AudioCapture:
         self._loop = asyncio.get_running_loop()
         audio = pyaudio.PyAudio()
         self._pyaudio = audio
+        device_index = self._resolve_device_index(audio)
+        device_info = (
+            audio.get_device_info_by_index(device_index)
+            if device_index is not None
+            else audio.get_default_input_device_info()
+        )
+        sample_rate = self._settings.input_sample_rate
+        if sample_rate is None:
+            sample_rate = int(float(device_info["defaultSampleRate"]))
         kwargs: dict[str, object] = {
             "format": pyaudio.paInt16,
             "channels": 1,
-            "rate": self._settings.input_sample_rate,
+            "rate": sample_rate,
             "input": True,
             "frames_per_buffer": self._settings.audio_chunk_frames,
             "stream_callback": self._on_chunk,
         }
-        device_index = self._resolve_device_index(audio)
         if device_index is not None:
             kwargs["input_device_index"] = device_index
-        self._stream = audio.open(**kwargs)
+        try:
+            self._stream = audio.open(**kwargs)
+        except Exception:
+            logger.exception("Failed to open audio input at %s Hz", sample_rate)
+            raise
+        self._input_format = (sample_rate, 1, audio.get_sample_size(pyaudio.paInt16))
         logger.info("Microphone capture started")
 
     async def chunks(self) -> AsyncIterator[bytes]:
@@ -80,6 +98,7 @@ class AudioCapture:
             except Exception:
                 pass
             self._stream = None
+        self._input_format = None
         if self._pyaudio is not None:
             try:
                 self._pyaudio.terminate()

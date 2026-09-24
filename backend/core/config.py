@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-realtime-translate"
     audio_device: str = ""
     audio_chunk_frames: int = 1024
-    input_sample_rate: int = 16000
+    input_sample_rate: int | None = 16000
     translation_target_sample_rate: int = 24000
     translation_target_channels: int = 1
     translation_target_sample_width: int = 2
@@ -44,6 +44,11 @@ class Settings(BaseSettings):
         if isinstance(value, list):
             return value
         return ["http://localhost:5173"]
+
+    @field_validator("input_sample_rate", mode="before")
+    @classmethod
+    def parse_input_sample_rate(cls, value: object) -> object:
+        return None if value == "" else value
 
     @property
     def frontend_dist_path(self) -> Path:

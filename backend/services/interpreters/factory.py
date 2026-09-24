@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 def create_interpreter(settings: Settings) -> LiveInterpreter:
     name = settings.interpreter
     if name == "echo":
-        return EchoInterpreter(sample_rate=settings.input_sample_rate)
+        return EchoInterpreter(sample_rate=settings.input_sample_rate or 16000)
     if name == "openai":
         return OpenAIRealtimeInterpreter(settings)
     raise ValueError(f"Unknown interpreter: {name}")
