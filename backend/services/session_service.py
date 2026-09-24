@@ -68,6 +68,22 @@ class SessionService:
             except Exception:
                 await interpreter.close()
                 raise
+            input_format = capture.input_format
+            if input_format is None:
+                await capture.stop()
+                await interpreter.close()
+                raise RuntimeError("Audio capture format is unavailable")
+            try:
+                self._processor = AudioProcessor(
+                    *input_format,
+                    interpreter.required_sample_rate,
+                    interpreter.required_channels,
+                    interpreter.required_sample_width,
+                )
+            except Exception:
+                await capture.stop()
+                await interpreter.close()
+                raise
             self._interpreter = interpreter
             self._capture = capture
             self._running = True
@@ -119,15 +135,7 @@ class SessionService:
     async def _pump_capture(self) -> None:
         assert self._capture is not None
         assert self._interpreter is not None
-        native_format = self._capture.native_format
-        if native_format is None:
-            raise RuntimeError("Audio capture format is unavailable")
-        self._processor = AudioProcessor(
-            *native_format,
-            self._interpreter.required_sample_rate,
-            self._interpreter.required_channels,
-            self._interpreter.required_sample_width,
-        )
+        assert self._processor is not None
         try:
             async for chunk in self._capture.chunks():
                 if not self._running:

@@ -1,5 +1,6 @@
 import asyncio
 
+import numpy as np
 import pytest
 
 from core.config import Settings
@@ -28,12 +29,16 @@ class FakeInterpreter:
     def __init__(self, events: list[InterpreterEvent]) -> None:
         self._events = events
         self.closed = False
+        self.required_sample_rate = 24000
+        self.required_channels = 1
+        self.required_sample_width = 2
+        self.received_pcm: list[bytes] = []
 
     async def start(self) -> None:
         return None
 
     async def send_pcm(self, chunk: bytes) -> None:
-        return None
+        self.received_pcm.append(chunk)
 
     async def events(self):
         for event in self._events:
@@ -41,6 +46,38 @@ class FakeInterpreter:
 
     async def close(self) -> None:
         self.closed = True
+
+
+class FakeCapture:
+    def __init__(self, chunks: list[bytes]) -> None:
+        self.input_format = (48000, 2, 2)
+        self._chunks = chunks
+
+    async def chunks(self):
+        for chunk in self._chunks:
+            yield chunk
+
+
+@pytest.mark.asyncio
+async def test_capture_is_processed_before_interpreter_send():
+    hub = FakeHub()
+    service = SessionService(Settings(interpreter="echo"), hub)
+    interpreter = FakeInterpreter([])
+    service._interpreter = interpreter
+    service._capture = FakeCapture(
+        [np.asarray([[0, 1000], [2000, 3000]], dtype="<i2").tobytes()]
+    )
+    service._processor = session_service_module.AudioProcessor(
+        48000, 2, 2, 24000, 1, 2
+    )
+    service._running = True
+
+    await service._pump_capture()
+
+    assert b"" not in interpreter.received_pcm
+    assert np.frombuffer(
+        b"".join(interpreter.received_pcm), dtype="<i2"
+    ).tolist() == [500]
 
 
 @pytest.mark.asyncio
@@ -99,7 +136,7 @@ async def test_concurrent_start_creates_one_session(monkeypatch):
 
     class FakeCapture:
         def __init__(self, _settings: Settings) -> None:
-            return None
+            self.input_format = (16000, 1, 2)
 
         async def start(self) -> None:
             return None
@@ -131,6 +168,46 @@ async def test_concurrent_start_creates_one_session(monkeypatch):
     assert created == 1
     assert service.running is True
     await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_start_cleans_up_when_processor_creation_fails(monkeypatch):
+    hub = FakeHub()
+    service = SessionService(Settings(interpreter="echo"), hub)
+    interpreter = FakeInterpreter([])
+    capture = None
+
+    class FakeCapture:
+        def __init__(self, _settings: Settings) -> None:
+            nonlocal capture
+            capture = self
+            self.input_format = (16000, 1, 2)
+            self.stopped = False
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            self.stopped = True
+
+    monkeypatch.setattr(session_service_module, "AudioCapture", FakeCapture)
+    monkeypatch.setattr(
+        session_service_module,
+        "create_interpreter",
+        lambda _settings: interpreter,
+    )
+
+    def fail_processor(*_args: object) -> None:
+        raise ValueError("invalid audio format")
+
+    monkeypatch.setattr(session_service_module, "AudioProcessor", fail_processor)
+
+    with pytest.raises(ValueError, match="invalid audio format"):
+        await service.start()
+
+    assert capture is not None
+    assert capture.stopped is True
+    assert interpreter.closed is True
 
 
 @pytest.mark.asyncio
