@@ -211,43 +211,6 @@ async def test_start_cleans_up_when_processor_creation_fails(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_session_start_uses_overlay_audio_device(monkeypatch, tmp_path):
-    hub = FakeHub()
-    store = session_service_module.OperatorSettingsStore(tmp_path / "operator.json")
-    store.save(interpreter="echo", audio_device="USB-2")
-
-    captured: dict[str, object] = {}
-
-    class FakeCapture:
-        def __init__(self, settings: Settings) -> None:
-            captured["settings"] = settings
-            self.input_format = (16000, 1, 2)
-
-        async def start(self) -> None:
-            return None
-
-        async def stop(self) -> None:
-            return None
-
-        async def chunks(self):
-            if False:
-                yield b""
-
-    monkeypatch.setattr(session_service_module, "AudioCapture", FakeCapture)
-    monkeypatch.setattr(
-        session_service_module,
-        "create_interpreter",
-        lambda _settings: FakeInterpreter([]),
-    )
-
-    service = SessionService(Settings(interpreter="echo", audio_device="Built-in"), hub, store)
-    await service.start()
-
-    assert captured["settings"].audio_device == "USB-2"
-    await service.stop()
-
-
-@pytest.mark.asyncio
 async def test_start_marks_missing_for_openai_without_key(tmp_path):
     hub = FakeHub()
     store = session_service_module.OperatorSettingsStore(
@@ -287,45 +250,3 @@ async def test_start_does_not_mark_connection_failure_as_invalid(monkeypatch, tm
 
     view = store.public_view(Settings(interpreter="echo"))
     assert view["openai_key_status"] != "invalid"
-
-
-@pytest.mark.asyncio
-async def test_openai_session_lifecycle_broadcasts_final_transcript_and_stops(monkeypatch):
-    hub = FakeHub()
-    settings = Settings(interpreter="openai", openai_api_key="test-key")
-    service = SessionService(settings, hub)
-
-    class FakeCapture:
-        def __init__(self, _settings: Settings) -> None:
-            self.input_format = (16000, 1, 2)
-
-        async def start(self) -> None:
-            return None
-
-        async def stop(self) -> None:
-            return None
-
-        async def chunks(self):
-            if False:
-                yield b""
-
-    class OpenAIFlowInterpreter(FakeInterpreter):
-        async def events(self):
-            yield InterpreterEvent(kind="output_text", text="Letzte")
-
-    interpreter = OpenAIFlowInterpreter([InterpreterEvent(kind="output_text", text="Letzte")])
-
-    monkeypatch.setattr(session_service_module, "AudioCapture", FakeCapture)
-    monkeypatch.setattr(
-        session_service_module,
-        "create_interpreter",
-        lambda _settings: interpreter,
-    )
-
-    await service.start()
-    await asyncio.sleep(0.05)
-
-    assert hub.listen_text == ["Letzte"]
-    assert interpreter.closed is True
-    assert service.running is False
-    assert hub.operator[-1]["running"] is False

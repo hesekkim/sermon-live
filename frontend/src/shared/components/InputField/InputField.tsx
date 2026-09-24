@@ -4,6 +4,7 @@ import {
   type FocusEvent,
   type HTMLInputTypeAttribute,
 } from 'react';
+import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import styles from './InputField.module.css';
 import { useInputField } from './useInputField';
 
@@ -169,7 +170,11 @@ const InputField = forwardRef<
             aria-label={isPasswordVisible ? hidePasswordLabel : showPasswordLabel}
             title={isPasswordVisible ? hidePasswordLabel : showPasswordLabel}
           >
-            {isPasswordVisible ? hidePasswordLabel : showPasswordLabel}
+            {isPasswordVisible ? (
+              <MdVisibilityOff aria-hidden="true" />
+            ) : (
+              <MdVisibility aria-hidden="true" />
+            )}
           </button>
         ) : null}
       </div>

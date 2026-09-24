@@ -13,6 +13,9 @@ export interface OperatorCopy {
   languageEn: string;
   languageDe: string;
   interpreter: string;
+  audioDevice: string;
+  audioDevicePlaceholder: string;
+  audioDeviceLoadFailed: string;
   apiKey: string;
   apiKeyPlaceholder: string;
   apiKeySaved: string;
@@ -61,6 +64,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     languageEn: '영어',
     languageDe: '독일어',
     interpreter: 'API 모델',
+    audioDevice: '입력 장치',
+    audioDevicePlaceholder: '입력 장치를 선택하세요',
+    audioDeviceLoadFailed: '입력 장치를 불러오지 못했습니다',
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'API KEY를 입력하세요',
     apiKeySaved: '저장된 키가 있습니다',
@@ -107,6 +113,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     languageEn: 'English',
     languageDe: 'German',
     interpreter: 'API model',
+    audioDevice: 'Input device',
+    audioDevicePlaceholder: 'Select an input device',
+    audioDeviceLoadFailed: 'Could not load input devices',
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'Enter API KEY',
     apiKeySaved: 'A key is already saved',
@@ -153,6 +162,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     languageEn: 'Englisch',
     languageDe: 'Deutsch',
     interpreter: 'API-Modell',
+    audioDevice: 'Eingabegerät',
+    audioDevicePlaceholder: 'Eingabegerät auswählen',
+    audioDeviceLoadFailed: 'Eingabegeräte konnten nicht geladen werden',
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'API KEY eingeben',
     apiKeySaved: 'Ein Schlüssel ist gespeichert',

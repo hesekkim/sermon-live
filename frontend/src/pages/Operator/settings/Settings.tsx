@@ -6,6 +6,7 @@ import SlideToggle from '../../../shared/components/SlideToggle/SlideToggle';
 import StatusTag from '../../../shared/components/StatusTag/StatusTag';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
+import { useAudioDevices } from './useAudioDevices';
 import styles from './Settings.module.css';
 
 type InterpreterName = 'echo' | 'openai';
@@ -13,6 +14,7 @@ type KeyStatus = 'valid' | 'missing' | 'invalid';
 
 interface SettingsResponse {
   interpreter: InterpreterName;
+  audio_device?: string | null;
   openai_key_set: boolean;
   openai_key_masked?: string;
   openai_key_status?: KeyStatus;
@@ -21,6 +23,8 @@ interface SettingsResponse {
 
 export default function Settings() {
   const { labels, language, theme, setLanguage, setTheme } = useOperatorPrefs();
+  const { deviceOptions, selectedDevice, setSelectedDevice, error: deviceError } =
+    useAudioDevices();
   const [interpreter, setInterpreter] = useState<InterpreterName>('echo');
   const [apiKey, setApiKey] = useState('');
   const [openaiKeyStatus, setOpenaiKeyStatus] = useState<KeyStatus>('missing');
@@ -31,10 +35,17 @@ export default function Settings() {
 
   const applySettingsResponse = (data: SettingsResponse) => {
     setInterpreter(data.interpreter);
+    setSelectedDevice(data.audio_device ?? '');
     setOpenaiKeyStatus(data.openai_key_status ?? 'missing');
     setOpenaiKeyMasked(data.openai_key_masked ?? '');
     setKeyWarning(getSelectedWarning(data));
   };
+
+  useEffect(() => {
+    if (deviceError) {
+      error(labels.audioDeviceLoadFailed);
+    }
+  }, [deviceError, error, labels.audioDeviceLoadFailed]);
 
   useEffect(() => {
     void (async () => {
@@ -96,7 +107,10 @@ export default function Settings() {
     setIsSaving(true);
     try {
       const trimmedKey = apiKey.trim();
-      const body: Record<string, string> = { interpreter };
+      const body: Record<string, string | undefined> = {
+        interpreter,
+        audio_device: selectedDevice.trim() ? selectedDevice : undefined,
+      };
       if (interpreter === 'openai' && trimmedKey) {
         body.openai_api_key = trimmedKey;
       }
@@ -140,6 +154,17 @@ export default function Settings() {
             label={labels.darkMode}
             checked={theme === 'dark'}
             onChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+          />
+        </section>
+        <section className={styles.section}>
+          <h2>{labels.audioDevice}</h2>
+          <Select
+            label={labels.audioDevice}
+            options={deviceOptions}
+            value={selectedDevice}
+            placeholder={labels.audioDevicePlaceholder}
+            disabled={deviceOptions.length === 0}
+            onChange={setSelectedDevice}
           />
         </section>
         <section className={styles.section}>

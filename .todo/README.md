@@ -13,20 +13,19 @@
 OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 진행.
 
 1. `008-backend-openai-e2e-verify.md` — OpenAI end-to-end 검증
-2. `010-frontend-audio-device-ui.md` — 오디오 장치 선택 UI
-3. `011-backend-audio-level-broadcast.md` — 오디오 입력 레벨 브로드캐스트
-4. `012-frontend-audio-level-meter.md` — 오디오 레벨 미터 UI
-5. `013-backend-audio-test-endpoint.md` — 오디오 테스트 엔드포인트
-6. `014-frontend-audio-test-ux.md` — 오디오 테스트 UX
-7. `015-backend-sermon-session-model.md` — Sermon Session 모델
-8. `016-frontend-sermon-session-ui.md` — Sermon Session UI
-9. `017-backend-translation-profile-model.md` — Translation Profile 모델
-10. `018-frontend-translation-profile-ui.md` — Translation Profile UI
-11. `019-backend-glossary-model.md` — Glossary 모델 (Global + Sermon)
-12. `020-backend-glossary-injection.md` — Glossary 세션 주입 (지원 여부에 따라 보류 가능)
-13. `021-frontend-glossary-ui.md` — Glossary UI
-14. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
-15. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
+2. `011-backend-audio-level-broadcast.md` — 오디오 입력 레벨 브로드캐스트
+3. `012-frontend-audio-level-meter.md` — 오디오 레벨 미터 UI
+4. `013-backend-audio-test-endpoint.md` — 오디오 테스트 엔드포인트
+5. `014-frontend-audio-test-ux.md` — 오디오 테스트 UX
+6. `015-backend-sermon-session-model.md` — Sermon Session 모델
+7. `016-frontend-sermon-session-ui.md` — Sermon Session UI
+8. `017-backend-translation-profile-model.md` — Translation Profile 모델
+9. `018-frontend-translation-profile-ui.md` — Translation Profile UI
+10. `019-backend-glossary-model.md` — Glossary 모델 (Global + Sermon)
+11. `020-backend-glossary-injection.md` — Glossary 세션 주입 (지원 여부에 따라 보류 가능)
+12. `021-frontend-glossary-ui.md` — Glossary UI
+13. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
+14. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
 
 ## 완료 (`done/`)
 
@@ -38,6 +37,7 @@ OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 �
 6. `006-backend-session-service-processor-wiring.md — SessionService에 AudioProcessor 연결`
 7. `007-backend-openai-realtime-adapter.md — OpenAI Realtime Translation adapter 구현`
 8. `009-backend-operator-audio-device-setting.md — Operator 설정에 오디오 장치 저장`
+9. `010-frontend-audio-device-ui.md — 오디오 장치 선택 UI`
 
 ## 결정 사항
 

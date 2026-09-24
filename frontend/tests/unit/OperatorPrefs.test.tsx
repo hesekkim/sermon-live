@@ -110,6 +110,13 @@ describe('Settings save flow', () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => [
+          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+          { index: 1, name: 'USB Audio', input_channels: 2, default_sample_rate: 48000 },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ interpreter: 'openai', openai_key_set: false }),
       })
       .mockResolvedValueOnce({
@@ -194,6 +201,12 @@ describe('Settings save flow', () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => [
+          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ interpreter: 'openai', openai_key_set: false }),
       })
       .mockResolvedValueOnce({ ok: false });
@@ -231,16 +244,24 @@ describe('Settings save flow', () => {
 
   it('shows the provider key status tag when the server reports invalid credentials', async () => {
     installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        interpreter: 'openai',
-        openai_key_set: true,
-        openai_key_masked: 'abc1...c123',
-        openai_key_status: 'invalid',
-        openai_key_warning: '서버가 OpenAI API 키를 확인하지 못했습니다.',
-      }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+        ],
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          interpreter: 'openai',
+          openai_key_set: true,
+          openai_key_masked: 'abc1...c123',
+          openai_key_status: 'invalid',
+          openai_key_warning: '서버가 OpenAI API 키를 확인하지 못했습니다.',
+        }),
+      });
     vi.stubGlobal('fetch', fetchMock);
 
     const container = document.createElement('div');
@@ -269,7 +290,13 @@ describe('Settings save flow', () => {
 
   it('shows an error toast when loading settings fails', async () => {
     installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')));
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockRejectedValueOnce(new Error('device network'))
+        .mockRejectedValue(new Error('network'))
+    );
 
     const container = document.createElement('div');
     document.body.appendChild(container);
