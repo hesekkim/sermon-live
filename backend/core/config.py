@@ -26,10 +26,14 @@ class Settings(BaseSettings):
     ]
     interpreter: InterpreterName = "echo"
     openai_api_key: str = ""
+    # Verify the model name against the official API when the OpenAI adapter is implemented.
+    openai_model: str = "gpt-realtime-translate"
     audio_device: str = ""
     audio_chunk_frames: int = 1024
     input_sample_rate: int = 16000
-    output_sample_rate: int = 24000
+    translation_target_sample_rate: int = 24000
+    translation_target_channels: int = 1
+    translation_target_sample_width: int = 2
     frontend_dist: str = ""
 
     @field_validator("allowed_origins", mode="before")

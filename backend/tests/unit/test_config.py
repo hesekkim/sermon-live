@@ -21,3 +21,12 @@ def test_allowed_origins_accepts_comma_separated_env(monkeypatch, tmp_path):
 def test_interpreter_rejects_unsupported_literal():
     with pytest.raises(ValidationError):
         Settings(interpreter="unsupported")
+
+
+def test_translation_defaults_match_openai_target_format():
+    settings = Settings()
+
+    assert settings.openai_model == "gpt-realtime-translate"
+    assert settings.translation_target_sample_rate == 24000
+    assert settings.translation_target_channels == 1
+    assert settings.translation_target_sample_width == 2

@@ -12,32 +12,32 @@
 
 OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 진행.
 
-1. `002-backend-openai-settings.md` — OpenAI 모델/타겟 오디오 포맷 설정 추가
-3. `003-backend-audio-device-api.md` — 오디오 입력 장치 목록 API
-4. `004-backend-audio-capture-native-format.md` — AudioCapture 네이티브 포맷 대응
-5. `005-backend-audio-processor.md` — AudioProcessor (포맷 변환)
-6. `006-backend-session-service-processor-wiring.md` — SessionService에 AudioProcessor 연결
-7. `007-backend-openai-realtime-adapter.md` — OpenAI Realtime Translation adapter 구현
-8. `008-backend-openai-e2e-verify.md` — OpenAI end-to-end 검증
-9. `009-backend-operator-audio-device-setting.md` — Operator 설정에 오디오 장치 저장
-10. `010-frontend-audio-device-ui.md` — 오디오 장치 선택 UI
-11. `011-backend-audio-level-broadcast.md` — 오디오 입력 레벨 브로드캐스트
-12. `012-frontend-audio-level-meter.md` — 오디오 레벨 미터 UI
-13. `013-backend-audio-test-endpoint.md` — 오디오 테스트 엔드포인트
-14. `014-frontend-audio-test-ux.md` — 오디오 테스트 UX
-15. `015-backend-sermon-session-model.md` — Sermon Session 모델
-16. `016-frontend-sermon-session-ui.md` — Sermon Session UI
-17. `017-backend-translation-profile-model.md` — Translation Profile 모델
-18. `018-frontend-translation-profile-ui.md` — Translation Profile UI
-19. `019-backend-glossary-model.md` — Glossary 모델 (Global + Sermon)
-20. `020-backend-glossary-injection.md` — Glossary 세션 주입 (지원 여부에 따라 보류 가능)
-21. `021-frontend-glossary-ui.md` — Glossary UI
-22. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
-23. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
+1. `003-backend-audio-device-api.md` — 오디오 입력 장치 목록 API
+3. `004-backend-audio-capture-native-format.md` — AudioCapture 네이티브 포맷 대응
+4. `005-backend-audio-processor.md` — AudioProcessor (포맷 변환)
+5. `006-backend-session-service-processor-wiring.md` — SessionService에 AudioProcessor 연결
+6. `007-backend-openai-realtime-adapter.md` — OpenAI Realtime Translation adapter 구현
+7. `008-backend-openai-e2e-verify.md` — OpenAI end-to-end 검증
+8. `009-backend-operator-audio-device-setting.md` — Operator 설정에 오디오 장치 저장
+9. `010-frontend-audio-device-ui.md` — 오디오 장치 선택 UI
+10. `011-backend-audio-level-broadcast.md` — 오디오 입력 레벨 브로드캐스트
+11. `012-frontend-audio-level-meter.md` — 오디오 레벨 미터 UI
+12. `013-backend-audio-test-endpoint.md` — 오디오 테스트 엔드포인트
+13. `014-frontend-audio-test-ux.md` — 오디오 테스트 UX
+14. `015-backend-sermon-session-model.md` — Sermon Session 모델
+15. `016-frontend-sermon-session-ui.md` — Sermon Session UI
+16. `017-backend-translation-profile-model.md` — Translation Profile 모델
+17. `018-frontend-translation-profile-ui.md` — Translation Profile UI
+18. `019-backend-glossary-model.md` — Glossary 모델 (Global + Sermon)
+19. `020-backend-glossary-injection.md` — Glossary 세션 주입 (지원 여부에 따라 보류 가능)
+20. `021-frontend-glossary-ui.md` — Glossary UI
+21. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
+22. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
 
 ## 완료 (`done/`)
 
 1. `001-remove-gemini.md — Gemini 코드/설정/UI 제거 (git baseline tag 존재, 최우선)`
+2. `002-backend-openai-settings.md — OpenAI 모델/타겟 오디오 포맷 설정 추가`
 
 ## 결정 사항
 
