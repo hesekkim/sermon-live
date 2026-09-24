@@ -142,7 +142,7 @@ async def test_start_marks_missing_for_openai_without_key(tmp_path):
     store.save(interpreter="openai")
     service = SessionService(Settings(interpreter="echo"), hub, store)
 
-    with pytest.raises(RuntimeError, match="Openai API key is not set"):
+    with pytest.raises(RuntimeError, match="OpenAI API key is not set"):
         await service.start()
 
     view = store.public_view(Settings(interpreter="echo"))
@@ -155,7 +155,7 @@ async def test_start_does_not_mark_connection_failure_as_invalid(monkeypatch, tm
     store = session_service_module.OperatorSettingsStore(
         tmp_path / "operator.json"
     )
-    store.save(interpreter="gemini", gemini_api_key="saved-key")
+    store.save(interpreter="openai", openai_api_key="saved-key")
 
     class FailingInterpreter(FakeInterpreter):
         async def start(self) -> None:
@@ -172,4 +172,4 @@ async def test_start_does_not_mark_connection_failure_as_invalid(monkeypatch, tm
         await service.start()
 
     view = store.public_view(Settings(interpreter="echo"))
-    assert view["gemini_key_status"] != "invalid"
+    assert view["openai_key_status"] != "invalid"

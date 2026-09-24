@@ -12,8 +12,7 @@
 
 OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 진행.
 
-1. `001-remove-gemini.md` — Gemini 코드/설정/UI 제거 (git baseline tag 존재, 최우선)
-2. `002-backend-openai-settings.md` — OpenAI 모델/타겟 오디오 포맷 설정 추가
+1. `002-backend-openai-settings.md` — OpenAI 모델/타겟 오디오 포맷 설정 추가
 3. `003-backend-audio-device-api.md` — 오디오 입력 장치 목록 API
 4. `004-backend-audio-capture-native-format.md` — AudioCapture 네이티브 포맷 대응
 5. `005-backend-audio-processor.md` — AudioProcessor (포맷 변환)
@@ -38,6 +37,7 @@ OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 �
 
 ## 완료 (`done/`)
 
+1. `001-remove-gemini.md — Gemini 코드/설정/UI 제거 (git baseline tag 존재, 최우선)`
 
 ## 결정 사항
 

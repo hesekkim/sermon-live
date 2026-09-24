@@ -8,18 +8,14 @@ import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
 import styles from './Settings.module.css';
 
-type InterpreterName = 'echo' | 'gemini' | 'openai';
+type InterpreterName = 'echo' | 'openai';
 type KeyStatus = 'valid' | 'missing' | 'invalid';
 
 interface SettingsResponse {
   interpreter: InterpreterName;
-  gemini_key_set: boolean;
   openai_key_set: boolean;
-  gemini_key_masked?: string;
   openai_key_masked?: string;
-  gemini_key_status?: KeyStatus;
   openai_key_status?: KeyStatus;
-  gemini_key_warning?: string | null;
   openai_key_warning?: string | null;
 }
 
@@ -27,9 +23,7 @@ export default function Settings() {
   const { labels, language, theme, setLanguage, setTheme } = useOperatorPrefs();
   const [interpreter, setInterpreter] = useState<InterpreterName>('echo');
   const [apiKey, setApiKey] = useState('');
-  const [geminiKeyStatus, setGeminiKeyStatus] = useState<KeyStatus>('missing');
   const [openaiKeyStatus, setOpenaiKeyStatus] = useState<KeyStatus>('missing');
-  const [geminiKeyMasked, setGeminiKeyMasked] = useState('');
   const [openaiKeyMasked, setOpenaiKeyMasked] = useState('');
   const [keyWarning, setKeyWarning] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -37,9 +31,7 @@ export default function Settings() {
 
   const applySettingsResponse = (data: SettingsResponse) => {
     setInterpreter(data.interpreter);
-    setGeminiKeyStatus(data.gemini_key_status ?? 'missing');
     setOpenaiKeyStatus(data.openai_key_status ?? 'missing');
-    setGeminiKeyMasked(data.gemini_key_masked ?? '');
     setOpenaiKeyMasked(data.openai_key_masked ?? '');
     setKeyWarning(getSelectedWarning(data));
   };
@@ -54,9 +46,7 @@ export default function Settings() {
         }
         const data = (await response.json()) as SettingsResponse;
         applySettingsResponse(data);
-        if (data.gemini_key_status === 'invalid' && data.gemini_key_warning) {
-          warning(summarizeWarning(data.gemini_key_warning));
-        } else if (data.openai_key_status === 'invalid' && data.openai_key_warning) {
+        if (data.openai_key_status === 'invalid' && data.openai_key_warning) {
           warning(summarizeWarning(data.openai_key_warning));
         }
       } catch {
@@ -68,7 +58,6 @@ export default function Settings() {
   const interpreterOptions = useMemo(
     () => [
       { value: 'echo', label: labels.echo },
-      { value: 'gemini', label: labels.gemini },
       { value: 'openai', label: labels.openai },
     ],
     [labels]
@@ -85,11 +74,7 @@ export default function Settings() {
 
   const keyDisabled = interpreter === 'echo';
   const currentKeyStatus =
-    interpreter === 'gemini'
-      ? geminiKeyStatus
-      : interpreter === 'openai'
-        ? openaiKeyStatus
-        : 'missing';
+    interpreter === 'openai' ? openaiKeyStatus : 'missing';
   const keyStatusLabel =
     currentKeyStatus === 'valid'
       ? labels.keyStatusValid
@@ -102,8 +87,7 @@ export default function Settings() {
       : currentKeyStatus === 'invalid'
         ? 'deprecated'
         : 'readonly';
-  const savedKeyPreview =
-    interpreter === 'gemini' ? geminiKeyMasked : openaiKeyMasked;
+  const savedKeyPreview = openaiKeyMasked;
 
   const handleSave = async () => {
     if (isSaving) {
@@ -113,9 +97,6 @@ export default function Settings() {
     try {
       const trimmedKey = apiKey.trim();
       const body: Record<string, string> = { interpreter };
-      if (interpreter === 'gemini' && trimmedKey) {
-        body.gemini_api_key = trimmedKey;
-      }
       if (interpreter === 'openai' && trimmedKey) {
         body.openai_api_key = trimmedKey;
       }
@@ -215,11 +196,7 @@ export default function Settings() {
 
 function getSelectedWarning(data: SettingsResponse): string {
   const warning =
-    data.interpreter === 'gemini'
-      ? data.gemini_key_warning
-      : data.interpreter === 'openai'
-        ? data.openai_key_warning
-        : null;
+    data.interpreter === 'openai' ? data.openai_key_warning : null;
   return warning ? summarizeWarning(warning) : '';
 }
 

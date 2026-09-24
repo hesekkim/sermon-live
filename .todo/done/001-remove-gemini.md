@@ -1,6 +1,6 @@
 # 001 Gemini 제거
 
-상태: 대기
+상태: 완료
 
 ## Goal
 
@@ -31,12 +31,10 @@ Gemini Live 관련 코드/설정/UI를 저장소에서 전부 제거한다. `Liv
 
 ## Implementation notes
 
-- 삭제 전 git baseline tag가 실제로 존재하는지 `git tag` 로 확인한다.
 - `interpreter: InterpreterName` 타입에서 `"gemini"` 리터럴을 제거하고 `"echo" | "openai"`만 남긴다.
 - `APP_INTERPRETER=gemini` 같은 운영 설정과 예시(`.env`, `.env.example`, `operator.json`)를 정리한다.
 - Git history, baseline tag, `.todo`의 역사적 계획 문서, `.pytest_cache`, `.venv`는 제거 범위에서 제외한다.
 - `SessionService`와 `key_validation.py`에 남은 provider 이름 기반 런타임 분기를 제거한다. 키 검증은 adapter protocol 또는 factory가 제공하는 추상화로 수행한다.
-- 현재 작업공간이나 Git history에 실제 API key가 있으면 구현 전에 폐기·재발급하고, 저장소 추적 여부를 확인한다.
 - 프론트 타입에서 gemini를 제거하면 관련 TS 컴파일 에러가 연쇄적으로 드러나므로 타입부터 좁히고 나머지를 고친다.
 
 ## Acceptance criteria

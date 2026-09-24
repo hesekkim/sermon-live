@@ -18,43 +18,43 @@ class StubInterpreter:
 @pytest.mark.asyncio
 async def test_valid_key_is_updated_without_starting_session(monkeypatch, tmp_path):
     store = OperatorSettingsStore(tmp_path / "operator.json")
-    store.save(interpreter="gemini", gemini_api_key="valid-key")
+    store.save(interpreter="openai", openai_api_key="valid-key")
     monkeypatch.setattr(
         "services.key_validation.create_interpreter",
         lambda _settings: StubInterpreter(),
     )
 
-    await validate_operator_key(Settings(interpreter="gemini"), store)
+    await validate_operator_key(Settings(interpreter="openai"), store)
 
-    assert store.public_view(Settings(interpreter="gemini"))["gemini_key_status"] == "valid"
+    assert store.public_view(Settings(interpreter="openai"))["openai_key_status"] == "valid"
 
 
 @pytest.mark.asyncio
 async def test_invalid_key_is_updated_without_starting_session(monkeypatch, tmp_path):
     store = OperatorSettingsStore(tmp_path / "operator.json")
-    store.save(interpreter="gemini", gemini_api_key="invalid-key")
+    store.save(interpreter="openai", openai_api_key="invalid-key")
     monkeypatch.setattr(
         "services.key_validation.create_interpreter",
         lambda _settings: StubInterpreter(KeyValidationError("invalid credentials")),
     )
 
-    await validate_operator_key(Settings(interpreter="gemini"), store)
+    await validate_operator_key(Settings(interpreter="openai"), store)
 
-    view = store.public_view(Settings(interpreter="gemini"))
-    assert view["gemini_key_status"] == "invalid"
-    assert view["gemini_key_warning"] == "invalid credentials"
+    view = store.public_view(Settings(interpreter="openai"))
+    assert view["openai_key_status"] == "invalid"
+    assert view["openai_key_warning"] == "invalid credentials"
 
 
 @pytest.mark.asyncio
 async def test_connection_failure_does_not_mark_key_invalid(monkeypatch, tmp_path):
     store = OperatorSettingsStore(tmp_path / "operator.json")
-    store.save(interpreter="gemini", gemini_api_key="valid-key")
+    store.save(interpreter="openai", openai_api_key="valid-key")
     monkeypatch.setattr(
         "services.key_validation.create_interpreter",
         lambda _settings: StubInterpreter(RuntimeError("connection failed")),
     )
 
-    await validate_operator_key(Settings(interpreter="gemini"), store)
+    await validate_operator_key(Settings(interpreter="openai"), store)
 
-    view = store.public_view(Settings(interpreter="gemini"))
-    assert view["gemini_key_status"] != "invalid"
+    view = store.public_view(Settings(interpreter="openai"))
+    assert view["openai_key_status"] != "invalid"

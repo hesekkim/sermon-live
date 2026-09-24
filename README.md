@@ -2,7 +2,7 @@
 
 Korean-to-German live sermon interpreter for a church LAN.
 
-Congregation members open a phone browser on the same Wi-Fi. The operator laptop captures the pulpit mic, sends audio to an injected interpreter (Gemini Live by default, Echo for free local tests), and broadcasts PCM plus subtitles over WebSocket.
+Congregation members open a phone browser on the same Wi-Fi. The operator laptop captures the pulpit mic, sends audio to an injected interpreter (OpenAI Realtime when enabled, Echo for free local tests), and broadcasts PCM plus subtitles over WebSocket.
 
 ## Layout
 
@@ -37,6 +37,6 @@ Phones must use the laptop LAN IP, not `localhost`.
 
 ## Interpreter injection
 
-`APP_INTERPRETER=echo|gemini|openai`
+`APP_INTERPRETER=echo|openai`
 
 Pipeline code must not branch on vendor names. Add a new provider by implementing `LiveInterpreter` and registering it in the factory.

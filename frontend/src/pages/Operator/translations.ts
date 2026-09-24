@@ -24,7 +24,6 @@ export interface OperatorCopy {
   settingsLoadFailed: string;
   darkMode: string;
   echo: string;
-  gemini: string;
   openai: string;
   openaiUnavailable: string;
   echoNoKey: string;
@@ -73,7 +72,6 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     settingsLoadFailed: '설정을 불러오지 못했습니다',
     darkMode: '다크 모드',
     echo: 'Echo (로컬)',
-    gemini: 'Gemini',
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI는 아직 사용할 수 없습니다',
     echoNoKey: 'Echo는 API KEY가 필요 없습니다',
@@ -120,7 +118,6 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     settingsLoadFailed: 'Could not load settings',
     darkMode: 'Dark mode',
     echo: 'Echo (local)',
-    gemini: 'Gemini',
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI is not available yet',
     echoNoKey: 'Echo does not need an API KEY',
@@ -167,7 +164,6 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     settingsLoadFailed: 'Einstellungen konnten nicht geladen werden',
     darkMode: 'Dunkelmodus',
     echo: 'Echo (lokal)',
-    gemini: 'Gemini',
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI ist noch nicht verfügbar',
     echoNoKey: 'Echo braucht keinen API KEY',

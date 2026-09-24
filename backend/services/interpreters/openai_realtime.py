@@ -14,7 +14,7 @@ class OpenAIRealtimeInterpreter:
     async def start(self) -> None:
         raise NotImplementedError(
             "OpenAI Realtime adapter is not implemented. "
-            "Set APP_INTERPRETER=echo or APP_INTERPRETER=gemini."
+            "Set APP_INTERPRETER=echo or APP_INTERPRETER=openai."
         )
 
     async def send_pcm(self, chunk: bytes) -> None:

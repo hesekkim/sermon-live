@@ -12,7 +12,6 @@ router = APIRouter()
 
 class OperatorSettingsBody(BaseModel):
     interpreter: InterpreterName
-    gemini_api_key: str | None = Field(default=None)
     openai_api_key: str | None = Field(default=None)
 
 
@@ -27,7 +26,6 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
     try:
         store.save(
             interpreter=body.interpreter,
-            gemini_api_key=body.gemini_api_key,
             openai_api_key=body.openai_api_key,
         )
     except (OSError, ValueError, TypeError) as exc:

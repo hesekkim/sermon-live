@@ -15,13 +15,10 @@ async def validate_operator_key(
     if provider == "echo":
         return
 
-    key = (
-        runtime.gemini_api_key
-        if provider == "gemini"
-        else runtime.openai_api_key
-    )
+    key = runtime.openai_api_key
     if not key:
-        store.set_key_status(provider, "missing", f"{provider.title()} API key is not set")
+        label = "OpenAI" if provider == "openai" else provider.title()
+        store.set_key_status(provider, "missing", f"{label} API key is not set")
         return
 
     interpreter = create_interpreter(runtime)

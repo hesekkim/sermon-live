@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-InterpreterName = Literal["echo", "gemini", "openai"]
+InterpreterName = Literal["echo", "openai"]
 
 
 class Settings(BaseSettings):
@@ -25,11 +25,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
     interpreter: InterpreterName = "echo"
-    gemini_api_key: str = ""
     openai_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash-native-audio-preview-12-2025"
-    gemini_voice: str = "Aoede"
-    turn_silence_ms: int = 180
     audio_device: str = ""
     audio_chunk_frames: int = 1024
     input_sample_rate: int = 16000

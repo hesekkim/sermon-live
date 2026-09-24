@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 from core.config import Settings
 
 
@@ -13,3 +16,8 @@ def test_allowed_origins_accepts_comma_separated_env(monkeypatch, tmp_path):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
+
+
+def test_interpreter_rejects_unsupported_literal():
+    with pytest.raises(ValidationError):
+        Settings(interpreter="unsupported")

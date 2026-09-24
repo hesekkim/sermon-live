@@ -44,28 +44,22 @@ class SessionService:
             if self._running:
                 return
             runtime = self._store.overlay_settings(self._settings)
-            if runtime.interpreter in {"gemini", "openai"}:
-                key = (
-                    runtime.gemini_api_key
-                    if runtime.interpreter == "gemini"
-                    else runtime.openai_api_key
-                )
-                if not key:
+            if runtime.interpreter == "openai":
+                if not runtime.openai_api_key:
+                    label = "OpenAI" if runtime.interpreter == "openai" else runtime.interpreter.title()
                     self._store.set_key_status(
                         runtime.interpreter,
                         "missing",
-                        f"{runtime.interpreter.title()} API key is not set",
+                        f"{label} API key is not set",
                     )
-                    raise RuntimeError(
-                        f"{runtime.interpreter.title()} API key is not set"
-                    )
+                    raise RuntimeError(f"{label} API key is not set")
             interpreter = create_interpreter(runtime)
             capture = AudioCapture(self._settings)
             try:
                 await interpreter.start()
             except Exception:
                 raise
-            if runtime.interpreter in {"gemini", "openai"}:
+            if runtime.interpreter == "openai":
                 self._store.set_key_status(runtime.interpreter, "valid")
             try:
                 await capture.start()

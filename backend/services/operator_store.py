@@ -14,7 +14,6 @@ STORE_PATH = DATA_DIR / "operator.json"
 @dataclass(slots=True)
 class OperatorRecord:
     interpreter: InterpreterName | None = None
-    gemini_api_key: str = ""
     openai_api_key: str = ""
 
 
@@ -33,11 +32,10 @@ class OperatorSettingsStore:
             return OperatorRecord()
         interpreter = raw.get("interpreter")
         name: InterpreterName | None = None
-        if interpreter in ("echo", "gemini", "openai"):
+        if interpreter in ("echo", "openai"):
             name = interpreter
         return OperatorRecord(
             interpreter=name,
-            gemini_api_key=_as_str(raw.get("gemini_api_key")),
             openai_api_key=_as_str(raw.get("openai_api_key")),
         )
 
@@ -45,25 +43,19 @@ class OperatorSettingsStore:
         self,
         *,
         interpreter: InterpreterName,
-        gemini_api_key: str | None = None,
         openai_api_key: str | None = None,
     ) -> OperatorRecord:
         current = self.load()
-        gemini = current.gemini_api_key
         openai = current.openai_api_key
-        if gemini_api_key is not None and gemini_api_key != "":
-            gemini = gemini_api_key
         if openai_api_key is not None and openai_api_key != "":
             openai = openai_api_key
         record = OperatorRecord(
             interpreter=interpreter,
-            gemini_api_key=gemini,
             openai_api_key=openai,
         )
         self._path.parent.mkdir(parents=True, exist_ok=True)
         payload: dict[str, Any] = {
             "interpreter": record.interpreter,
-            "gemini_api_key": record.gemini_api_key,
             "openai_api_key": record.openai_api_key,
         }
         self._path.write_text(
@@ -74,21 +66,14 @@ class OperatorSettingsStore:
     def public_view(self, settings: Settings) -> dict[str, Any]:
         record = self.load()
         interpreter = record.interpreter or settings.interpreter
-        gemini_key = record.gemini_api_key or settings.gemini_api_key
         openai_key = record.openai_api_key or settings.openai_api_key
-        gemini_raw = self._read_status_overrides().get("gemini")
         openai_raw = self._read_status_overrides().get("openai")
-        gemini_status = _normalize_key_status(gemini_raw[0] if gemini_raw else None, bool(gemini_key))
         openai_status = _normalize_key_status(openai_raw[0] if openai_raw else None, bool(openai_key))
         return {
             "interpreter": interpreter,
-            "gemini_key_set": bool(gemini_key),
             "openai_key_set": bool(openai_key),
-            "gemini_key_masked": _mask_key(gemini_key),
             "openai_key_masked": _mask_key(openai_key),
-            "gemini_key_status": gemini_status,
             "openai_key_status": openai_status,
-            "gemini_key_warning": gemini_raw[1] if gemini_raw else _warning_for_key("gemini", gemini_status),
             "openai_key_warning": openai_raw[1] if openai_raw else _warning_for_key("openai", openai_status),
         }
 
@@ -98,7 +83,7 @@ class OperatorSettingsStore:
         status: str,
         warning: str | None = None,
     ) -> None:
-        if provider not in {"gemini", "openai"}:
+        if provider not in {"openai"}:
             return
         if status not in {"valid", "missing", "invalid"}:
             raise ValueError(f"Unsupported key status: {status}")
@@ -123,7 +108,7 @@ class OperatorSettingsStore:
         if not isinstance(raw, dict):
             return {}
         result: dict[str, tuple[str | None, str | None]] = {}
-        for name in ("gemini", "openai"):
+        for name in ("openai",):
             status = raw.get(f"{name}_key_status")
             warning = raw.get(f"{name}_key_warning")
             if isinstance(status, str) and status in {"valid", "missing", "invalid"}:
@@ -135,8 +120,6 @@ class OperatorSettingsStore:
         updates: dict[str, Any] = {}
         if record.interpreter:
             updates["interpreter"] = record.interpreter
-        if record.gemini_api_key:
-            updates["gemini_api_key"] = record.gemini_api_key
         if record.openai_api_key:
             updates["openai_api_key"] = record.openai_api_key
         if not updates:
@@ -165,10 +148,11 @@ def _normalize_key_status(status: str | None, has_value: bool) -> str:
 
 
 def _warning_for_key(provider: str, status: str) -> str | None:
+    label = "OpenAI" if provider == "openai" else provider.title()
     if status == "missing":
-        return f"{provider.title()} API key is not set"
+        return f"{label} API key is not set"
     if status == "invalid":
-        return f"{provider.title()} API key is invalid"
+        return f"{label} API key is invalid"
     return None
 
 

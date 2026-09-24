@@ -110,15 +110,14 @@ describe('Settings save flow', () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ interpreter: 'gemini', gemini_key_set: false, openai_key_set: false }),
+        json: async () => ({ interpreter: 'openai', openai_key_set: false }),
       })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          interpreter: 'gemini',
-          gemini_key_set: true,
-          openai_key_set: false,
-          gemini_key_masked: 'abc1...c123',
+          interpreter: 'openai',
+          openai_key_set: true,
+          openai_key_masked: 'abc1...c123',
         }),
       });
     vi.stubGlobal('fetch', fetchMock);
@@ -176,7 +175,7 @@ describe('Settings save flow', () => {
     );
     expect(putCall).toBeDefined();
     expect((putCall?.[1] as RequestInit | undefined)?.body).toBe(
-      JSON.stringify({ interpreter: 'gemini', gemini_api_key: 'abc123' })
+      JSON.stringify({ interpreter: 'openai', openai_api_key: 'abc123' })
     );
     expect((container.querySelector('input[type="password"]') as HTMLInputElement).value).toBe('');
     expect((container.querySelector('input[type="password"]') as HTMLInputElement).placeholder).toBe(
@@ -195,7 +194,7 @@ describe('Settings save flow', () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ interpreter: 'gemini', gemini_key_set: false, openai_key_set: false }),
+        json: async () => ({ interpreter: 'openai', openai_key_set: false }),
       })
       .mockResolvedValueOnce({ ok: false });
     vi.stubGlobal('fetch', fetchMock);
@@ -235,12 +234,11 @@ describe('Settings save flow', () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        interpreter: 'gemini',
-        gemini_key_set: true,
-        openai_key_set: false,
-        gemini_key_masked: 'abc1...c123',
-        gemini_key_status: 'invalid',
-        gemini_key_warning: '서버가 Gemini API 키를 확인하지 못했습니다.',
+        interpreter: 'openai',
+        openai_key_set: true,
+        openai_key_masked: 'abc1...c123',
+        openai_key_status: 'invalid',
+        openai_key_warning: '서버가 OpenAI API 키를 확인하지 못했습니다.',
       }),
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -261,7 +259,7 @@ describe('Settings save flow', () => {
     });
 
     expect(container.textContent).toContain('유효하지 않음');
-    expect(container.textContent).toContain('서버가 Gemini API 키를 확인하지 못했습니다.');
+    expect(container.textContent).toContain('서버가 OpenAI API 키를 확인하지 못했습니다.');
 
     await act(async () => {
       root.unmount();

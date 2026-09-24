@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useState,
   type FocusEvent,
   type HTMLInputTypeAttribute,
 } from 'react';
@@ -36,6 +37,9 @@ export interface InputFieldProps {
   required?: boolean;
   maxLength?: number;
   className?: string;
+  showPasswordToggle?: boolean;
+  showPasswordLabel?: string;
+  hidePasswordLabel?: string;
   onBlur?: (event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onFocus?: (event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
 }
@@ -68,9 +72,13 @@ const InputField = forwardRef<
     required,
     maxLength,
     className = '',
+    showPasswordToggle = false,
+    showPasswordLabel = 'Show password',
+    hidePasswordLabel = 'Hide password',
   },
   ref,
 ) {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const {
     inputId,
     currentValue,
@@ -101,6 +109,12 @@ const InputField = forwardRef<
   ]
     .filter(Boolean)
     .join(' ');
+
+  const resolvedInputType = showPasswordToggle
+    ? isPasswordVisible
+      ? 'text'
+      : 'password'
+    : type;
 
   const sharedProps = {
     id: inputId,
@@ -146,6 +160,18 @@ const InputField = forwardRef<
             ×
           </button>
         ) : null}
+        {showPasswordToggle ? (
+          <button
+            type="button"
+            className={styles['input-field__clear-button']}
+            onClick={() => setIsPasswordVisible((value) => !value)}
+            onMouseDown={(event) => event.preventDefault()}
+            aria-label={isPasswordVisible ? hidePasswordLabel : showPasswordLabel}
+            title={isPasswordVisible ? hidePasswordLabel : showPasswordLabel}
+          >
+            {isPasswordVisible ? hidePasswordLabel : showPasswordLabel}
+          </button>
+        ) : null}
       </div>
 
       <div className={fieldClassName}>
@@ -159,7 +185,7 @@ const InputField = forwardRef<
           <input
             {...sharedProps}
             ref={ref as React.Ref<HTMLInputElement>}
-            type={type}
+            type={resolvedInputType}
             pattern={pattern}
             inputMode={inputMode}
           />
