@@ -73,6 +73,7 @@ export function OperatorPrefsProvider({ children }: { children: ReactNode }) {
       // Ignore unavailable storage in restricted test/browser environments.
     }
     document.documentElement.dataset.theme = theme;
+    document.body.dataset.cmsTheme = theme;
   }, [theme]);
 
   const setLanguage = useCallback((next: UiLanguage) => {

@@ -1,4 +1,4 @@
-# 014 Operator UI 언어 설정을 operator.json으로 저장
+014 Operator UI 언어 설정을 operator.json으로 저장
 
 상태: 대기
 

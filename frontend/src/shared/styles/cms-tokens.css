@@ -1,4 +1,13 @@
+/**
+ * CMS UI design tokens.
+ * Kept separate from public site brand tokens (--color-*).
+ *
+ * - --cf-* : raw palette / spacing / radius (safe globally; namespaced)
+ * - .cms-theme : semantic surfaces, focus, primary used by shared/ui
+ */
+
 :root {
+  /* Palette - Neutral */
   --cf-white: #ffffff;
   --cf-neutral-100: #f9f9f9;
   --cf-neutral-200: #e2e2e2;
@@ -9,6 +18,7 @@
   --cf-neutral-700: #424242;
   --cf-black: #000000;
 
+  /* Palette - Blue (CMS accent / focus) */
   --cf-blue-13: #eff7fb;
   --cf-blue-25: #cde6f3;
   --cf-blue-38: #aed7eb;
@@ -17,6 +27,7 @@
   --cf-blue-75: #075f8a;
   --cf-blue-88: #054667;
 
+  /* Palette - Yellow / warning */
   --cf-yellow-13: #fff5d1;
   --cf-yellow-25: #ffe174;
   --cf-yellow-38: #ffcb0d;
@@ -24,11 +35,13 @@
   --cf-yellow-63: #c85200;
   --cf-yellow-75: #a23200;
 
+  /* Palette - Green */
   --cf-green-13: #eef8ee;
   --cf-green-50: #2cab2c;
   --cf-green-63: #0f8a0f;
   --cf-green-75: #0c680c;
 
+  /* Palette - Red */
   --cf-red-13: #fdf4f4;
   --cf-red-25: #f9dede;
   --cf-red-38: #f3b5b5;
@@ -37,54 +50,115 @@
   --cf-red-75: #b91c1c;
   --cf-red-88: #7f1d1d;
 
+  /* Spacing (4px grid) */
   --cf-space-4: 0.25rem;
   --cf-space-8: 0.5rem;
   --cf-space-12: 0.75rem;
   --cf-space-16: 1rem;
   --cf-space-20: 1.25rem;
   --cf-space-24: 1.5rem;
+  --cf-space-28: 1.75rem;
   --cf-space-32: 2rem;
+  --cf-space-36: 2.25rem;
+  --cf-space-40: 2.5rem;
+  --cf-space-48: 3rem;
+  --cf-space-64: 4rem;
 
+  /* Interaction defaults (overridden inside .cms-theme) */
   --cf-font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
   --cf-focus-color: var(--cf-blue-63);
   --cf-focus-offset: 2px;
   --cf-disabled-opacity: 0.3;
 
+  /* Radius */
+  --cf-radius-tag: 80px;
+  --cf-radius-pill: 100px;
+  --cf-radius-card: 12px;
   --cf-radius-toc: 8px;
   --cf-radius-input: 8px;
-  --cf-radius-card: 12px;
-  --cf-radius-tag: 999px;
-
-  --cms-bg: var(--cf-neutral-100);
-  --cms-surface: var(--cf-white);
-  --cms-text: var(--cf-neutral-700);
-  --cms-text-secondary: var(--cf-neutral-500);
-  --cms-text-tertiary: var(--cf-neutral-400);
-  --cms-border: var(--cf-neutral-300);
-  --cms-border-hover: var(--cf-neutral-600);
-  --cms-focus: var(--cf-blue-63);
-  --cms-primary: var(--cf-blue-63);
-
-  --highlight: #2563eb;
 }
 
+/* Semantic CMS theme — apply on admin / CMS / UI Lab shells */
 .cms-theme {
+  /* Surfaces */
   --cms-bg: var(--cf-neutral-100);
   --cms-surface: var(--cf-white);
   --cms-surface-muted: var(--cf-neutral-100);
+  --cms-surface-raised: var(--cf-white);
   --cms-hover: var(--cf-neutral-200);
-  --cms-text: var(--cf-black);
+  --cms-overlay: rgba(15, 23, 42, 0.42);
+
+  /* Text */
+  --cms-text: var(--cf-neutral-700);
   --cms-text-secondary: var(--cf-neutral-500);
   --cms-text-tertiary: var(--cf-neutral-400);
   --cms-text-on-primary: var(--cf-white);
+
+  /* Borders / focus / accent */
   --cms-border: var(--cf-neutral-300);
   --cms-border-hover: var(--cf-neutral-600);
   --cms-focus: var(--cf-blue-63);
   --cms-primary: var(--cf-blue-63);
+  --cms-primary-soft: #dbeafe;
+  --cms-primary-soft-hover: var(--cf-blue-25);
   --cms-primary-hover: var(--cf-blue-75);
   --cms-primary-active: var(--cf-blue-88);
   --cms-danger: var(--cf-red-63);
-  --highlight: #2563eb;
+  --cms-danger-soft: #fee2e2;
+
+  /* Wire CSS modules that still use legacy semantic names */
+  --primary-color: var(--cms-primary);
+  --primary-hover: var(--cms-primary-hover);
+  --text-primary: var(--cms-text);
+  --text-secondary: var(--cms-text-secondary);
+  --text-tertiary: var(--cms-text-tertiary);
+  --border-color: var(--cms-border);
+  --border-hover: var(--cms-border-hover);
+  --card-bg: var(--cms-surface-muted);
+  --input-bg: var(--cms-surface);
+  --hover-bg: var(--cms-hover);
+  --cf-focus-color: var(--cms-focus);
+
+  color: var(--cms-text);
+  background-color: var(--cms-bg);
+  font-family: var(--cf-font-family);
+}
+
+.cms-theme[data-cms-theme='dark'],
+body[data-cms-theme='dark'] .cms-theme {
+  /* Neutral surfaces and blue accents aligned with Visual Studio Code Dark. */
+  --cf-white: #1e1e1e;
+  --cf-neutral-100: #1e1e1e;
+  --cf-neutral-200: #252526;
+  --cf-neutral-300: #333333;
+  --cf-neutral-400: #858585;
+  --cf-neutral-500: #9d9d9d;
+  --cf-neutral-600: #c5c5c5;
+  --cf-neutral-700: #cccccc;
+  --cf-black: #000000;
+
+  --cms-bg: #1e1e1e;
+  --cms-surface: #252526;
+  --cms-surface-muted: #2d2d30;
+  --cms-surface-raised: #333333;
+  --cms-hover: #2a2d2e;
+  --cms-overlay: rgba(0, 0, 0, 0.55);
+
+  --cms-text: #cccccc;
+  --cms-text-secondary: #9d9d9d;
+  --cms-text-tertiary: #858585;
+  --cms-text-on-primary: #ffffff;
+
+  --cms-border: #3e3e42;
+  --cms-border-hover: #6e6e6e;
+  --cms-focus: #007acc;
+  --cms-primary: #007acc;
+  --cms-primary-soft: #264f78;
+  --cms-primary-soft-hover: #315f8f;
+  --cms-primary-hover: #1a9fff;
+  --cms-primary-active: #75beff;
+  --cms-danger: #f48771;
+  --cms-danger-soft: rgba(244, 135, 113, 0.16);
 
   --primary-color: var(--cms-primary);
   --primary-hover: var(--cms-primary-hover);
@@ -98,67 +172,6 @@
   --hover-bg: var(--cms-hover);
   --cf-focus-color: var(--cms-focus);
 
-  --toast-info-border: var(--cf-blue-50);
-  --toast-info-background: var(--cf-blue-13);
-  --toast-info-icon: var(--cf-blue-75);
-  --toast-warning-border: var(--cf-yellow-50);
-  --toast-warning-background: var(--cf-yellow-13);
-  --toast-warning-icon: var(--cf-yellow-63);
-  --toast-error-border: var(--cf-red-63);
-  --toast-error-background: var(--cf-red-13);
-  --toast-error-icon: var(--cf-red-63);
-
   color: var(--cms-text);
   background-color: var(--cms-bg);
-  font-family: var(--cf-font-family);
-}
-
-html[data-theme='dark'] .cms-theme {
-  --cms-bg: #0d1321;
-  --cms-surface: #1b2a41;
-  --cms-surface-muted: #152033;
-  --cms-hover: #243656;
-  --cms-text: #ffffff;
-  --cms-text-secondary: #a7b4c6;
-  --cms-text-tertiary: #7d8ca0;
-  --cms-border: #334155;
-  --cms-border-hover: #64748b;
-  --cms-focus: #60a5fa;
-  --cms-primary: #3b82f6;
-  --cms-primary-hover: #60a5fa;
-  --cms-primary-active: #2563eb;
-  --highlight: #60a5fa;
-  --cf-white: #1b2a41;
-  --cf-neutral-100: #152033;
-  --cf-neutral-200: #243656;
-  --cf-neutral-300: #334155;
-  --cf-neutral-500: #a7b4c6;
-  --cf-neutral-600: #cbd5e1;
-  --cf-neutral-700: #ffffff;
-  --cf-blue-13: #1e3a5f;
-  --card-bg: var(--cms-surface-muted);
-  --input-bg: var(--cms-surface);
-  --hover-bg: var(--cms-hover);
-  --text-primary: var(--cms-text);
-  --border-color: var(--cms-border);
-  --toast-info-border: #60a5fa;
-  --toast-info-background: #12304b;
-  --toast-info-icon: #93c5fd;
-  --toast-warning-border: #fbbf24;
-  --toast-warning-background: #3b2f0b;
-  --toast-warning-icon: #fcd34d;
-  --toast-error-border: #f87171;
-  --toast-error-background: #461c25;
-  --toast-error-icon: #fca5a5;
-}
-
-html[data-theme='dark'] {
-  --cms-bg: #0d1321;
-  --cms-text: #ffffff;
-  --cms-text-secondary: #a7b4c6;
-  --cms-text-tertiary: #7d8ca0;
-  --cms-border: #334155;
-  --cms-border-hover: #64748b;
-  --cms-focus: #60a5fa;
-  --cms-primary: #3b82f6;
 }
