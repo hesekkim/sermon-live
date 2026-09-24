@@ -45,3 +45,8 @@
 .inputWrap {
   flex: 1;
 }
+
+.applyActions {
+  display: flex;
+  justify-content: flex-end;
+}

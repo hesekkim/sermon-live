@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import Button from '../../../shared/components/Button/Button';
 import InputField from '../../../shared/components/InputField/InputField';
 import Select from '../../../shared/components/Select/Select';
@@ -6,65 +6,47 @@ import SlideToggle from '../../../shared/components/SlideToggle/SlideToggle';
 import StatusTag from '../../../shared/components/StatusTag/StatusTag';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
+import type { UiLanguage } from '../translations';
 import { useAudioDevices } from './useAudioDevices';
+import { useOperatorSettings } from './useOperatorSettings';
 import styles from './Settings.module.css';
 
 type InterpreterName = 'echo' | 'openai';
-type KeyStatus = 'valid' | 'missing' | 'invalid';
-
-interface SettingsResponse {
-  interpreter: InterpreterName;
-  audio_device?: string | null;
-  openai_key_set: boolean;
-  openai_key_masked?: string;
-  openai_key_status?: KeyStatus;
-  openai_key_warning?: string | null;
-}
 
 export default function Settings() {
   const { labels, language, theme, setLanguage, setTheme } = useOperatorPrefs();
   const { deviceOptions, selectedDevice, setSelectedDevice, error: deviceError } =
     useAudioDevices();
-  const [interpreter, setInterpreter] = useState<InterpreterName>('echo');
-  const [apiKey, setApiKey] = useState('');
-  const [openaiKeyStatus, setOpenaiKeyStatus] = useState<KeyStatus>('missing');
-  const [openaiKeyMasked, setOpenaiKeyMasked] = useState('');
-  const [keyWarning, setKeyWarning] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const { info, warning, error } = useToast();
-
-  const applySettingsResponse = (data: SettingsResponse) => {
-    setInterpreter(data.interpreter);
-    setSelectedDevice(data.audio_device ?? '');
-    setOpenaiKeyStatus(data.openai_key_status ?? 'missing');
-    setOpenaiKeyMasked(data.openai_key_masked ?? '');
-    setKeyWarning(getSelectedWarning(data));
-  };
+  const { error } = useToast();
+  const {
+    interpreter,
+    setInterpreter,
+    apiKey,
+    setApiKey,
+    openaiKeyStatus,
+    openaiKeyMasked,
+    keyWarning,
+    draftLanguage,
+    setDraftLanguage,
+    draftTheme,
+    setDraftTheme,
+    isSaving,
+    handleSave,
+  } = useOperatorSettings({
+    labels,
+    language,
+    theme,
+    setLanguage,
+    setTheme,
+    selectedDevice,
+    setSelectedDevice,
+  });
 
   useEffect(() => {
     if (deviceError) {
       error(labels.audioDeviceLoadFailed);
     }
   }, [deviceError, error, labels.audioDeviceLoadFailed]);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const response = await fetch('/api/v1/operator/settings');
-        if (!response.ok) {
-          error(labels.settingsLoadFailed);
-          return;
-        }
-        const data = (await response.json()) as SettingsResponse;
-        applySettingsResponse(data);
-        if (data.openai_key_status === 'invalid' && data.openai_key_warning) {
-          warning(summarizeWarning(data.openai_key_warning));
-        }
-      } catch {
-        error(labels.settingsLoadFailed);
-      }
-    })();
-  }, [error, labels.settingsLoadFailed]);
 
   const interpreterOptions = useMemo(
     () => [
@@ -100,44 +82,6 @@ export default function Settings() {
         : 'readonly';
   const savedKeyPreview = openaiKeyMasked;
 
-  const handleSave = async () => {
-    if (isSaving) {
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const trimmedKey = apiKey.trim();
-      const body: Record<string, string | undefined> = {
-        interpreter,
-        audio_device: selectedDevice.trim() ? selectedDevice : undefined,
-      };
-      if (interpreter === 'openai' && trimmedKey) {
-        body.openai_api_key = trimmedKey;
-      }
-      const response = await fetch('/api/v1/operator/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        error(labels.applyFailed);
-        return;
-      }
-      const data = (await response.json()) as SettingsResponse;
-      applySettingsResponse(data);
-      setApiKey('');
-      const responseWarning = getSelectedWarning(data);
-      if (responseWarning && data.interpreter !== 'echo') {
-        warning(summarizeWarning(responseWarning));
-      }
-      info(labels.applySaved);
-    } catch {
-      error(labels.applyFailed);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   return (
     <div className={styles.page}>
       <h1>{labels.navSettings}</h1>
@@ -147,13 +91,13 @@ export default function Settings() {
           <Select
             label={labels.language}
             options={languageOptions}
-            value={language}
-            onChange={(value) => setLanguage(value as 'ko' | 'en' | 'de')}
+            value={draftLanguage}
+            onChange={(value) => setDraftLanguage(value as UiLanguage)}
           />
           <SlideToggle
             label={labels.darkMode}
-            checked={theme === 'dark'}
-            onChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+            checked={draftTheme === 'dark'}
+            onChange={(checked) => setDraftTheme(checked ? 'dark' : 'light')}
           />
         </section>
         <section className={styles.section}>
@@ -205,29 +149,16 @@ export default function Settings() {
               />
             </div>
           </div>
-          <div>
-            {keyWarning && currentKeyStatus === 'invalid' ? (
-              <p role="status">{keyWarning}</p>
-            ) : null}
-            <Button disabled={isSaving} onClick={() => void handleSave()}>
-              {labels.apply}
-            </Button>
-          </div>
+          {keyWarning && currentKeyStatus === 'invalid' ? (
+            <p role="status">{keyWarning}</p>
+          ) : null}
         </section>
+        <div className={styles.applyActions}>
+          <Button disabled={isSaving} onClick={() => void handleSave()}>
+            {labels.apply}
+          </Button>
+        </div>
       </div>
     </div>
   );
-}
-
-function getSelectedWarning(data: SettingsResponse): string {
-  const warning =
-    data.interpreter === 'openai' ? data.openai_key_warning : null;
-  return warning ? summarizeWarning(warning) : '';
-}
-
-function summarizeWarning(value: string): string {
-  const normalized = value.replace(/\s+/g, ' ').trim();
-  return normalized.length > 160
-    ? `${normalized.slice(0, 157).trimEnd()}...`
-    : normalized;
 }
