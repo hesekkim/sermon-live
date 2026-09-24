@@ -9,7 +9,7 @@
 
 .input-field__field {
   display: flex;
-  padding: var(--cf-space-16) var(--cf-space-12) var(--cf-space-12) var(--cf-space-16);
+  padding: var(--cf-space-12) var(--cf-space-16);
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
@@ -19,14 +19,18 @@
   border-radius: var(--cf-radius-card);
   border: 1px solid var(--border-color, var(--cf-neutral-300));
   background-color: var(--input-bg, var(--cf-white));
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .input-field__field:hover:not(.input-field__field--disabled) {
   border-color: var(--border-hover, var(--cf-neutral-600));
 }
 
-.input-field__field--focused:not(.input-field__field--error):not(.input-field__field--disabled) {
+.input-field__field--focused:not(.input-field__field--error):not(
+    .input-field__field--disabled
+  ) {
   outline: 2px solid var(--cf-focus-color);
   outline-offset: var(--cf-focus-offset);
 }
@@ -62,7 +66,8 @@
   justify-content: space-between;
   gap: var(--cf-space-8);
   width: 100%;
-  padding-bottom: var(--cf-space-8);
+  padding-left: var(--cf-space-8);
+  margin-bottom: var(--cf-space-8);
 }
 
 .input-field__clear-button {
@@ -80,7 +85,9 @@
   font-size: 1.125rem;
   line-height: 1;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .input-field__clear-button:hover {
@@ -89,32 +96,6 @@
 }
 
 .input-field__clear-button:focus-visible {
-  outline: 2px solid var(--cf-focus-color);
-  outline-offset: 2px;
-}
-
-.input-field__password-button {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-secondary, var(--cf-neutral-500));
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.input-field__password-button:hover {
-  background-color: var(--cf-neutral-200);
-  color: var(--text-primary, var(--cf-neutral-700));
-}
-
-.input-field__password-button:focus-visible {
   outline: 2px solid var(--cf-focus-color);
   outline-offset: 2px;
 }

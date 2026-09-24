@@ -14,17 +14,31 @@ export type StatusTagVariant = keyof typeof VARIANT_LABELS | (string & {});
 
 export interface StatusTagProps {
   variant?: StatusTagVariant;
+  type?: 'published' | 'unpublished';
   label?: string;
+  className?: string;
 }
 
-export default function StatusTag({ variant = 'open', label }: StatusTagProps) {
+export default function StatusTag({
+  variant = 'open',
+  type,
+  label,
+  className = '',
+}: StatusTagProps) {
+  const resolvedVariant =
+    type === 'published'
+      ? 'decided'
+      : type === 'unpublished'
+        ? 'deprecated'
+        : variant;
   const displayLabel =
     label ??
-    (VARIANT_LABELS[variant as keyof typeof VARIANT_LABELS] ?? variant);
+    VARIANT_LABELS[resolvedVariant as keyof typeof VARIANT_LABELS] ??
+    resolvedVariant;
 
   return (
     <div
-      className={`${styles.tag} ${styles[`tag--${variant}`]}`}
+      className={`${styles.tag} ${styles[`tag--${resolvedVariant as string}`]} ${className}`.trim()}
       role="img"
       aria-label={displayLabel}
     >

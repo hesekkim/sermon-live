@@ -13,7 +13,7 @@ function nextToastId() {
 export function useToastStore(durationMs = DEFAULT_DURATION_MS) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
-    new Map()
+    new Map(),
   );
 
   const clearTimer = useCallback((id: string) => {
@@ -29,7 +29,7 @@ export function useToastStore(durationMs = DEFAULT_DURATION_MS) {
       clearTimer(id);
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     },
-    [clearTimer]
+    [clearTimer],
   );
 
   const push = useCallback(
@@ -45,26 +45,24 @@ export function useToastStore(durationMs = DEFAULT_DURATION_MS) {
 
       return id;
     },
-    [durationMs]
+    [durationMs],
   );
 
-  const info = useCallback(
-    (message: string) => push('info', message),
-    [push]
-  );
+  const info = useCallback((message: string) => push('info', message), [push]);
   const warning = useCallback(
     (message: string) => push('warning', message),
-    [push]
+    [push],
   );
   const error = useCallback(
     (message: string) => push('error', message),
-    [push]
+    [push],
   );
 
   useEffect(() => {
+    const timers = timersRef.current;
     return () => {
-      timersRef.current.forEach((timer) => clearTimeout(timer));
-      timersRef.current.clear();
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
     };
   }, []);
 

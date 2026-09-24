@@ -20,6 +20,7 @@ export interface SelectProps {
   emptyMessage?: string;
   openOptionsLabel?: string;
   closeOptionsLabel?: string;
+  className?: string;
 }
 
 export default function Select({
@@ -37,6 +38,7 @@ export default function Select({
   emptyMessage = 'No matches',
   openOptionsLabel = 'Open options',
   closeOptionsLabel = 'Close options',
+  className = '',
 }: SelectProps) {
   const {
     rootRef,
@@ -124,17 +126,21 @@ export default function Select({
             ))
           )}
         </ul>,
-        document.body
+        document.body,
       )
     : null;
 
   return (
-    <div className={styles.select} ref={rootRef}>
+    <div
+      className={[styles.select, className].filter(Boolean).join(' ')}
+      ref={rootRef}
+    >
+      <label className={labelClassName} htmlFor={selectId}>
+        {label}
+      </label>
+
       {searchable ? (
         <div className={fieldClassName}>
-          <label className={labelClassName} htmlFor={selectId}>
-            {label}
-          </label>
           <span className={styles['select__value-row']}>
             <input
               ref={searchInputRef}
@@ -188,7 +194,6 @@ export default function Select({
           onClick={toggleDropdown}
           onKeyDown={handleListKeyDown}
         >
-          <span className={labelClassName}>{label}</span>
           <span className={styles['select__value-row']}>
             <span
               className={[

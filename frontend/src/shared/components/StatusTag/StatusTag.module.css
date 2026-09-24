@@ -72,6 +72,11 @@
   color: var(--warning-text, #92400e);
 }
 
+.tag--published .tag__label,
+.tag--unpublished .tag__label {
+  color: inherit;
+}
+
 .tag__label {
   font-family: var(--cf-font-family, inherit);
   font-size: 8px;

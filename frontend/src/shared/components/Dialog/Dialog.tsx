@@ -12,7 +12,7 @@ export interface DialogProps {
   onClose: () => void;
   closeLabel?: string;
   footer?: ReactNode;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
   closeOnOverlayClick?: boolean;
   closeOnEscape?: boolean;
@@ -49,6 +49,7 @@ export default function Dialog({
   const dialogClassName = [
     styles.dialog,
     size === 'sm' ? styles['dialog--sm'] : '',
+    size === 'lg' ? styles['dialog--lg'] : '',
     className,
   ]
     .filter(Boolean)
@@ -63,7 +64,7 @@ export default function Dialog({
 
   return createPortal(
     <div
-      className={styles.overlay}
+      className={`cms-theme ${styles.overlay}`}
       onClick={handleOverlayClick}
       role="presentation"
     >
@@ -93,6 +94,6 @@ export default function Dialog({
         {footer ? <div className={footerClassName}>{footer}</div> : null}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

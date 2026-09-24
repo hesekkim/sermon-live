@@ -20,7 +20,9 @@
   padding-right: var(--cf-space-8);
 }
 
-.tag-selector:hover:not(:disabled):not(.tag-selector--disabled):not(.tag-selector--removable):not(.tag-selector--selected) {
+.tag-selector:hover:not(:disabled):not(.tag-selector--disabled):not(
+    .tag-selector--removable
+  ):not(.tag-selector--selected) {
   background-color: var(--cf-neutral-200);
   border-color: var(--cf-neutral-200);
 }
@@ -35,8 +37,8 @@
 }
 
 .tag-selector--selected {
-  background-color: var(--cf-blue-63);
-  border-color: var(--cf-blue-63);
+  background-color: var(--cf-blue-50);
+  border-color: var(--cf-blue-50);
 }
 
 .tag-selector--selected .tag-selector__label,
@@ -100,6 +102,12 @@
   background-color: rgba(255, 255, 255, 0.2);
 }
 
+:global(body:not([data-cms-theme='dark']))
+  .tag-selector__remove:hover:not(:disabled) {
+  background-color: var(--cf-red-13);
+  color: var(--cf-red-63);
+}
+
 .tag-selector__remove:focus-visible {
   outline: 2px solid var(--cf-focus-color);
   outline-offset: 1px;
@@ -107,4 +115,39 @@
 
 .tag-selector__remove:disabled {
   cursor: not-allowed;
+}
+
+:global(body[data-cms-theme='dark']) .tag-selector {
+  background-color: var(--cms-surface-raised, #333333);
+  border-color: var(--cms-border-hover, #6e6e6e);
+}
+
+:global(body[data-cms-theme='dark'])
+  .tag-selector:hover:not(:disabled):not(.tag-selector--disabled):not(
+    .tag-selector--removable
+  ):not(.tag-selector--selected) {
+  background-color: var(--cms-hover, #2a2d2e);
+  border-color: var(--cms-border-hover, #6e6e6e);
+}
+
+:global(body[data-cms-theme='dark']) .tag-selector__label,
+:global(body[data-cms-theme='dark']) .tag-selector__icon {
+  color: var(--cms-text, #cccccc);
+}
+
+:global(body[data-cms-theme='dark']) .tag-selector--selected {
+  background-color: var(--cms-primary-soft, #264f78);
+  border-color: var(--cms-primary, #007acc);
+}
+
+:global(body[data-cms-theme='dark'])
+  .tag-selector--selected
+  .tag-selector__label,
+:global(body[data-cms-theme='dark'])
+  .tag-selector--selected
+  .tag-selector__icon,
+:global(body[data-cms-theme='dark'])
+  .tag-selector--selected
+  .tag-selector__remove {
+  color: var(--cms-text-on-primary, #ffffff);
 }

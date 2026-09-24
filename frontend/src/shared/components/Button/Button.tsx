@@ -7,7 +7,8 @@ const VARIANT_CLASS = {
   secondary: 'button--secondary',
   'secondary-big': 'button--secondary-big',
   danger: 'button--danger',
-  text: 'button--text',
+  ghost: 'button--ghost',
+  'ghost-danger': 'button--ghost-danger',
 } as const;
 
 export type ButtonVariant = keyof typeof VARIANT_CLASS;

@@ -24,6 +24,11 @@ export default function SlideToggle({
 
   return (
     <div className={styles['slide-toggle']}>
+      {label && (
+        <label htmlFor={switchId} className={styles['slide-toggle__label']}>
+          {label}
+        </label>
+      )}
       <button
         type="button"
         id={switchId}
@@ -61,11 +66,6 @@ export default function SlideToggle({
           />
         </svg>
       </button>
-      {label && (
-        <label htmlFor={switchId} className={styles['slide-toggle__label']}>
-          {label}
-        </label>
-      )}
     </div>
   );
 }

@@ -46,9 +46,10 @@ export function useSelect({
   const generatedId = useId();
   const selectId = id ?? generatedId;
 
-  const selectedLabel = value
-    ? (options.find((option) => option.value === value)?.label ?? '')
-    : '';
+  const selectedLabel =
+    value !== undefined && value !== null
+      ? (options.find((option) => option.value === value)?.label ?? '')
+      : '';
   const displayValue = selectedLabel || placeholder;
 
   const dropdownOptions = useMemo(() => {
@@ -131,7 +132,7 @@ export function useSelect({
     document.addEventListener('click', handleDocumentClick, true);
     return () =>
       document.removeEventListener('click', handleDocumentClick, true);
-  }, [isOpen]);
+  }, [dropdownOptions, isOpen, value]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -141,10 +142,10 @@ export function useSelect({
     }
 
     const selectedIndex = dropdownOptions.findIndex(
-      (option) => option.value === value
+      (option) => option.value === value,
     );
     setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
-  }, [isOpen]);
+  }, [dropdownOptions, isOpen, value]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -176,7 +177,7 @@ export function useSelect({
   };
 
   const handleSelectOption = (option: SelectOption) => {
-    if (option.disabled || option.value === '') {
+    if (option.disabled) {
       return;
     }
 

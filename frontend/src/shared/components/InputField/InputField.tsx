@@ -1,10 +1,8 @@
 import {
   forwardRef,
-  useState,
   type FocusEvent,
   type HTMLInputTypeAttribute,
 } from 'react';
-import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import styles from './InputField.module.css';
 import { useInputField } from './useInputField';
 
@@ -20,9 +18,6 @@ export interface InputFieldProps {
   multiline?: boolean;
   clearable?: boolean;
   clearButtonLabel?: string;
-  showPasswordToggle?: boolean;
-  showPasswordLabel?: string;
-  hidePasswordLabel?: string;
   autoFocus?: boolean;
   id?: string;
   rows?: number;
@@ -40,6 +35,7 @@ export interface InputFieldProps {
     | 'search';
   required?: boolean;
   maxLength?: number;
+  className?: string;
   onBlur?: (event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onFocus?: (event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
 }
@@ -60,9 +56,6 @@ const InputField = forwardRef<
     multiline = false,
     clearable = false,
     clearButtonLabel = 'Clear input',
-    showPasswordToggle = false,
-    showPasswordLabel = 'Show password',
-    hidePasswordLabel = 'Hide password',
     onBlur,
     onFocus,
     autoFocus = false,
@@ -74,10 +67,10 @@ const InputField = forwardRef<
     inputMode,
     required,
     maxLength,
+    className = '',
   },
-  ref
+  ref,
 ) {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const {
     inputId,
     currentValue,
@@ -126,50 +119,36 @@ const InputField = forwardRef<
   };
 
   return (
-    <div className={styles['input-field']}>
-      <div className={fieldClassName}>
-        <div className={styles['input-field__label-row']}>
-          <label
-            htmlFor={inputId}
-            className={[
-              styles['input-field__label'],
-              error ? styles['input-field__label--error'] : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
+    <div
+      className={[styles['input-field'], className].filter(Boolean).join(' ')}
+    >
+      <div className={styles['input-field__label-row']}>
+        <label
+          htmlFor={inputId}
+          className={[
+            styles['input-field__label'],
+            error ? styles['input-field__label--error'] : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {label}
+        </label>
+        {showClearButton ? (
+          <button
+            type="button"
+            className={styles['input-field__clear-button']}
+            onClick={handleClear}
+            onMouseDown={(event) => event.preventDefault()}
+            aria-label={clearButtonLabel}
+            title={clearButtonLabel}
           >
-            {label}
-          </label>
-          {showClearButton ? (
-            <button
-              type="button"
-              className={styles['input-field__clear-button']}
-              onClick={handleClear}
-              onMouseDown={(event) => event.preventDefault()}
-              aria-label={clearButtonLabel}
-              title={clearButtonLabel}
-            >
-              ×
-            </button>
-          ) : null}
-          {showPasswordToggle && type === 'password' && !disabled ? (
-            <button
-              type="button"
-              className={styles['input-field__password-button']}
-              onClick={() => setIsPasswordVisible((visible) => !visible)}
-              onMouseDown={(event) => event.preventDefault()}
-              aria-label={isPasswordVisible ? hidePasswordLabel : showPasswordLabel}
-              title={isPasswordVisible ? hidePasswordLabel : showPasswordLabel}
-            >
-              {isPasswordVisible ? (
-                <MdVisibilityOff aria-hidden="true" />
-              ) : (
-                <MdVisibility aria-hidden="true" />
-              )}
-            </button>
-          ) : null}
-        </div>
+            ×
+          </button>
+        ) : null}
+      </div>
 
+      <div className={fieldClassName}>
         {multiline ? (
           <textarea
             {...sharedProps}
@@ -180,7 +159,7 @@ const InputField = forwardRef<
           <input
             {...sharedProps}
             ref={ref as React.Ref<HTMLInputElement>}
-            type={isPasswordVisible && type === 'password' ? 'text' : type}
+            type={type}
             pattern={pattern}
             inputMode={inputMode}
           />
