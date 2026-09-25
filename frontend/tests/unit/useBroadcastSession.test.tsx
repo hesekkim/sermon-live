@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useBroadcastSession } from '../../src/pages/Operator/broadcast/useBroadcastSession';
+import { useBroadcastSession } from '../../src/pages/Operator/broadcast/hooks/useBroadcastSession';
 import { operatorCopy } from '../../src/pages/Operator/translations';
 
 (globalThis as typeof globalThis & {

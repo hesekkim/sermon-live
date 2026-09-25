@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { OperatorCopy } from '../translations';
-import { appendTranscriptLine } from './transcriptFile';
+import type { OperatorCopy } from '../../translations';
+import { appendTranscriptLine } from '../utils/transcriptFile';
 
-interface SessionStatus {
-  running: boolean;
-  listener_count: number;
-}
-
+interface SessionStatus { running: boolean; listener_count: number }
 interface OperatorMessage {
   type?: string;
   role?: 'input' | 'output';
@@ -23,10 +19,7 @@ function clampAudioLevel(level: number) {
   return Math.min(AUDIO_LEVEL_MAX_DBFS, Math.max(AUDIO_LEVEL_MIN_DBFS, level));
 }
 
-export function useBroadcastSession(
-  labels: OperatorCopy,
-  onSessionError?: (message: string) => void
-) {
+export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (message: string) => void) {
   const [running, setRunning] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [audioLevel, setAudioLevel] = useState<number | null>(null);
@@ -35,48 +28,29 @@ export function useBroadcastSession(
   const socketRef = useRef<WebSocket | null>(null);
   const isUnmountingRef = useRef(false);
   const socketErrorReportedRef = useRef(false);
-
   const onSessionErrorRef = useRef(onSessionError);
 
   useEffect(() => {
     onSessionErrorRef.current = onSessionError;
   }, [onSessionError]);
 
-  const formatSessionError = useCallback(
-    (message?: string) => {
-      const text = (message ?? '').toLowerCase();
-      if (
-        text.includes('api key') &&
-        (text.includes('not valid') || text.includes('invalid'))
-      ) {
-        return labels.invalidApiKey;
-      }
-      return labels.sessionError;
-    },
-    [labels.invalidApiKey, labels.sessionError]
-  );
-
-  const emitSessionError = useCallback(
-    (message?: string) => {
-      onSessionErrorRef.current?.(formatSessionError(message));
-    },
-    [formatSessionError]
-  );
-
+  const formatSessionError = useCallback((message?: string) => {
+    const text = (message ?? '').toLowerCase();
+    return text.includes('api key') && (text.includes('not valid') || text.includes('invalid'))
+      ? labels.invalidApiKey
+      : labels.sessionError;
+  }, [labels.invalidApiKey, labels.sessionError]);
+  const emitSessionError = useCallback((message?: string) => {
+    onSessionErrorRef.current?.(formatSessionError(message));
+  }, [formatSessionError]);
   const applyStatus = useCallback((data: SessionStatus) => {
     setRunning(data.running);
     setListenerCount(data.listener_count);
-    if (!data.running) {
-      setAudioLevel(null);
-    }
+    if (!data.running) setAudioLevel(null);
   }, []);
-
   const refreshStatus = useCallback(async () => {
     const response = await fetch('/api/v1/session');
-    if (!response || !response.ok) {
-      return;
-    }
-    applyStatus((await response.json()) as SessionStatus);
+    if (response.ok) applyStatus((await response.json()) as SessionStatus);
   }, [applyStatus]);
 
   useEffect(() => {
@@ -86,21 +60,15 @@ export function useBroadcastSession(
     socketRef.current = socket;
     socketErrorReportedRef.current = false;
     socket.addEventListener('message', (event) => {
-      if (typeof event.data !== 'string') {
-        return;
-      }
+      if (typeof event.data !== 'string') return;
       try {
         const payload = JSON.parse(event.data) as OperatorMessage;
         if (payload.type === 'status') {
           if (typeof payload.running === 'boolean') {
             setRunning(payload.running);
-            if (!payload.running) {
-              setAudioLevel(null);
-            }
+            if (!payload.running) setAudioLevel(null);
           }
-          if (typeof payload.listenerCount === 'number') {
-            setListenerCount(payload.listenerCount);
-          }
+          if (typeof payload.listenerCount === 'number') setListenerCount(payload.listenerCount);
           return;
         }
         if (payload.type === 'audio_level') {
@@ -115,43 +83,25 @@ export function useBroadcastSession(
         }
         if (payload.type === 'transcript' && payload.text) {
           if (payload.role === 'input') {
-            setInputLines((lines) =>
-              appendTranscriptLine(lines, payload.text ?? '')
-            );
+            setInputLines((lines) => appendTranscriptLine(lines, payload.text ?? ''));
           } else if (payload.role === 'output') {
-            setOutputLines((lines) =>
-              appendTranscriptLine(lines, payload.text ?? '')
-            );
+            setOutputLines((lines) => appendTranscriptLine(lines, payload.text ?? ''));
           }
         }
-      } catch {
-        return;
-      }
+      } catch { return; }
     });
-    socket.addEventListener('error', () => {
+    const handleSocketFailure = () => {
       setAudioLevel(null);
-      if (!isUnmountingRef.current) {
-        if (!socketErrorReportedRef.current) {
-          socketErrorReportedRef.current = true;
-          emitSessionError();
-        }
+      if (!isUnmountingRef.current && !socketErrorReportedRef.current) {
+        socketErrorReportedRef.current = true;
+        emitSessionError();
       }
-    });
-    socket.addEventListener('close', () => {
-      setAudioLevel(null);
-      if (!isUnmountingRef.current) {
-        if (!socketErrorReportedRef.current) {
-          socketErrorReportedRef.current = true;
-          emitSessionError();
-        }
-      }
-    });
+    };
+    socket.addEventListener('error', handleSocketFailure);
+    socket.addEventListener('close', handleSocketFailure);
     return () => {
       isUnmountingRef.current = true;
-      if (
-        socket.readyState === WebSocket.CONNECTING ||
-        socket.readyState === WebSocket.OPEN
-      ) {
+      if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) {
         socket.close(1000, 'Page closed');
       }
       socketRef.current = null;
@@ -161,37 +111,20 @@ export function useBroadcastSession(
   const start = useCallback(async () => {
     const response = await fetch('/api/v1/session/start', { method: 'POST' });
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as
-        | { detail?: string }
-        | null;
+      const body = (await response.json().catch(() => null)) as { detail?: string } | null;
       const detail = body?.detail ?? 'start failed';
-      if (
-        detail.toLowerCase().includes('api key') &&
-        (detail.toLowerCase().includes('not valid') ||
-          detail.toLowerCase().includes('invalid'))
-      ) {
+      if (detail.toLowerCase().includes('api key') && (detail.toLowerCase().includes('not valid') || detail.toLowerCase().includes('invalid'))) {
         throw new Error('invalid_api_key');
       }
       throw new Error(detail);
     }
     applyStatus((await response.json()) as SessionStatus);
   }, [applyStatus]);
-
   const stop = useCallback(async () => {
     const response = await fetch('/api/v1/session/stop', { method: 'POST' });
-    if (!response.ok) {
-      throw new Error('stop failed');
-    }
+    if (!response.ok) throw new Error('stop failed');
     applyStatus((await response.json()) as SessionStatus);
   }, [applyStatus]);
 
-  return {
-    running,
-    listenerCount,
-    audioLevel,
-    inputLines,
-    outputLines,
-    start,
-    stop,
-  };
+  return { running, listenerCount, audioLevel, inputLines, outputLines, start, stop };
 }

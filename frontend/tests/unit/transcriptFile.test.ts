@@ -3,7 +3,7 @@ import {
   appendTranscriptLine,
   buildTranscriptDownload,
   buildTranscriptPaneDownload,
-} from '../../src/pages/Operator/broadcast/transcriptFile';
+} from '../../src/pages/Operator/broadcast/utils/transcriptFile';
 
 describe('transcriptFile', () => {
   it('appends transcript fragments and skips empty', () => {
