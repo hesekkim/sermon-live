@@ -13,22 +13,21 @@
 개인 예배용 실시간 통역 운영 기능. Server는 계속 실행할 수 있고, 비용이 발생하는 Translation Session만 필요할 때 실행한다.
 
 1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
-2. `016-frontend-sermon-session-ui.md` — Sermon Session UI
-3. `017-backend-translation-profile-model.md` — Translation Profile 모델
-4. `018-frontend-translation-profile-ui.md` — Translation Profile UI
-5. `019-backend-glossary-model.md` — Glossary 모델 (Global + Sermon)
-6. `020-backend-glossary-injection.md` — Glossary 세션 주입 (지원 여부에 따라 보류 가능)
-7. `021-frontend-glossary-ui.md` — Glossary UI
-8. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
-9. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
-10. `024-backend-translation-session-lifecycle.md` — Translation Session lifecycle
-11. `025-backend-translation-safety-timer.md` — Translation Safety Timer
-12. `026-backend-broadcast-observability.md` — Broadcast 상태 이벤트 계약
-13. `027-frontend-operator-navigation-restructure.md` — Operator 3영역 navigation
-14. `028-frontend-translation-session-controls.md` — Broadcast Translation 제어
-15. `029-frontend-settings-configuration-ui.md` — 운영 설정 UI
-16. `030-frontend-listener-core-ux.md` — Listener 핵심 UX
-17. `031-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
+2. `017-backend-translation-profile-model.md` — Translation Profile 모델
+3. `018-frontend-translation-profile-ui.md` — Translation Profile UI
+4. `019-backend-glossary-model.md` — Glossary 모델 (Global + Sermon)
+5. `020-backend-glossary-injection.md` — Glossary 세션 주입 (지원 여부에 따라 보류 가능)
+6. `021-frontend-glossary-ui.md` — Glossary UI
+7. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
+8. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
+9. `024-backend-translation-session-lifecycle.md` — Translation Session lifecycle
+10. `025-backend-translation-safety-timer.md` — Translation Safety Timer
+11. `026-backend-broadcast-observability.md` — Broadcast 상태 이벤트 계약
+12. `027-frontend-operator-navigation-restructure.md` — Operator 3영역 navigation
+13. `028-frontend-translation-session-controls.md` — Broadcast Translation 제어
+14. `029-frontend-settings-configuration-ui.md` — 운영 설정 UI
+15. `030-frontend-listener-core-ux.md` — Listener 핵심 UX
+16. `031-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
 
 ## 완료 (`done/`)
 
@@ -46,6 +45,7 @@
 12. `013-backend-audio-test-endpoint.md — 오디오 테스트 엔드포인트`
 13. `014-frontend-audio-test-ux.md — 오디오 테스트 UX`
 14. `015-backend-sermon-session-model.md — Sermon Session 모델`
+15. `016-frontend-sermon-session-ui.md — Sermon Session UI`
 
 ## 결정 사항
 

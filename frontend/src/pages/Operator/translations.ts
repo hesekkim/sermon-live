@@ -5,6 +5,21 @@ export interface OperatorCopy {
   brand: string;
   navSettings: string;
   navBroadcast: string;
+  navSermonSession: string;
+  sermonTitle: string;
+  sermonSpeaker: string;
+  sermonBibleReference: string;
+  sermonBibleText: string;
+  sermonNotes: string;
+  sermonLifecycle: string;
+  sermonPrepare: string;
+  sermonReady: string;
+  sermonLive: string;
+  sermonEnded: string;
+  sermonSave: string;
+  sermonSaved: string;
+  sermonSaveFailed: string;
+  sermonLoadFailed: string;
   collapseSidebar: string;
   expandSidebar: string;
   language: string;
@@ -68,6 +83,21 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     brand: 'Sermon Live',
     navSettings: '설정',
     navBroadcast: '방송',
+    navSermonSession: '설교 세션',
+    sermonTitle: '설교 제목',
+    sermonSpeaker: '설교자',
+    sermonBibleReference: '성경 본문',
+    sermonBibleText: '본문 내용',
+    sermonNotes: '노트',
+    sermonLifecycle: '진행 상태',
+    sermonPrepare: '준비',
+    sermonReady: '준비 완료',
+    sermonLive: '방송 중',
+    sermonEnded: '종료',
+    sermonSave: '설교 정보 저장',
+    sermonSaved: '설교 정보를 저장했습니다',
+    sermonSaveFailed: '설교 정보를 저장하지 못했습니다',
+    sermonLoadFailed: '설교 정보를 불러오지 못했습니다',
     collapseSidebar: '사이드바 접기',
     expandSidebar: '사이드바 펼치기',
     language: '언어',
@@ -129,6 +159,21 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     brand: 'Sermon Live',
     navSettings: 'Settings',
     navBroadcast: 'Broadcast',
+    navSermonSession: 'Sermon session',
+    sermonTitle: 'Sermon title',
+    sermonSpeaker: 'Speaker',
+    sermonBibleReference: 'Bible reference',
+    sermonBibleText: 'Bible text',
+    sermonNotes: 'Notes',
+    sermonLifecycle: 'Lifecycle',
+    sermonPrepare: 'Prepare',
+    sermonReady: 'Ready',
+    sermonLive: 'Live',
+    sermonEnded: 'Ended',
+    sermonSave: 'Save sermon details',
+    sermonSaved: 'Sermon details saved',
+    sermonSaveFailed: 'Could not save sermon details',
+    sermonLoadFailed: 'Could not load sermon details',
     collapseSidebar: 'Collapse sidebar',
     expandSidebar: 'Expand sidebar',
     language: 'Language',
@@ -190,6 +235,21 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     brand: 'Sermon Live',
     navSettings: 'Einstellungen',
     navBroadcast: 'Sendung',
+    navSermonSession: 'Predigt-Sitzung',
+    sermonTitle: 'Predigttitel',
+    sermonSpeaker: 'Prediger',
+    sermonBibleReference: 'Bibelstelle',
+    sermonBibleText: 'Bibeltext',
+    sermonNotes: 'Notizen',
+    sermonLifecycle: 'Status',
+    sermonPrepare: 'Vorbereitung',
+    sermonReady: 'Bereit',
+    sermonLive: 'Live',
+    sermonEnded: 'Beendet',
+    sermonSave: 'Predigtdaten speichern',
+    sermonSaved: 'Predigtdaten gespeichert',
+    sermonSaveFailed: 'Predigtdaten konnten nicht gespeichert werden',
+    sermonLoadFailed: 'Predigtdaten konnten nicht geladen werden',
     collapseSidebar: 'Seitenleiste einklappen',
     expandSidebar: 'Seitenleiste ausklappen',
     language: 'Sprache',

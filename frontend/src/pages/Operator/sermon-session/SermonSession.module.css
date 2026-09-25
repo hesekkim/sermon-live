@@ -1,0 +1,49 @@
+.page {
+  max-width: 48rem;
+}
+
+.page h1 {
+  margin: 0 0 var(--cf-space-24);
+  font-size: 1.5rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-20);
+}
+
+.lifecycle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space-16);
+  padding-bottom: var(--cf-space-16);
+  border-bottom: 1px solid var(--cms-border);
+}
+
+.lifecycle span {
+  color: var(--cms-text);
+  opacity: 0.8;
+}
+
+.lifecycle output {
+  color: var(--cms-primary);
+  font-weight: 600;
+}
+
+.lifecycle output[data-status='live'] {
+  color: var(--cms-danger, #b91c1c);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 600px) {
+  .lifecycle {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -3,6 +3,7 @@ import Broadcast from './pages/Operator/broadcast/Broadcast.tsx';
 import OperatorLayout from './pages/Operator/layout/OperatorLayout.tsx';
 import { OperatorPrefsProvider } from './pages/Operator/OperatorPrefs.tsx';
 import Settings from './pages/Operator/settings/Settings.tsx';
+import SermonSession from './pages/Operator/sermon-session/SermonSession.tsx';
 import Listen from './pages/Listen/Listen.tsx';
 import { ToastProvider } from './shared/components/Toast/ToastProvider.tsx';
 import { useOperatorPrefs } from './pages/Operator/OperatorPrefs.tsx';
@@ -30,6 +31,7 @@ export default function App() {
       >
         <Route index element={<Navigate to="broadcast" replace />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="sermon-session" element={<SermonSession />} />
         <Route path="broadcast" element={<Broadcast />} />
       </Route>
     </Routes>

@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from '../../../shared/components/Sidebar/Sidebar';
 import { useOperatorPrefs } from '../OperatorPrefs';
 import { BroadcastIcon, GearIcon } from './OperatorNavIcons';
+import { MdMenuBook } from 'react-icons/md';
 import { useOperatorLayout } from './useOperatorLayout';
 import styles from './OperatorLayout.module.css';
 
@@ -33,6 +34,12 @@ export default function OperatorLayout() {
               to: '/operator/broadcast',
               label: labels.navBroadcast,
               icon: BroadcastIcon,
+            },
+            {
+              id: 'sermon-session',
+              to: '/operator/sermon-session',
+              label: labels.navSermonSession,
+              icon: MdMenuBook,
             },
             {
               id: 'settings',

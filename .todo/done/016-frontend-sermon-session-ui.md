@@ -1,6 +1,6 @@
 # 016 Sermon Session UI
 
-상태: 대기
+상태: 완료
 
 ## Goal
 
