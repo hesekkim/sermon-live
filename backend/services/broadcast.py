@@ -39,7 +39,7 @@ class BroadcastHub:
                 websocket, {"sampleRate": self._sample_rate}
             )
         await self.broadcast_operator(
-            {"type": "status", "listenerCount": self.listener_count}
+            {"type": "listener_count", "listener_count": self.listener_count}
         )
 
     def unregister(self, websocket: WebSocket) -> None:
@@ -70,7 +70,7 @@ class BroadcastHub:
             self.unregister(client)
         if stale:
             await self.broadcast_operator(
-                {"type": "status", "listenerCount": self.listener_count}
+                {"type": "listener_count", "listener_count": self.listener_count}
             )
 
     async def broadcast_text(self, text: str) -> None:
@@ -108,7 +108,7 @@ class BroadcastHub:
             self.unregister(client)
         if stale:
             await self.broadcast_operator(
-                {"type": "status", "listenerCount": self.listener_count}
+                {"type": "listener_count", "listener_count": self.listener_count}
             )
 
     async def _safe_send_json(

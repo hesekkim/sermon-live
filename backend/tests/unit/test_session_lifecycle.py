@@ -119,6 +119,26 @@ async def test_start_stop_keeps_server_audio_ready_and_rejects_duplicate_transit
 
 
 @pytest.mark.asyncio
+async def test_translation_status_uses_standardized_contract(tmp_path):
+    service, hub = make_service(tmp_path)
+
+    await service.start()
+
+    status = next(
+        event
+        for event in hub.operator_events
+        if event.get("type") == "translation_status"
+        and event.get("session_status") == "live"
+    )
+    assert status["type"] == "translation_status"
+    assert status["session_status"] == "live"
+    assert status["listener_count"] == 1
+    assert status["running"] is True
+
+    await service.stop()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("reason", ["auto_stop", "hard_limit"])
 async def test_automatic_end_reasons_are_broadcast(tmp_path, reason):
     service, hub = make_service(tmp_path)
@@ -288,11 +308,16 @@ async def test_duplicate_start_and_stop_are_rejected_while_starting(tmp_path, mo
         "create_interpreter",
         lambda _settings: BlockingInterpreter(),
     )
-    service, _hub = make_service(tmp_path)
+    service, hub = make_service(tmp_path)
     start_task = asyncio.create_task(service.start())
     await started.wait()
 
     assert service.state == "starting"
+    assert any(
+        event.get("type") == "translation_status"
+        and event.get("session_status") == "starting"
+        for event in hub.operator_events
+    )
     with pytest.raises(SessionTransitionError):
         await service.start()
     with pytest.raises(SessionTransitionError):

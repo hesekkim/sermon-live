@@ -89,23 +89,8 @@ class _TranslationSessionService:
         return payload
 
     def session_event(self) -> dict[str, object]:
-        start_block_reason = self._start_block_reason()
-        payload = {
-            "type": "status",
-            "running": self.running,
-            "sessionStatus": self._state,
-            "listenerCount": self._hub.listener_count,
-            "audioReady": self._audio.ready,
-            "audioError": self._audio.error,
-            "error": self._error,
-            "sermonSessionId": self._sermon_session_id,
-            "reason": self._last_termination_reason,
-            "startAvailable": start_block_reason is None,
-            "startBlockReason": start_block_reason,
-        }
-        timer = self._timer_status()
-        if timer is not None:
-            payload["timer"] = timer
+        payload = self.status()
+        payload["type"] = "translation_status"
         return payload
 
     def _auto_stop_seconds(self) -> float:
@@ -214,10 +199,10 @@ class _TranslationSessionService:
             self._timer_deadline_at = None
             self._timer_warning_sent = False
             self._timer_extension_count = 0
+            await self._publish_status()
 
         interpreter: LiveInterpreter | None = None
         try:
-            await self._publish_status()
             runtime = self._store.overlay_settings(self._settings)
             if runtime.interpreter == "openai" and not runtime.openai_api_key:
                 self._store.set_key_status(
@@ -478,7 +463,11 @@ class _TranslationSessionService:
             await broadcaster(payload)
 
     async def _publish_error(self, message: str) -> None:
-        payload = {"type": "error", "text": message, "sessionStatus": self._state}
+        payload = {
+            "type": "error",
+            "text": message,
+            "session_status": self._state,
+        }
         broadcaster = getattr(self._hub, "broadcast_session", None)
         if broadcaster is None:
             await self._hub.broadcast_operator(payload)
@@ -594,9 +583,10 @@ class LegacySessionService:
             logger.info("Session started with interpreter=%s", runtime.interpreter)
             await self._hub.broadcast_operator(
                 {
-                    "type": "status",
+                    "type": "translation_status",
                     "running": True,
-                    "listenerCount": self._hub.listener_count,
+                    "session_status": "live",
+                    "listener_count": self._hub.listener_count,
                 }
             )
 
@@ -626,9 +616,10 @@ class LegacySessionService:
         logger.info("Session stopped")
         await self._hub.broadcast_operator(
             {
-                "type": "status",
+                "type": "translation_status",
                 "running": False,
-                "listenerCount": self._hub.listener_count,
+                "session_status": "off",
+                "listener_count": self._hub.listener_count,
             }
         )
 

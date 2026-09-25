@@ -33,18 +33,25 @@ interface OperatorMessage {
   role?: 'input' | 'output';
   text?: string;
   running?: boolean;
+  session_status?: TranslationSessionStatus;
   sessionStatus?: TranslationSessionStatus;
+  audio_ready?: boolean;
   audioReady?: boolean;
+  audio_error?: string | null;
   audioError?: string | null;
+  start_available?: boolean;
   startAvailable?: boolean;
+  start_block_reason?: string | null;
   startBlockReason?: string | null;
   error?: string | null;
   ready?: boolean;
+  listener_count?: number;
   listenerCount?: number;
   level?: number;
   milliseconds?: number;
   timer?: SessionTimerState;
   reason?: string;
+  last_termination_reason?: string | null;
 }
 
 const AUDIO_LEVEL_MIN_DBFS = -60;
@@ -140,7 +147,14 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
         if (typeof event.data !== 'string') return;
         try {
           const payload = JSON.parse(event.data) as OperatorMessage;
-          if (payload.type === 'status') {
+          if (payload.type === 'translation_status' || payload.type === 'server_status' || payload.type === 'status') {
+            const sessionStatus = payload.session_status ?? payload.sessionStatus;
+            const listenerCount =
+              typeof payload.listener_count === 'number'
+                ? payload.listener_count
+                : typeof payload.listenerCount === 'number'
+                  ? payload.listenerCount
+                  : undefined;
             if (typeof payload.running === 'boolean') {
               setRunning(payload.running);
               setInterpreterStatus((current) =>
@@ -150,15 +164,29 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
               );
               if (!payload.running) setAudioLevel(null);
             }
-            if (payload.sessionStatus) setSessionStatus(payload.sessionStatus);
-            if (typeof payload.audioReady === 'boolean') setAudioReady(payload.audioReady);
-            if ('audioError' in payload) setAudioError(payload.audioError ?? null);
-            if (typeof payload.startAvailable === 'boolean') setStartAvailable(payload.startAvailable);
-            if ('startBlockReason' in payload) setStartBlockReason(payload.startBlockReason ?? null);
+            if (sessionStatus) setSessionStatus(sessionStatus);
+            const audioReady = payload.audio_ready ?? payload.audioReady;
+            if (typeof audioReady === 'boolean') setAudioReady(audioReady);
+            const audioError = payload.audio_error ?? payload.audioError;
+            if ('audio_error' in payload || 'audioError' in payload) setAudioError(audioError ?? null);
+            const startAvailable = payload.start_available ?? payload.startAvailable;
+            if (typeof startAvailable === 'boolean') setStartAvailable(startAvailable);
+            const startBlockReason = payload.start_block_reason ?? payload.startBlockReason;
+            if ('start_block_reason' in payload || 'startBlockReason' in payload) setStartBlockReason(startBlockReason ?? null);
             if ('error' in payload) setSessionError(payload.error ?? null);
-            if (payload.reason) setLastTerminationReason(payload.reason);
-            if (typeof payload.listenerCount === 'number') setListenerCount(payload.listenerCount);
+            if (payload.reason || payload.last_termination_reason) setLastTerminationReason(payload.reason ?? payload.last_termination_reason ?? null);
+            if (typeof listenerCount === 'number') setListenerCount(listenerCount);
             if (payload.timer) setTimer(payload.timer);
+            return;
+          }
+          if (payload.type === 'listener_count') {
+            const listenerCount =
+              typeof payload.listener_count === 'number'
+                ? payload.listener_count
+                : typeof payload.listenerCount === 'number'
+                  ? payload.listenerCount
+                  : undefined;
+            if (typeof listenerCount === 'number') setListenerCount(listenerCount);
             return;
           }
           if (payload.type === 'audio_level') {

@@ -21,10 +21,10 @@ async def listen_socket(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         hub.unregister(websocket)
         await hub.broadcast_operator(
-            {"type": "status", "listenerCount": hub.listener_count}
+            {"type": "listener_count", "listener_count": hub.listener_count}
         )
     except Exception:
         hub.unregister(websocket)
         await hub.broadcast_operator(
-            {"type": "status", "listenerCount": hub.listener_count}
+            {"type": "listener_count", "listener_count": hub.listener_count}
         )
