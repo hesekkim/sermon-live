@@ -1,9 +1,12 @@
 from unittest.mock import patch
 
+import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from main import app
 from services.audio_devices import list_input_devices
+from services.runtime import session
 
 
 def test_list_input_devices_filters_output_only_devices():
@@ -111,6 +114,64 @@ def test_audio_devices_endpoint_returns_empty_list_when_pyaudio_fails():
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+@pytest.mark.parametrize(
+    ("raw_signal", "expected_status", "expected_detected_sample_rate"),
+    [
+        (None, "disconnected", None),
+        (b"\x00\x00\x00\x00", "silent", 16000),
+        (np.asarray([0, 32767], dtype="<i2").tobytes(), "signal", 16000),
+    ],
+)
+def test_audio_test_endpoint_reports_input_status(
+    monkeypatch, raw_signal, expected_status, expected_detected_sample_rate
+):
+    class FakeCapture:
+        def __init__(self, _settings: object) -> None:
+            self.input_format = (16000, 1, 2) if raw_signal is not None else None
+
+        async def start(self) -> None:
+            if self.input_format is None:
+                raise RuntimeError("No input device available")
+
+        async def stop(self) -> None:
+            return None
+
+        async def collect(self, _duration_seconds: float) -> bytes:
+            return b"" if raw_signal is None else raw_signal
+
+    monkeypatch.setattr("api.v1.endpoints.audio.AudioCapture", FakeCapture)
+
+    with TestClient(app) as client:
+        response = client.post("/api/v1/audio/test")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == expected_status
+    assert payload["detected_sample_rate"] == expected_detected_sample_rate
+    if expected_detected_sample_rate is not None:
+        assert payload["detected_channels"] == 1
+        assert payload["detected_sample_width"] == 2
+        assert payload["processing_sample_rate"] == 24000
+        assert payload["processing_channels"] == 1
+        assert payload["processing_sample_width"] == 2
+        assert payload["processing_success"] is True
+    else:
+        assert payload["processing_success"] is False
+
+
+def test_audio_test_endpoint_rejects_when_session_is_running():
+    original = session.running
+    session._running = True
+    try:
+        with TestClient(app) as client:
+            response = client.post("/api/v1/audio/test")
+    finally:
+        session._running = original
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Audio test is unavailable while a session is running"
 
 
 class FakePyAudio:

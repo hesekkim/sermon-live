@@ -98,6 +98,23 @@ class AudioCapture:
         self._input_format = (sample_rate, 1, audio.get_sample_size(pyaudio.paInt16))
         logger.info("Microphone capture started")
 
+    async def collect(self, duration_seconds: float) -> bytes:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + max(duration_seconds, 0.0)
+        chunks: list[bytes] = []
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                break
+            try:
+                item = await asyncio.wait_for(self._queue.get(), timeout=remaining)
+            except asyncio.TimeoutError:
+                break
+            if item is None:
+                break
+            chunks.append(item)
+        return b"".join(chunks)
+
     async def chunks(self) -> AsyncIterator[bytes]:
         while True:
             item = await self._queue.get()
