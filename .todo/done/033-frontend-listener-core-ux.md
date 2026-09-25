@@ -1,8 +1,6 @@
 # 033 Listener 핵심 UX
 
-상태: 대기
-
-## Goal
+상태: 완료
 
 Listener를 접속 후 최소한의 조작으로 통역을 듣고 자막을 볼 수 있는 화면으로 정리한다.
 
@@ -36,10 +34,3 @@ Listener를 접속 후 최소한의 조작으로 통역을 듣고 자막을 볼 
 - Listen button과 playback state
 - session status별 화면 상태
 - font size/theme 저장과 reconnect 상태
-
-
-## 참고사진
-
-![1790367707826](image/033-frontend-listener-core-ux/1790367707826.png)
-
-![1790367729976](image/033-frontend-listener-core-ux/1790367729976.png)
