@@ -1,5 +1,6 @@
 .page {
-  max-width: 36rem;
+  width: 100%;
+  max-width: none;
 }
 
 .page h1 {
@@ -8,15 +9,23 @@
 }
 
 .stack {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--cf-space-20);
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .stack {
+    grid-template-columns: 1fr;
+  }
 }
 
 .section {
   display: flex;
   flex-direction: column;
   gap: var(--cf-space-16);
+  height: 100%;
   padding: var(--cf-space-20);
   border: 1px solid var(--cms-border);
   border-radius: var(--cf-radius-input);
@@ -44,6 +53,19 @@
 
 .inputWrap {
   flex: 1;
+}
+
+.timerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--cf-space-12);
+}
+
+.timerHint {
+  margin: 0;
+  color: var(--cms-text);
+  opacity: 0.75;
+  font-size: 0.875rem;
 }
 
 .audioTestPanel {
@@ -135,4 +157,5 @@
 .applyActions {
   display: flex;
   justify-content: flex-end;
+  grid-column: 1 / -1;
 }

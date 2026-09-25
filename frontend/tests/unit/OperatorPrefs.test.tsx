@@ -181,9 +181,14 @@ describe('Settings save flow', () => {
       ([url, init]) => url === '/api/v1/operator/settings' && (init as RequestInit | undefined)?.method === 'PUT'
     );
     expect(putCall).toBeDefined();
-    expect((putCall?.[1] as RequestInit | undefined)?.body).toBe(
-      JSON.stringify({ interpreter: 'openai', openai_api_key: 'abc123' })
-    );
+    expect(JSON.parse((putCall?.[1] as RequestInit | undefined)?.body as string)).toMatchObject({
+      interpreter: 'openai',
+      openai_api_key: 'abc123',
+      translation_session_auto_stop_minutes: 90,
+      translation_session_warning_minutes: 5,
+      translation_session_extension_minutes: 10,
+      translation_session_hard_limit_minutes: 120,
+    });
     expect((container.querySelector('input[type="password"]') as HTMLInputElement).value).toBe('');
     expect((container.querySelector('input[type="password"]') as HTMLInputElement).placeholder).toBe(
       'abc1...c123'
@@ -281,6 +286,142 @@ describe('Settings save flow', () => {
 
     expect(container.textContent).toContain('유효하지 않음');
     expect(container.textContent).toContain('서버가 OpenAI API 키를 확인하지 못했습니다.');
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('saves translation timer settings and validates their constraints', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          interpreter: 'echo',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 90,
+          translation_session_warning_minutes: 5,
+          translation_session_extension_minutes: 10,
+          translation_session_hard_limit_minutes: 120,
+          openai_key_set: false,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          interpreter: 'echo',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 45,
+          translation_session_warning_minutes: 3,
+          translation_session_extension_minutes: 15,
+          translation_session_hard_limit_minutes: 90,
+          openai_key_set: false,
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const autoStopInput = container.querySelector(
+      'input[name="translation_session_auto_stop_minutes"]'
+    ) as HTMLInputElement;
+    const warningInput = container.querySelector(
+      'input[name="translation_session_warning_minutes"]'
+    ) as HTMLInputElement;
+    const extensionInput = container.querySelector(
+      'input[name="translation_session_extension_minutes"]'
+    ) as HTMLInputElement;
+    const hardLimitInput = container.querySelector(
+      'input[name="translation_session_hard_limit_minutes"]'
+    ) as HTMLInputElement;
+
+    expect(autoStopInput).not.toBeNull();
+    expect(warningInput).not.toBeNull();
+    expect(extensionInput).not.toBeNull();
+    expect(hardLimitInput).not.toBeNull();
+
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        autoStopInput,
+        '45.5'
+      );
+      autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        warningInput,
+        '3'
+      );
+      warningInput.dispatchEvent(new Event('input', { bubbles: true }));
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        extensionInput,
+        '15'
+      );
+      extensionInput.dispatchEvent(new Event('input', { bubbles: true }));
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        hardLimitInput,
+        '90'
+      );
+      hardLimitInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '적용'
+    );
+
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('자동 종료 시간은 1분 이상의 정수여야 합니다.');
+
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        autoStopInput,
+        '45'
+      );
+      autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
+      saveButton?.click();
+    });
+
+    const putCall = fetchMock.mock.calls.find(
+      ([url, init]) => url === '/api/v1/operator/settings' && (init as RequestInit | undefined)?.method === 'PUT'
+    );
+    expect(putCall).toBeDefined();
+    expect((putCall?.[1] as RequestInit | undefined)?.body).toContain(
+      '"translation_session_auto_stop_minutes":45'
+    );
+    expect((putCall?.[1] as RequestInit | undefined)?.body).toContain(
+      '"translation_session_warning_minutes":3'
+    );
+    expect((putCall?.[1] as RequestInit | undefined)?.body).toContain(
+      '"translation_session_extension_minutes":15'
+    );
+    expect((putCall?.[1] as RequestInit | undefined)?.body).toContain(
+      '"translation_session_hard_limit_minutes":90'
+    );
 
     await act(async () => {
       root.unmount();

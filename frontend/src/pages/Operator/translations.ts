@@ -53,6 +53,16 @@ export interface OperatorCopy {
   applyFailed: string;
   settingsLoadFailed: string;
   darkMode: string;
+  safety: string;
+  autoStopMinutes: string;
+  warningMinutes: string;
+  extensionMinutes: string;
+  hardLimitMinutes: string;
+  timerRangeHint: string;
+  timerAutoStopRequired: string;
+  timerWarningMustBeLess: string;
+  timerExtensionRequired: string;
+  timerHardLimitMinimum: string;
   echo: string;
   openai: string;
   openaiUnavailable: string;
@@ -169,6 +179,16 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     applyFailed: '설정 적용에 실패했습니다',
     settingsLoadFailed: '설정을 불러오지 못했습니다',
     darkMode: '다크 모드',
+    safety: '안전 설정',
+    autoStopMinutes: '자동 종료 (분)',
+    warningMinutes: '경고 (분)',
+    extensionMinutes: '연장 (분)',
+    hardLimitMinutes: '하드 제한 (분)',
+    timerRangeHint: '경고 시간은 자동 종료보다 작아야 하며, 하드 제한은 자동 종료 이상이어야 합니다.',
+    timerAutoStopRequired: '자동 종료 시간은 1분 이상의 정수여야 합니다.',
+    timerWarningMustBeLess: '경고 시간은 1분 이상의 정수이며 자동 종료 시간보다 작아야 합니다.',
+    timerExtensionRequired: '연장 시간은 1분 이상의 정수여야 합니다.',
+    timerHardLimitMinimum: '하드 제한 시간은 자동 종료 시간 이상의 정수여야 합니다.',
     echo: 'Echo (로컬)',
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI는 아직 사용할 수 없습니다',
@@ -283,6 +303,16 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     applyFailed: 'Could not apply settings',
     settingsLoadFailed: 'Could not load settings',
     darkMode: 'Dark mode',
+    safety: 'Safety settings',
+    autoStopMinutes: 'Auto stop (minutes)',
+    warningMinutes: 'Warning (minutes)',
+    extensionMinutes: 'Extension (minutes)',
+    hardLimitMinutes: 'Hard limit (minutes)',
+    timerRangeHint: 'The warning must be shorter than auto stop, and the hard limit must be at or above auto stop.',
+    timerAutoStopRequired: 'Auto stop must be a whole number of at least 1 minute.',
+    timerWarningMustBeLess: 'Warning must be a positive whole number shorter than auto stop.',
+    timerExtensionRequired: 'Extension must be a whole number of at least 1 minute.',
+    timerHardLimitMinimum: 'Hard limit must be a whole number at least the auto-stop time.',
     echo: 'Echo (local)',
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI is not available yet',
@@ -397,6 +427,16 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     applyFailed: 'Einstellungen konnten nicht angewendet werden',
     settingsLoadFailed: 'Einstellungen konnten nicht geladen werden',
     darkMode: 'Dunkelmodus',
+    safety: 'Sicherheitsoptionen',
+    autoStopMinutes: 'Automatisches Stoppen (Minuten)',
+    warningMinutes: 'Warnung (Minuten)',
+    extensionMinutes: 'Verlängerung (Minuten)',
+    hardLimitMinutes: 'Hartes Limit (Minuten)',
+    timerRangeHint: 'Die Warnung muss kürzer als das automatische Stoppen sein und das harte Limit muss mindestens so groß wie das automatische Stoppen sein.',
+    timerAutoStopRequired: 'Die automatische Stoppzeit muss eine ganze Zahl von mindestens 1 Minute sein.',
+    timerWarningMustBeLess: 'Die Warnzeit muss eine positive ganze Zahl und kürzer als die automatische Stoppzeit sein.',
+    timerExtensionRequired: 'Die Verlängerung muss eine ganze Zahl von mindestens 1 Minute sein.',
+    timerHardLimitMinimum: 'Das harte Limit muss eine ganze Zahl und mindestens so groß wie die automatische Stoppzeit sein.',
     echo: 'Echo (lokal)',
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI ist noch nicht verfügbar',

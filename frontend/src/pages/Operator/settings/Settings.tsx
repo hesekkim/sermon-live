@@ -5,6 +5,7 @@ import { useOperatorPrefs } from '../OperatorPrefs';
 import AppearanceSection from './components/AppearanceSection';
 import AudioDeviceSection from './components/AudioDeviceSection';
 import InterpreterSection from './components/InterpreterSection';
+import SafetySection from './components/SafetySection';
 import { useAudioDevices } from './hooks/useAudioDevices';
 import { useAudioTest } from './hooks/useAudioTest';
 import { useOperatorSettings } from './hooks/useOperatorSettings';
@@ -29,6 +30,9 @@ export default function Settings() {
     setDraftLanguage,
     draftTheme,
     setDraftTheme,
+    timerValues,
+    setTimerValue,
+    timerValidation,
     isSaving,
     handleSave,
   } = useOperatorSettings({
@@ -83,6 +87,12 @@ export default function Settings() {
           error={audioTestError}
           isTesting={isTesting}
           onRunTest={() => void runTest()}
+        />
+        <SafetySection
+          labels={labels}
+          values={timerValues}
+          onChange={setTimerValue}
+          validation={timerValidation}
         />
         <InterpreterSection
           labels={labels}

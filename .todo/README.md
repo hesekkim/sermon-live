@@ -15,9 +15,8 @@
 1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
 2. `019-backend-glossary-model.md` — Global + Today's Sermon Glossary 최소 모델
 3. `021-frontend-glossary-ui.md` — Settings의 Global Glossary와 Sermon의 Today's Glossary UI
-4. `032-frontend-settings-configuration-ui.md` — 운영 설정 UI
-5. `033-frontend-listener-core-ux.md` — Listener 핵심 UX
-6. `034-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
+4. `033-frontend-listener-core-ux.md` — Listener 핵심 UX
+5. `034-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
 
 ## 보류 (`hold/`)
 
@@ -52,6 +51,7 @@
 23. `029-backend-broadcast-observability.md — Broadcast 상태 이벤트 계약`
 24. `030-frontend-operator-navigation-restructure.md — Operator 3영역 navigation`
 25. `031-frontend-translation-session-controls.md — Broadcast Translation 제어`
+26. `032-frontend-settings-configuration-ui.md — 운영 설정 UI`
 
 ## 결정 사항
 

@@ -1,6 +1,6 @@
 # 032 Operator 설정 UI
 
-상태: 대기
+상태: 완료
 
 ## Goal
 
@@ -12,29 +12,62 @@
 
 ## Dependencies
 
-002, 009, 010, 011, 012, 013, 014, 019, 021, 028
+```text
+002, 009, 010, 011, 012, 013, 014, 028
+```
+
+> Glossary를 현재 우선 구현하지 않으므로 `019`, `021` dependency는 제외한다.
+
+---
 
 ## Scope
 
-- UI language와 theme
-- Audio Input Device
-- Audio status/input level과 Audio Test
-- Settings 내부 Global Glossary (021에서 제공하는 영역 연결)
-- Auto Stop, Warning, Extension, Hard Limit
-- OpenAI API key 입력/저장 상태와 model 설정
-- API key 원문은 frontend state와 API 응답에 반환하지 않고 masked status만 표시
-- 오디오 포맷 변환, resampling, channel conversion은 backend 책임이며 사용자 설정으로 노출하지 않음
-- 기술적 server/deployment 설정은 이 화면에 노출하지 않음
+### UI
 
-## Acceptance criteria
+- UI language
+- Theme
+
+### Audio
+
+- Audio Input Device
+- Audio status / input level
+- Audio Test
+- 사용자가 선택한 입력 장치의 상태 확인
+- 입력 신호와 level 확인
+
+### Safety
+
+- Auto Stop
+- Warning
+- Extension
+- Hard Limit
+
+### OpenAI
+
+- OpenAI API key 입력 및 저장 상태
+- OpenAI model 설정
+- API key 원문은 frontend state와 API 응답에 반환하지 않고 masked status만 표시
+
+### 기타 원칙
+
+- 오디오 포맷 변환, resampling, channel conversion은 backend 책임이며 사용자 설정으로 노출하지 않는다.
+- 기술적 server/deployment 설정은 이 화면에 노출하지 않는다.
+- Translation Profile CRUD/settings는 제공하지 않는다.
+- Glossary 관련 설정이나 페이지는 현재 범위에 포함하지 않는다.
+
+---
+
+## Acceptance Criteria
 
 - 설정을 저장하고 새로고침 후 조회할 수 있다.
 - 숫자 설정의 범위와 상호 제약이 표시/검증된다.
 - API key는 저장 상태만 확인할 수 있고 원문이 노출되지 않는다.
 - Audio device 설정은 기존 선택 기능과 회귀 없이 동작한다.
 - 사용자가 입력 장치를 선택하고 Audio Test와 input signal/level 상태를 확인할 수 있다.
-- Global Glossary는 Settings 안에서 접근하며 Sermon Glossary는 이 화면에 중복 노출되지 않는다.
 - Translation Profile CRUD/settings가 노출되지 않는다.
+- Glossary 관련 UI나 설정이 추가되지 않는다.
+
+---
 
 ## Tests
 
@@ -42,3 +75,4 @@
 - timer validation
 - secret masking과 저장 상태 표시
 - Audio Test 요청과 audio status/input level 상태 연동
+- Input Device 선택 및 저장/조회
