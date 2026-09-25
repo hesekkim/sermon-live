@@ -1,4 +1,4 @@
-# 024 Translation Session lifecycle
+# 027 Translation Session lifecycle
 
 상태: 대기
 

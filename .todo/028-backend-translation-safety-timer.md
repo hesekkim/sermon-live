@@ -1,4 +1,4 @@
-# 025 Translation Safety Timer
+# 028 Translation Safety Timer
 
 상태: 대기
 
@@ -12,7 +12,7 @@ Translation Session의 자동 종료, 사전 경고, 연장, 강제 상한을 ba
 
 ## Dependencies
 
-024
+027
 
 ## Scope
 

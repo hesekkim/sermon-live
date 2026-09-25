@@ -18,13 +18,13 @@ Global Glossary(영구)와 Today's Sermon Glossary(세션 스코프)를 관리�
 
 ## Dependencies
 
-015 (sermon glossary가 sermon session에 종속)
+015
 
 ## Implementation notes
 
 - 항목 필드는 `source, target`만 (최소). priority/note 등은 실제 필요성이 확인되기 전까지 추가하지 않는다.
 - Global Glossary는 JSON 파일로 영구 저장한다. Sermon Glossary는 현재 Sermon Session의 id에 종속되어 저장하며, current-session singleton을 사용할 경우 그 계약을 API에 명시한다.
-- 전체 용어 수백 개를 전송하는 것을 목표로 하지 않는다. 관련 용어 선택과 세션 주입 규칙은 020에서 결정한다.
+- 전체 용어 수백 개를 전송하는 것을 목표로 하지 않는다. 전송 여부와 관련 용어 선택은 020의 공식 지원 확인 결과가 바뀌기 전까지 구현하지 않는다.
 
 ## Acceptance criteria
 

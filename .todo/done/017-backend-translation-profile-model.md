@@ -1,6 +1,6 @@
 # 017 Translation Profile 모델
 
-상태: 대기
+상태: 폐기/제외
 
 ## Goal
 

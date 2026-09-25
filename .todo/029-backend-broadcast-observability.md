@@ -1,4 +1,4 @@
-# 026 Broadcast 상태 이벤트 계약
+# 029 Broadcast 상태 이벤트 계약
 
 상태: 대기
 
@@ -12,11 +12,12 @@ Operator와 Listener가 실시간 운영 상태를 일관되게 표시할 수 �
 
 ## Dependencies
 
-011, 024
+011, 027
 
 ## Scope
 
 - `server_status`, `translation_status`, `audio_status`, `audio_level`, `latency`, `listener_count`, `connection`, `error`, `session_ended` 이벤트 정의
+- translation data events (`source_text`, `translated_text`, `audio`)와 operational status/control events를 분리하고 각 소유 계층을 명시
 - input signal과 interpreter connection을 분리
 - listener 수 집계와 접속/해제 시점 정의
 - latency 측정 기준을 오디오 청크 전송부터 자막 수신까지로 명시
@@ -29,11 +30,13 @@ Operator와 Listener가 실시간 운영 상태를 일관되게 표시할 수 �
 - audio level은 throttle된 값으로 전달된다.
 - listener count가 접속과 해제에 따라 갱신된다.
 - 오류와 종료 reason이 공통 필드로 전달된다.
+- source/translated text와 audio payload가 상태/오류/종료 이벤트와 혼합되지 않는다.
 - event payload가 backend unit test로 검증된다.
 
 ## Tests
 
 - event schema validation
+- source/translated data event와 status event의 schema 및 책임 구분
 - level throttle과 listener count
 - latency와 connection/error 이벤트
 

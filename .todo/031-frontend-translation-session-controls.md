@@ -1,4 +1,4 @@
-# 028 Broadcast Translation 제어
+# 031 Broadcast Translation 제어
 
 상태: 대기
 
@@ -12,7 +12,7 @@ Operator는 서버가 살아 있는지보다 현재 통역이 실행 중인지, 
 
 ## Dependencies
 
-022, 024, 025, 026
+025, 027, 028, 029
 
 ## Scope
 

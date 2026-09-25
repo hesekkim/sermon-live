@@ -1,4 +1,4 @@
-# 022 Broadcast 메타데이터 패널
+# 025 Broadcast 메타데이터 패널
 
 상태: 대기
 
@@ -17,13 +17,13 @@ Operator가 한 화면에서 전체 파이프라인 상태를 파악할 수 있�
 
 ## Dependencies
 
-007, 012, 017
+007, 012
 
 ## Implementation notes
 
 - 기존 dual-column 구조를 유지하고 상단/사이드에 상태 패널만 추가.
 - `Server ONLINE`과 `Translation LIVE/OFF`를 서로 다른 상태로 표시한다. Broadcast에서 실제로 제어하는 대상은 Translation Session이다.
-- Timer, warning, extension, hard limit과 마지막 종료 이유는 028의 제어 UI와 동일한 상태 계약을 사용한다.
+- Timer, warning, extension, hard limit과 마지막 종료 이유는 031의 제어 UI와 동일한 상태 계약을 사용한다.
 - latency 측정은 우선 단순한 지표(예: 오디오 청크 전송~자막 수신 타임스탬프 차이)로 시작.
 
 ## Acceptance criteria

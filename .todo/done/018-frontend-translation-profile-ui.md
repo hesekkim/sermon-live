@@ -1,6 +1,6 @@
 # 018 Translation Profile UI
 
-상태: 대기
+상태: 폐기/제외
 
 ## Goal
 

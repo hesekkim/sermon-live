@@ -1,4 +1,4 @@
-# 027 Operator navigation restructure
+# 030 Operator navigation restructure
 
 상태: 대기
 
@@ -12,14 +12,16 @@ Operator UI를 `방송 / 설교 / 설정` 3개 영역으로 재구성한다.
 
 ## Dependencies
 
-015, 016, 022
+015, 016, 021, 025
 
 ## Scope
 
 - 기존 layout과 component를 최대한 재사용
 - 방송: Translation Dashboard와 실시간 상태
-- 설교: Sermon Session metadata와 Today's Glossary
-- 설정: UI, audio, translation profile, safety, OpenAI 설정
+- 설교: Sermon Session metadata와 Today's Sermon Glossary
+- 설정: 화면, 오디오, OpenAI, Safety, Global Glossary
+- Global Glossary는 Settings에, Today's Sermon Glossary는 Sermon에 둔다.
+- Translation Profile 메뉴와 별도 페이지를 두지 않는다.
 - Server ON/OFF를 주요 운영 버튼으로 노출하지 않고 Translation Session 제어를 중심으로 구성
 - route와 sidebar label을 3개 영역에 맞게 정리
 

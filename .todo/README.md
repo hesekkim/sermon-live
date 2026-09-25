@@ -13,23 +13,25 @@
 개인 예배용 실시간 통역 운영 기능. Server는 계속 실행할 수 있고, 비용이 발생하는 Translation Session만 필요할 때 실행한다.
 
 1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
-2. `017-backend-translation-profile-model.md` — Translation Profile 모델
-3. `018-frontend-translation-profile-ui.md` — Translation Profile UI
-4. `019-backend-glossary-model.md` — Glossary 모델 (Global + Sermon)
-5. `020-backend-glossary-injection.md` — Glossary 세션 주입 (지원 여부에 따라 보류 가능)
-6. `021-frontend-glossary-ui.md` — Glossary UI
-7. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
-8. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
-9. `024-backend-translation-session-lifecycle.md` — Translation Session lifecycle
-10. `025-backend-translation-safety-timer.md` — Translation Safety Timer
-11. `026-backend-broadcast-observability.md` — Broadcast 상태 이벤트 계약
-12. `027-frontend-operator-navigation-restructure.md` — Operator 3영역 navigation
-13. `028-frontend-translation-session-controls.md` — Broadcast Translation 제어
-14. `029-frontend-settings-configuration-ui.md` — 운영 설정 UI
-15. `030-frontend-listener-core-ux.md` — Listener 핵심 UX
-16. `031-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
+2. `019-backend-glossary-model.md` — Global + Today's Sermon Glossary 최소 모델
+3. `021-frontend-glossary-ui.md` — Settings의 Global Glossary와 Sermon의 Today's Glossary UI
+4. `025-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
+5. `027-backend-translation-session-lifecycle.md` — Translation Session lifecycle
+6. `028-backend-translation-safety-timer.md` — Translation Safety Timer
+7. `029-backend-broadcast-observability.md` — Broadcast 상태 이벤트 계약
+8. `030-frontend-operator-navigation-restructure.md` — Operator 3영역 navigation
+9. `031-frontend-translation-session-controls.md` — Broadcast Translation 제어
+10. `032-frontend-settings-configuration-ui.md` — 운영 설정 UI
+11. `033-frontend-listener-core-ux.md` — Listener 핵심 UX
+12. `034-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
 
-## 완료 (`done/`)
+## 보류 (`hold/`)
+
+1. `020-backend-glossary-injection.md` — OpenAI 공식 Glossary 지원 여부 확인 (미지원으로 보류)
+2. `022-backend-runtime-instruction-wiring.md` — runtime context 지원 확인 후 주입 경계 구현 (현재 보류)
+3. `023-backend-sermon-session-runtime-context.md` — 실제 Sermon Session 필드 기반 context (현재 보류)
+
+## 완료 및 폐기 기록 (`done/`)
 
 1. `001-remove-gemini.md — Gemini 코드/설정/UI 제거 (git baseline tag 존재, 최우선)`
 2. `002-backend-openai-settings.md — OpenAI 모델/타겟 오디오 포맷 설정 추가`
@@ -46,6 +48,10 @@
 13. `014-frontend-audio-test-ux.md — 오디오 테스트 UX`
 14. `015-backend-sermon-session-model.md — Sermon Session 모델`
 15. `016-frontend-sermon-session-ui.md — Sermon Session UI`
+16. `017-backend-translation-profile-model.md — 폐기/제외 (기존 코드 잔재는 024에서 제거)`
+17. `018-frontend-translation-profile-ui.md — 폐기/제외`
+18. `024-backend-translation-policy-config.md — Translation Profile CRUD 잔재 제거 및 정책 범위 고정`
+19. `026-frontend-listen-volume-control.md — 폐기/제외`
 
 ## 결정 사항
 
@@ -57,6 +63,7 @@
 - 언어 방향: SOURCE Korean -> TARGET German 고정
 - API key는 코드·테스트 fixture·로그·API 응답에 평문으로 남기지 않으며, 노출 시 폐기·재발급을 먼저 수행
 - 외부 API 구현은 공식 문서 확인 결과(endpoint/model/event/audio format)를 ticket에 기록한 후 진행
+- 2026-09-25 공식 Realtime Translation 문서 기준 `gpt-realtime-translate` 세션에는 `instructions`/Glossary 입력이 문서화되어 있지 않다. 번역 세션의 갱신 가능 항목은 output language, input transcription, noise reduction이므로 020/022/023의 주입 작업은 보류한다.
 - Operator 메뉴는 `방송 / 설교 / 설정` 3개 영역으로 구성한다
 - `Server ONLINE`과 `Translation LIVE/OFF`는 별도 상태로 표시하고 제어한다
 - Translation Safety Timer 기본값은 Auto Stop 90분, Warning 5분 전, Extension 10분, Hard Limit 120분이다

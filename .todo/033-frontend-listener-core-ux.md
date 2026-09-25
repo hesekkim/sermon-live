@@ -1,4 +1,4 @@
-# 030 Listener 핵심 UX
+# 033 Listener 핵심 UX
 
 상태: 대기
 
@@ -12,7 +12,7 @@ Listener를 접속 후 최소한의 조작으로 통역을 듣고 자막을 볼 
 
 ## Dependencies
 
-024, 026
+027, 029
 
 ## Scope
 
@@ -22,7 +22,6 @@ Listener를 접속 후 최소한의 조작으로 통역을 듣고 자막을 볼 
 - 연결 중, 연결 끊김, 방송 종료, 통역 대기 중 상태
 - 글자 크기 조절
 - Listener별 Dark/Light theme
-- 023의 volume control과 함께 동작
 - Operator 설정, API key, server control은 노출하지 않음
 
 ## Acceptance criteria
@@ -37,3 +36,10 @@ Listener를 접속 후 최소한의 조작으로 통역을 듣고 자막을 볼 
 - Listen button과 playback state
 - session status별 화면 상태
 - font size/theme 저장과 reconnect 상태
+
+
+## 참고사진
+
+![1790367707826](image/033-frontend-listener-core-ux/1790367707826.png)
+
+![1790367729976](image/033-frontend-listener-core-ux/1790367729976.png)

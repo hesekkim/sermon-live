@@ -23,8 +23,9 @@
 ## Implementation notes
 
 - **공식 문서 확인 (2026-09-24)**: [Realtime translation guide](https://developers.openai.com/api/docs/guides/realtime-translation)와 [Realtime API reference](https://developers.openai.com/api/reference/resources/realtime)를 확인했다. WebSocket endpoint는 `wss://api.openai.com/v1/realtime/translations?model=gpt-realtime-translate`이며 표준 `Authorization: Bearer` 인증을 사용한다. 번역 전용 client event는 `session.update`, `session.input_audio_buffer.append`, `session.close`이고, 종료 시 `session.closed`까지 수신해야 pending output이 flush된다.
+- **추가 공식 지원 경계 확인 (2026-09-25)**: Realtime Translation session create/update schema에는 `instructions`나 glossary/custom context 입력이 없다. `session.update`로 문서화된 변경 항목은 output language, input transcription, noise reduction이다. 일반 Realtime session의 instructions/system message 지원을 번역 session에 적용할 수 있다고 가정하지 않는다. [Realtime translation guide](https://developers.openai.com/api/docs/guides/realtime-translation), [Realtime API reference](https://developers.openai.com/api/reference/resources/realtime).
 - 공식 event mapping은 `session.output_audio.delta` -> `audio`, `session.output_transcript.delta` -> `output_text`, `session.input_transcript.delta` -> `input_text`, `error` -> `error`다. WebSocket 오디오는 base64 24 kHz PCM16 mono little-endian이며 출력 audio delta는 `sample_rate`를 제공할 수 있다.
-- 모델과 target language는 현재 문서의 `gpt-realtime-translate`, `de`(German)로 고정하고, source transcript는 `gpt-realtime-whisper`로 요청한다. 공식 translation session은 source language 필드를 제공하지 않으므로 source=Korean은 호출부의 입력 계약과 adapter instruction 범위에서 유지한다.
+- 모델과 target language는 현재 문서의 `gpt-realtime-translate`, `de`(German)로 고정하고, source transcript는 `gpt-realtime-whisper`로 요청한다. 공식 translation session은 source language 필드를 제공하지 않으므로 source=Korean은 호출부의 입력 계약으로만 유지한다. Translation API에 없는 adapter instruction으로 source language나 custom context를 보내지 않는다.
 - 확인 항목: endpoint, model availability, authentication, input/output audio format, transcript/audio delta event, close/flush lifecycle, instructions 지원 여부, glossary/context 전달 가능 여부.
 - source=Korean, target=German 고정.
 - 송신: 24kHz/mono/PCM16 청크를 base64 인코딩하여 세션 오디오 append 이벤트로 전송.
