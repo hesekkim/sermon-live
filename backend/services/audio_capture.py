@@ -122,6 +122,21 @@ class AudioCapture:
                 break
             yield item
 
+    async def chunks_for(self, duration_seconds: float) -> AsyncIterator[bytes]:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + max(duration_seconds, 0.0)
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                break
+            try:
+                item = await asyncio.wait_for(self._queue.get(), timeout=remaining)
+            except asyncio.TimeoutError:
+                break
+            if item is None:
+                break
+            yield item
+
     async def stop(self) -> None:
         if self._stream is not None:
             try:

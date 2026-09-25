@@ -85,6 +85,19 @@ function renderProbe(
   };
 }
 
+function streamResponse(events: Array<Record<string, unknown>>) {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      events.forEach((event) => {
+        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      });
+      controller.close();
+    },
+  });
+  return { ok: true, body };
+}
+
 afterEach(() => {
   document.body.replaceChildren();
   vi.restoreAllMocks();
@@ -93,19 +106,23 @@ afterEach(() => {
 describe('useAudioTest', () => {
   it('posts the audio test request and stores the detected input metadata', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        status: 'signal',
-        detected_sample_rate: 48000,
-        detected_channels: 2,
-        detected_sample_width: 2,
-        input_level_dbfs: -12.5,
-        processing_sample_rate: 24000,
-        processing_channels: 1,
-        processing_sample_width: 2,
-        processing_success: true,
-        message: 'Audio device is accessible and ready for processing',
-      }),
+      ...streamResponse([
+        { type: 'level', input_level_dbfs: -36.25 },
+        { type: 'level', input_level_dbfs: -12.5 },
+        {
+          type: 'result',
+          status: 'signal',
+          detected_sample_rate: 48000,
+          detected_channels: 2,
+          detected_sample_width: 2,
+          input_level_dbfs: -12.5,
+          processing_sample_rate: 24000,
+          processing_channels: 1,
+          processing_sample_width: 2,
+          processing_success: true,
+          message: 'Audio device is accessible and ready for processing',
+        },
+      ]),
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -118,14 +135,19 @@ describe('useAudioTest', () => {
       await state.runTest();
     });
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/audio/test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ audio_device: '1' }),
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/audio/test/stream',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio_device: '1' }),
+        signal: expect.any(AbortSignal),
+      })
+    );
     expect(state.result?.status).toBe('signal');
     expect(state.result?.detected_sample_rate).toBe(48000);
     expect(state.result?.input_level_dbfs).toBe(-12.5);
+    expect(state.liveInputLevel).toBe(-12.5);
     expect(state.error).toBeNull();
 
     cleanup();

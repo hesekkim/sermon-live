@@ -47,6 +47,7 @@
 }
 
 .audioTestPanel {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--cf-space-12);
@@ -55,6 +56,12 @@
   border-radius: var(--cf-radius-input);
   background: rgba(255, 255, 255, 0.02);
   transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.audioTestPanelTesting {
+  background: var(--cms-surface);
+  border-color: var(--cms-primary);
+  animation: audioTestBorderPulse 1.2s ease-in-out infinite;
 }
 
 .audioTestPanelDisabled {
@@ -93,6 +100,36 @@
 .audioTestAction {
   display: flex;
   justify-content: flex-end;
+}
+
+.audioTestMessage {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.audioTestMessageSuccess {
+  color: var(--cms-success, #15803d);
+}
+
+.audioTestMessageWarning {
+  color: var(--cms-warning, #a16207);
+}
+
+.audioTestMessageError {
+  color: var(--cms-danger, #b91c1c);
+}
+
+@keyframes audioTestBorderPulse {
+  0%,
+  100% {
+    border-color: color-mix(in srgb, var(--cms-primary) 35%, transparent);
+    box-shadow: 0 0 0 transparent;
+  }
+
+  50% {
+    border-color: var(--cms-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--cms-primary) 45%, transparent);
+  }
 }
 
 .applyActions {

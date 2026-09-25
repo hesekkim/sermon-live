@@ -27,4 +27,20 @@ describe('AudioLevelMeter', () => {
     act(() => root.unmount());
     container.remove();
   });
+
+  it('marks the meter as measuring while an audio test is active', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(<AudioLevelMeter level={null} isActive />);
+    });
+
+    const meter = container.querySelector('[role="meter"]');
+    expect(meter?.getAttribute('aria-valuetext')).toBe('measuring');
+
+    act(() => root.unmount());
+    container.remove();
+  });
 });

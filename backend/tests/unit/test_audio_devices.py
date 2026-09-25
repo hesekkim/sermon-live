@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 import numpy as np
@@ -199,6 +200,34 @@ def test_audio_test_endpoint_uses_requested_device(monkeypatch):
 
     assert response.status_code == 200
     assert captured_devices == ["3"]
+
+
+def test_stream_audio_test_reports_live_levels_and_final_result(monkeypatch):
+    class FakeCapture:
+        input_format = (16000, 1, 2)
+
+        def __init__(self, _settings: object) -> None:
+            return None
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+        async def chunks_for(self, _duration_seconds: float):
+            yield np.asarray([0, 32767], dtype="<i2").tobytes()
+            yield np.asarray([0, 0], dtype="<i2").tobytes()
+
+    monkeypatch.setattr("api.v1.endpoints.audio.AudioCapture", FakeCapture)
+
+    with TestClient(app) as client:
+        response = client.post("/api/v1/audio/test/stream")
+
+    assert response.status_code == 200
+    events = [json.loads(line) for line in response.text.splitlines()]
+    assert [event["type"] for event in events] == ["level", "level", "result"]
+    assert events[-1]["status"] == "signal"
 
 
 class FakePyAudio:

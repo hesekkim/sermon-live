@@ -19,7 +19,7 @@ export default function Settings() {
   const { labels, language, theme, setLanguage, setTheme } = useOperatorPrefs();
   const { deviceOptions, selectedDevice, setSelectedDevice, error: deviceError } =
     useAudioDevices();
-  const { result, error: audioTestError, isTesting, runTest } =
+  const { result, liveInputLevel, error: audioTestError, isTesting, runTest } =
     useAudioTest(selectedDevice);
   const { error } = useToast();
   const {
@@ -140,10 +140,12 @@ export default function Settings() {
           <div
             className={[
               styles.audioTestPanel,
+              isTesting ? styles.audioTestPanelTesting : '',
               !canRunAudioTest ? styles.audioTestPanelDisabled : '',
             ]
               .filter(Boolean)
               .join(' ')}
+            aria-busy={isTesting}
             aria-disabled={!canRunAudioTest}
           >
             <div className={styles.audioTestGrid}>
@@ -155,8 +157,15 @@ export default function Settings() {
                 <span>{labels.audioTestInputLevel}</span>
                 <div className={styles.audioTestMeter}>
                   <AudioLevelMeter
-                    level={canRunAudioTest ? result?.input_level_dbfs ?? null : null}
+                    level={
+                      isTesting
+                        ? liveInputLevel
+                        : canRunAudioTest && result?.status === 'signal'
+                          ? result.input_level_dbfs
+                        : null
+                    }
                     label={labels.audioTestInputLevel}
+                    isActive={isTesting}
                   />
                 </div>
               </div>
@@ -178,8 +187,26 @@ export default function Settings() {
                 {isTesting ? labels.audioTestRunning : labels.audioTest}
               </Button>
             </div>
-            {audioTestError ? <p role="alert">{audioTestError}</p> : null}
-            {result?.message ? <p role="status">{result.message}</p> : null}
+            {audioTestError ? (
+              <p className={[styles.audioTestMessage, styles.audioTestMessageError].join(' ')} role="alert">
+                {audioTestError}
+              </p>
+            ) : null}
+            {result?.message ? (
+              <p
+                className={[
+                  styles.audioTestMessage,
+                  result.status === 'signal'
+                    ? styles.audioTestMessageSuccess
+                    : result.status === 'silent'
+                      ? styles.audioTestMessageWarning
+                      : styles.audioTestMessageError,
+                ].join(' ')}
+                role="status"
+              >
+                {result.message}
+              </p>
+            ) : null}
           </div>
         </section>
         <section className={styles.section}>
