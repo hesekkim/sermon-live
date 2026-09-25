@@ -9,7 +9,7 @@ from core.config import get_settings
 from services.audio_capture import AudioCapture
 from services.audio_devices import list_input_devices
 from services.audio_processor import AudioProcessor
-from services.runtime import session
+from services.runtime import audio, session
 
 router = APIRouter()
 AUDIO_TEST_DURATION_SECONDS = 3.0
@@ -81,11 +81,29 @@ def get_audio_devices() -> list[dict[str, object]]:
 
 @router.post("/api/v1/audio/test", response_model=AudioTestResponse)
 async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTestResponse:
-    if session.running:
+    if session.state in ("starting", "live", "stopping"):
         raise HTTPException(
             status_code=409,
             detail="Audio test is unavailable while a session is running",
         )
+
+    if audio.ready:
+        try:
+            async with audio.using_device(request.audio_device if request else None):
+                native_format = audio.input_format
+                if native_format is None:
+                    raise RuntimeError("Audio input device is not available")
+                raw = await audio.collect(AUDIO_TEST_DURATION_SECONDS)
+                rate, channels, width = native_format
+                processor = AudioProcessor(rate, channels, width, 24000, 1, 2)
+                processor.process(raw)
+                return _audio_test_result(processor, raw, native_format)
+        except Exception as exc:
+            return AudioTestResponse(
+                status="disconnected",
+                processing_success=False,
+                message=str(exc) or "Audio input is not available",
+            )
 
     settings = _audio_test_settings(request or AudioTestRequest())
     capture = AudioCapture(settings)
@@ -133,13 +151,51 @@ async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTest
 
 @router.post("/api/v1/audio/test/stream")
 async def stream_audio_test(request: AudioTestRequest | None = None) -> StreamingResponse:
-    if session.running:
+    if session.state in ("starting", "live", "stopping"):
         raise HTTPException(
             status_code=409,
             detail="Audio test is unavailable while a session is running",
         )
 
     async def events() -> AsyncIterator[str]:
+        if audio.ready:
+            try:
+                async with audio.using_device(request.audio_device if request else None):
+                    native_format = audio.input_format
+                    if native_format is None:
+                        raise RuntimeError("Audio input device is not available")
+                    rate, channels, width = native_format
+                    processor = AudioProcessor(rate, channels, width, 24000, 1, 2)
+                    raw_chunks: list[bytes] = []
+                    async for chunk in audio.chunks_for(AUDIO_TEST_DURATION_SECONDS):
+                        raw_chunks.append(chunk)
+                        processor.process(chunk)
+                        if processor.input_level_dbfs is not None:
+                            yield json.dumps(
+                                {
+                                    "type": "level",
+                                    "input_level_dbfs": processor.input_level_dbfs,
+                                }
+                            ) + "\n"
+                    raw = b"".join(raw_chunks)
+                    final_processor = AudioProcessor(rate, channels, width, 24000, 1, 2)
+                    processed = final_processor.process(raw)
+                    result = _audio_test_result(final_processor, raw, native_format)
+                    result.processing_success = bool(processed or not raw_chunks)
+                    yield json.dumps({"type": "result", **result.model_dump()}) + "\n"
+            except Exception as exc:
+                yield json.dumps(
+                    {
+                        "type": "result",
+                        **AudioTestResponse(
+                            status="disconnected",
+                            processing_success=False,
+                            message=str(exc) or "Audio input is not available",
+                        ).model_dump(),
+                    }
+                ) + "\n"
+            return
+
         settings = _audio_test_settings(request or AudioTestRequest())
         capture = AudioCapture(settings)
         started = False

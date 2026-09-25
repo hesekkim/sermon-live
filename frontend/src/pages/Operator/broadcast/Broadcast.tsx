@@ -17,6 +17,12 @@ export default function Broadcast() {
   const sessionErrorDuringAttemptRef = useRef(false);
   const {
     running,
+    sessionStatus,
+    audioReady,
+    audioError,
+    startAvailable,
+    startBlockReason,
+    sessionError,
     listenerCount,
     audioLevel,
     latencyMs,
@@ -46,6 +52,12 @@ export default function Broadcast() {
       <BroadcastHeader
         labels={labels}
         running={running}
+        sessionStatus={sessionStatus}
+        audioReady={audioReady}
+        audioError={audioError}
+        startAvailable={startAvailable}
+        startBlockReason={startBlockReason}
+        sessionError={sessionError}
         listenerCount={listenerCount}
         audioLevel={audioLevel}
         latencyMs={latencyMs}

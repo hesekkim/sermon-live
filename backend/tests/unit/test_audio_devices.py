@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -143,6 +144,7 @@ def test_audio_test_endpoint_reports_input_status(
             return b"" if raw_signal is None else raw_signal
 
     monkeypatch.setattr("api.v1.endpoints.audio.AudioCapture", FakeCapture)
+    monkeypatch.setattr("api.v1.endpoints.audio.audio", SimpleNamespace(ready=False))
 
     with TestClient(app) as client:
         response = client.post("/api/v1/audio/test")
@@ -162,14 +164,13 @@ def test_audio_test_endpoint_reports_input_status(
         assert payload["processing_success"] is False
 
 
-def test_audio_test_endpoint_rejects_when_session_is_running():
-    original = session.running
-    session._running = True
-    try:
-        with TestClient(app) as client:
-            response = client.post("/api/v1/audio/test")
-    finally:
-        session._running = original
+def test_audio_test_endpoint_rejects_when_session_is_running(monkeypatch):
+    monkeypatch.setattr(
+        "api.v1.endpoints.audio.session", SimpleNamespace(state="live")
+    )
+    monkeypatch.setattr("api.v1.endpoints.audio.audio", SimpleNamespace(ready=False))
+    with TestClient(app) as client:
+        response = client.post("/api/v1/audio/test")
 
     assert response.status_code == 409
     assert response.json()["detail"] == "Audio test is unavailable while a session is running"
@@ -194,6 +195,7 @@ def test_audio_test_endpoint_uses_requested_device(monkeypatch):
             return b"\x00\x00"
 
     monkeypatch.setattr("api.v1.endpoints.audio.AudioCapture", FakeCapture)
+    monkeypatch.setattr("api.v1.endpoints.audio.audio", SimpleNamespace(ready=False))
 
     with TestClient(app) as client:
         response = client.post("/api/v1/audio/test", json={"audio_device": "3"})
@@ -220,6 +222,7 @@ def test_stream_audio_test_reports_live_levels_and_final_result(monkeypatch):
             yield np.asarray([0, 0], dtype="<i2").tobytes()
 
     monkeypatch.setattr("api.v1.endpoints.audio.AudioCapture", FakeCapture)
+    monkeypatch.setattr("api.v1.endpoints.audio.audio", SimpleNamespace(ready=False))
 
     with TestClient(app) as client:
         response = client.post("/api/v1/audio/test/stream")

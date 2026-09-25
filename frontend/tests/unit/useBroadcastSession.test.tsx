@@ -152,6 +152,10 @@ describe('useBroadcastSession', () => {
       firstSocket?.emit('message', JSON.stringify({
         type: 'status',
         running: true,
+        sessionStatus: 'live',
+        audioReady: true,
+        startAvailable: false,
+        startBlockReason: null,
         listenerCount: 4,
         timer: { elapsedSeconds: 65, remainingSeconds: 535, warning: false },
       }));
@@ -162,6 +166,9 @@ describe('useBroadcastSession', () => {
     expect(latestSession.current?.serverStatus).toBe('online');
     expect(latestSession.current?.operatorConnectionStatus).toBe('connected');
     expect(latestSession.current?.running).toBe(true);
+    expect(latestSession.current?.sessionStatus).toBe('live');
+    expect(latestSession.current?.audioReady).toBe(true);
+    expect(latestSession.current?.startAvailable).toBe(false);
     expect(latestSession.current?.listenerCount).toBe(4);
     expect(latestSession.current?.latencyMs).toBe(180);
     expect(latestSession.current?.timer?.elapsedSeconds).toBe(65);
@@ -233,6 +240,8 @@ describe('useBroadcastSession', () => {
     const socket = FakeWebSocket.latest;
     act(() => socket?.emit('message', JSON.stringify({ type: 'error', text: 'interpreter failed' })));
     expect(latestSession.current?.interpreterStatus).toBe('error');
+    expect(latestSession.current?.sessionStatus).toBe('error');
+    expect(latestSession.current?.sessionError).toBe('interpreter failed');
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);

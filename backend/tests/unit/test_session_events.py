@@ -6,7 +6,7 @@ import pytest
 from core.config import Settings
 from services.interpreters.protocol import InterpreterEvent
 from services import session_service as session_service_module
-from services.session_service import SessionService
+from services.session_service import LegacySessionService as SessionService
 
 
 class FakeHub:
@@ -62,10 +62,17 @@ def pcm16(values: list[int]) -> bytes:
     return np.asarray(values, dtype="<i2").tobytes()
 
 
+def make_service(tmp_path, hub, settings):
+    store = session_service_module.OperatorSettingsStore(
+        tmp_path / f"operator-{id(hub)}.json"
+    )
+    return SessionService(settings, hub, store)
+
+
 @pytest.mark.asyncio
-async def test_capture_is_processed_before_interpreter_send():
+async def test_capture_is_processed_before_interpreter_send(tmp_path):
     hub = FakeHub()
-    service = SessionService(Settings(interpreter="echo"), hub)
+    service = make_service(tmp_path, hub, Settings(interpreter="echo"))
     interpreter = FakeInterpreter([])
     service._interpreter = interpreter
     service._capture = FakeCapture(
@@ -85,9 +92,9 @@ async def test_capture_is_processed_before_interpreter_send():
 
 
 @pytest.mark.asyncio
-async def test_capture_broadcasts_throttled_input_audio_level(monkeypatch):
+async def test_capture_broadcasts_throttled_input_audio_level(monkeypatch, tmp_path):
     hub = FakeHub()
-    service = SessionService(Settings(interpreter="echo"), hub)
+    service = make_service(tmp_path, hub, Settings(interpreter="echo"))
     interpreter = FakeInterpreter([])
     service._interpreter = interpreter
     service._capture = FakeCapture(
@@ -109,9 +116,9 @@ async def test_capture_broadcasts_throttled_input_audio_level(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_input_text_is_operator_only():
+async def test_input_text_is_operator_only(tmp_path):
     hub = FakeHub()
-    service = SessionService(Settings(interpreter="echo"), hub)  # type: ignore[arg-type]
+    service = make_service(tmp_path, hub, Settings(interpreter="echo"))
     service._interpreter = FakeInterpreter(
         [
             InterpreterEvent(kind="input_text", text="안녕하세요"),
@@ -129,9 +136,9 @@ async def test_input_text_is_operator_only():
 
 
 @pytest.mark.asyncio
-async def test_output_text_reports_audio_chunk_to_caption_latency():
+async def test_output_text_reports_audio_chunk_to_caption_latency(tmp_path):
     hub = FakeHub()
-    service = SessionService(Settings(interpreter="echo"), hub)  # type: ignore[arg-type]
+    service = make_service(tmp_path, hub, Settings(interpreter="echo"))
     service._interpreter = FakeInterpreter(
         [InterpreterEvent(kind="output_text", text="Guten Tag")]
     )
@@ -149,9 +156,9 @@ async def test_output_text_reports_audio_chunk_to_caption_latency():
 
 
 @pytest.mark.asyncio
-async def test_output_text_latency_uses_first_audio_chunk_since_previous_text():
+async def test_output_text_latency_uses_first_audio_chunk_since_previous_text(tmp_path):
     hub = FakeHub()
-    service = SessionService(Settings(interpreter="echo"), hub)  # type: ignore[arg-type]
+    service = make_service(tmp_path, hub, Settings(interpreter="echo"))
     service._interpreter = FakeInterpreter(
         [
             InterpreterEvent(kind="output_text", text="Guten Tag"),
@@ -170,9 +177,9 @@ async def test_output_text_latency_uses_first_audio_chunk_since_previous_text():
 
 
 @pytest.mark.asyncio
-async def test_event_stream_end_stops_session_and_closes_interpreter():
+async def test_event_stream_end_stops_session_and_closes_interpreter(tmp_path):
     hub = FakeHub()
-    service = SessionService(Settings(interpreter="echo"), hub)
+    service = make_service(tmp_path, hub, Settings(interpreter="echo"))
     interpreter = FakeInterpreter([])
     service._interpreter = interpreter
     service._running = True
@@ -186,9 +193,9 @@ async def test_event_stream_end_stops_session_and_closes_interpreter():
 
 
 @pytest.mark.asyncio
-async def test_concurrent_start_creates_one_session(monkeypatch):
+async def test_concurrent_start_creates_one_session(monkeypatch, tmp_path):
     hub = FakeHub()
-    service = SessionService(Settings(interpreter="echo"), hub)
+    service = make_service(tmp_path, hub, Settings(interpreter="echo"))
     started = asyncio.Event()
     release = asyncio.Event()
     created = 0
@@ -240,9 +247,9 @@ async def test_concurrent_start_creates_one_session(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_start_cleans_up_when_processor_creation_fails(monkeypatch):
+async def test_start_cleans_up_when_processor_creation_fails(monkeypatch, tmp_path):
     hub = FakeHub()
-    service = SessionService(Settings(interpreter="echo"), hub)
+    service = make_service(tmp_path, hub, Settings(interpreter="echo"))
     interpreter = FakeInterpreter([])
     capture = None
 

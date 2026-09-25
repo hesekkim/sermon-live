@@ -85,6 +85,10 @@ class BroadcastHub:
         for client in stale:
             self.unregister(client)
 
+    async def broadcast_session(self, payload: dict[str, Any]) -> None:
+        await self.broadcast_operator(payload)
+        await self._broadcast_listen_json(payload)
+
     async def close_all(self) -> None:
         for client in list(self._listen_clients | self._operator_clients):
             try:

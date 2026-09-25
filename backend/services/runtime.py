@@ -1,6 +1,8 @@
 from core.config import get_settings
+from services.audio_runtime import AudioRuntime
 from services.broadcast import hub
 from services.session_service import SessionService
 
 settings = get_settings()
-session = SessionService(settings, hub)
+audio = AudioRuntime(settings, hub)
+session = SessionService(settings, hub, audio)

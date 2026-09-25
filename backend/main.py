@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.v1.api import api_router
 from services.broadcast import hub
-from services.runtime import session, settings
+from services.runtime import audio, session, settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,11 +38,15 @@ def lan_ip() -> str:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    logger.info("HTTP ready. Start capture from the operator page.")
-    yield
-    await session.stop()
-    await hub.close_all()
-    logger.info("Application shutdown")
+    await audio.start()
+    logger.info("HTTP ready. Translation sessions can be started from the operator page.")
+    try:
+        yield
+    finally:
+        await session.shutdown()
+        await audio.stop()
+        await hub.close_all()
+        logger.info("Application shutdown")
 
 
 def create_application() -> FastAPI:

@@ -5,6 +5,7 @@ import { appendTranscriptLine } from '../utils/transcriptFile';
 export type ServerStatus = 'connecting' | 'online' | 'offline';
 export type OperatorConnectionStatus = 'connecting' | 'connected' | 'reconnecting';
 export type InterpreterStatus = 'connected' | 'disconnected' | 'error';
+export type TranslationSessionStatus = 'off' | 'starting' | 'live' | 'stopping' | 'error';
 
 export interface SessionTimerState {
   elapsedSeconds?: number;
@@ -17,6 +18,13 @@ export interface SessionTimerState {
 interface SessionStatus {
   running: boolean;
   listener_count: number;
+  session_status?: TranslationSessionStatus;
+  audio_ready?: boolean;
+  audio_error?: string | null;
+  start_available?: boolean;
+  start_block_reason?: string | null;
+  error?: string | null;
+  last_termination_reason?: string | null;
   timer?: SessionTimerState;
 }
 
@@ -25,6 +33,13 @@ interface OperatorMessage {
   role?: 'input' | 'output';
   text?: string;
   running?: boolean;
+  sessionStatus?: TranslationSessionStatus;
+  audioReady?: boolean;
+  audioError?: string | null;
+  startAvailable?: boolean;
+  startBlockReason?: string | null;
+  error?: string | null;
+  ready?: boolean;
   listenerCount?: number;
   level?: number;
   milliseconds?: number;
@@ -42,6 +57,12 @@ function clampAudioLevel(level: number) {
 
 export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (message: string) => void) {
   const [running, setRunning] = useState(false);
+    const [sessionStatus, setSessionStatus] = useState<TranslationSessionStatus>('off');
+    const [audioReady, setAudioReady] = useState(false);
+    const [audioError, setAudioError] = useState<string | null>(null);
+    const [startAvailable, setStartAvailable] = useState(false);
+    const [startBlockReason, setStartBlockReason] = useState<string | null>(null);
+    const [sessionError, setSessionError] = useState<string | null>(null);
   const [listenerCount, setListenerCount] = useState(0);
   const [audioLevel, setAudioLevel] = useState<number | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
@@ -74,6 +95,13 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
   }, [formatSessionError]);
   const applyStatus = useCallback((data: SessionStatus) => {
     setRunning(data.running);
+      setSessionStatus(data.session_status ?? (data.running ? 'live' : 'off'));
+      if (typeof data.audio_ready === 'boolean') setAudioReady(data.audio_ready);
+      if ('audio_error' in data) setAudioError(data.audio_error ?? null);
+      if (typeof data.start_available === 'boolean') setStartAvailable(data.start_available);
+      if ('start_block_reason' in data) setStartBlockReason(data.start_block_reason ?? null);
+      if ('error' in data) setSessionError(data.error ?? null);
+      if (data.last_termination_reason) setLastTerminationReason(data.last_termination_reason);
     setListenerCount(data.listener_count);
     if (data.timer) setTimer(data.timer);
     setInterpreterStatus((current) =>
@@ -122,6 +150,13 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
               );
               if (!payload.running) setAudioLevel(null);
             }
+            if (payload.sessionStatus) setSessionStatus(payload.sessionStatus);
+            if (typeof payload.audioReady === 'boolean') setAudioReady(payload.audioReady);
+            if ('audioError' in payload) setAudioError(payload.audioError ?? null);
+            if (typeof payload.startAvailable === 'boolean') setStartAvailable(payload.startAvailable);
+            if ('startBlockReason' in payload) setStartBlockReason(payload.startBlockReason ?? null);
+            if ('error' in payload) setSessionError(payload.error ?? null);
+            if (payload.reason) setLastTerminationReason(payload.reason);
             if (typeof payload.listenerCount === 'number') setListenerCount(payload.listenerCount);
             if (payload.timer) setTimer(payload.timer);
             return;
@@ -146,7 +181,21 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
             if (payload.reason) setLastTerminationReason(payload.reason);
             return;
           }
+          if (payload.type === 'audio_status') {
+            if (typeof payload.ready === 'boolean') {
+              setAudioReady(payload.ready);
+              if (!payload.ready) setStartAvailable(false);
+              else void refreshStatus();
+            }
+            if (typeof payload.error === 'string' || payload.error === null) {
+              setAudioError(payload.error ?? null);
+              if (payload.error) setStartBlockReason(payload.error);
+            }
+            return;
+          }
           if (payload.type === 'error' && payload.text) {
+            setSessionError(payload.text);
+            setSessionStatus('error');
             setInterpreterStatus('error');
             emitSessionError(payload.text);
             return;
@@ -202,6 +251,7 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
       throw new Error(detail);
     }
     applyStatus((await response.json()) as SessionStatus);
+    setSessionError(null);
     setInterpreterStatus('connected');
     setTimer(null);
     setLastTerminationReason(null);
@@ -214,6 +264,12 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
 
   return {
     running,
+    sessionStatus,
+    audioReady,
+    audioError,
+    startAvailable,
+    startBlockReason,
+    sessionError,
     listenerCount,
     audioLevel,
     latencyMs,

@@ -15,14 +15,13 @@
 1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
 2. `019-backend-glossary-model.md` — Global + Today's Sermon Glossary 최소 모델
 3. `021-frontend-glossary-ui.md` — Settings의 Global Glossary와 Sermon의 Today's Glossary UI
-4. `027-backend-translation-session-lifecycle.md` — Translation Session lifecycle
-5. `028-backend-translation-safety-timer.md` — Translation Safety Timer
-6. `029-backend-broadcast-observability.md` — Broadcast 상태 이벤트 계약
-7. `030-frontend-operator-navigation-restructure.md` — Operator 3영역 navigation
-8. `031-frontend-translation-session-controls.md` — Broadcast Translation 제어
-9. `032-frontend-settings-configuration-ui.md` — 운영 설정 UI
-10. `033-frontend-listener-core-ux.md` — Listener 핵심 UX
-11. `034-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
+4. `028-backend-translation-safety-timer.md` — Translation Safety Timer
+5. `029-backend-broadcast-observability.md` — Broadcast 상태 이벤트 계약
+6. `030-frontend-operator-navigation-restructure.md` — Operator 3영역 navigation
+7. `031-frontend-translation-session-controls.md` — Broadcast Translation 제어
+8. `032-frontend-settings-configuration-ui.md` — 운영 설정 UI
+9. `033-frontend-listener-core-ux.md` — Listener 핵심 UX
+10. `034-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
 
 ## 보류 (`hold/`)
 
@@ -52,6 +51,7 @@
 18. `024-backend-translation-policy-config.md — Translation Profile CRUD 잔재 제거 및 정책 범위 고정`
 19. `026-frontend-listen-volume-control.md — 폐기/제외`
 20. `025-frontend-broadcast-metadata-panel.md — Broadcast 메타데이터 패널`
+21. `027-backend-translation-session-lifecycle.md — Translation Session lifecycle`
 
 ## 결정 사항
 

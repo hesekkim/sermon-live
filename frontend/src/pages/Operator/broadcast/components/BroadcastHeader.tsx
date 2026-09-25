@@ -6,12 +6,19 @@ import type {
   OperatorConnectionStatus,
   ServerStatus,
   SessionTimerState,
+  TranslationSessionStatus,
 } from '../hooks/useBroadcastSession';
 import styles from '../Broadcast.module.css';
 
 interface BroadcastHeaderProps {
   labels: OperatorCopy;
   running: boolean;
+  sessionStatus: TranslationSessionStatus;
+  audioReady: boolean;
+  audioError: string | null;
+  startAvailable: boolean;
+  startBlockReason: string | null;
+  sessionError: string | null;
   listenerCount: number;
   audioLevel: number | null;
   latencyMs: number | null;
@@ -38,6 +45,12 @@ function formatDuration(seconds?: number | null) {
 export default function BroadcastHeader({
   labels,
   running,
+  sessionStatus,
+  audioReady,
+  audioError,
+  startAvailable,
+  startBlockReason,
+  sessionError,
   listenerCount,
   audioLevel,
   latencyMs,
@@ -64,11 +77,20 @@ export default function BroadcastHeader({
     connected: labels.operatorConnected,
     reconnecting: labels.operatorReconnecting,
   }[operatorConnectionStatus];
-  const audioLabel = !running
-    ? labels.audioUnavailable
+  const audioLabel = !audioReady
+    ? audioError || labels.audioUnavailable
     : audioLevel !== null && audioLevel > -60
       ? labels.audioSignal
       : labels.audioSilent;
+  const translationLabel = {
+    off: labels.translationOff,
+    starting: labels.translationStarting,
+    live: labels.translationLive,
+    stopping: labels.translationStopping,
+    error: labels.translationError,
+  }[sessionStatus];
+  const startDisabled = !running && (serverStatus !== 'online' || !startAvailable);
+  const disabledReason = serverStatus !== 'online' ? labels.serverOffline : startBlockReason;
 
   return (
     <>
@@ -84,10 +106,10 @@ export default function BroadcastHeader({
           <button
             type="button"
             className={[styles.power, running ? styles.powerOn : styles.powerOff].join(' ')}
-            aria-pressed={running}
+            aria-pressed={sessionStatus === 'live'}
             aria-label={running ? labels.sessionOn : labels.sessionOff}
-            title={running ? labels.sessionOn : labels.sessionOff}
-            disabled={togglePending}
+            title={startDisabled ? disabledReason || labels.sessionOff : running ? labels.sessionOn : labels.sessionOff}
+            disabled={togglePending || sessionStatus === 'starting' || sessionStatus === 'stopping' || startDisabled}
             onClick={onToggle}
           >
             {running ? <LuPower size={22} aria-hidden /> : <LuPowerOff size={22} aria-hidden />}
@@ -106,9 +128,7 @@ export default function BroadcastHeader({
           </div>
           <div className={styles.statusItem}>
             <dt>{labels.translationStatus}</dt>
-            <dd data-state={running ? 'live' : 'off'}>
-              {running ? labels.translationLive : labels.translationOff}
-            </dd>
+            <dd data-state={sessionStatus}>{translationLabel}</dd>
           </div>
           <div className={styles.statusItem}>
             <dt>{labels.audioStatus}</dt>
@@ -154,6 +174,18 @@ export default function BroadcastHeader({
             <div className={styles.statusItem}>
               <dt>{labels.lastTerminationReason}</dt>
               <dd>{lastTerminationReason}</dd>
+            </div>
+          ) : null}
+          {sessionError ? (
+            <div className={styles.statusItem}>
+              <dt>{labels.sessionErrorLabel}</dt>
+              <dd data-state="error">{sessionError}</dd>
+            </div>
+          ) : null}
+          {!running && startBlockReason && (sessionStatus === 'off' || sessionStatus === 'error') ? (
+            <div className={styles.statusItem} role="status">
+              <dt>{labels.sessionErrorLabel}</dt>
+              <dd data-state="warning">{startBlockReason}</dd>
             </div>
           ) : null}
         </dl>

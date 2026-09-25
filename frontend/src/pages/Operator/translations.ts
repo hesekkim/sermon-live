@@ -75,6 +75,9 @@ export interface OperatorCopy {
   translationStatus: string;
   translationLive: string;
   translationOff: string;
+  translationStarting: string;
+  translationStopping: string;
+  translationError: string;
   latency: string;
   latencyUnavailable: string;
   audioStatus: string;
@@ -104,6 +107,7 @@ export interface OperatorCopy {
   sessionStarted: string;
   sessionStopped: string;
   sessionError: string;
+  sessionErrorLabel: string;
   toastClose: string;
 }
 
@@ -182,6 +186,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     translationStatus: '통역 세션',
     translationLive: 'LIVE',
     translationOff: 'OFF',
+    translationStarting: '시작 중',
+    translationStopping: '종료 중',
+    translationError: '오류',
     latency: '청크 → 자막 지연',
     latencyUnavailable: '측정 대기',
     audioStatus: '오디오 신호',
@@ -211,6 +218,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionStarted: '방송을 시작했습니다',
     sessionStopped: '방송을 중지했습니다',
     sessionError: '방송 처리 중 오류가 발생했습니다',
+    sessionErrorLabel: '세션 오류',
     toastClose: '닫기',
   },
   en: {
@@ -287,6 +295,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     translationStatus: 'Translation session',
     translationLive: 'LIVE',
     translationOff: 'OFF',
+    translationStarting: 'Starting',
+    translationStopping: 'Stopping',
+    translationError: 'Error',
     latency: 'Chunk to caption',
     latencyUnavailable: 'Waiting for data',
     audioStatus: 'Audio signal',
@@ -316,6 +327,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionStarted: 'Broadcast started',
     sessionStopped: 'Broadcast stopped',
     sessionError: 'A broadcast error occurred',
+    sessionErrorLabel: 'Session error',
     toastClose: 'Close',
   },
   de: {
@@ -392,6 +404,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     translationStatus: 'Übersetzungssitzung',
     translationLive: 'LIVE',
     translationOff: 'AUS',
+    translationStarting: 'Startet',
+    translationStopping: 'Wird beendet',
+    translationError: 'Fehler',
     latency: 'Chunk bis Untertitel',
     latencyUnavailable: 'Warte auf Daten',
     audioStatus: 'Audiosignal',
@@ -421,6 +436,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionStarted: 'Sendung gestartet',
     sessionStopped: 'Sendung gestoppt',
     sessionError: 'Während der Sendung ist ein Fehler aufgetreten',
+    sessionErrorLabel: 'Sitzungsfehler',
     toastClose: 'Schließen',
   },
 };

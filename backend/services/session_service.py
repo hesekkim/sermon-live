@@ -2,6 +2,340 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Literal
+
+from core.config import Settings
+from services.audio_runtime import AudioRuntime
+from services.broadcast import BroadcastHub
+from services.interpreters.factory import create_interpreter
+from services.interpreters.protocol import KeyValidationError, LiveInterpreter
+from services.operator_store import OperatorSettingsStore, store as default_store
+from services.sermon_session import SermonSessionStore, store as default_sermon_store
+
+logger = logging.getLogger(__name__)
+
+SessionState = Literal["off", "starting", "live", "stopping", "error"]
+TerminationReason = Literal[
+    "manual",
+    "auto_stop",
+    "hard_limit",
+    "interpreter_error",
+    "device_error",
+    "server_shutdown",
+]
+
+
+class SessionTransitionError(RuntimeError):
+    pass
+
+
+class _TranslationSessionService:
+    def __init__(
+        self,
+        settings: Settings,
+        hub: BroadcastHub,
+        audio: AudioRuntime,
+        operator_store: OperatorSettingsStore | None = None,
+        sermon_store: SermonSessionStore | None = None,
+    ) -> None:
+        self._settings = settings
+        self._hub = hub
+        self._audio = audio
+        self._store = operator_store or default_store
+        self._sermon_store = sermon_store or default_sermon_store
+        self._state: SessionState = "off"
+        self._error: str | None = None
+        self._sermon_session_id: str | None = None
+        self._last_termination_reason: str | None = None
+        self._interpreter: LiveInterpreter | None = None
+        self._audio_task: asyncio.Task[None] | None = None
+        self._event_task: asyncio.Task[None] | None = None
+        self._transition_lock = asyncio.Lock()
+        self._audio.on_device_error = self._handle_device_error
+
+    @property
+    def running(self) -> bool:
+        return self._state == "live"
+
+    @property
+    def state(self) -> SessionState:
+        return self._state
+
+    def status(self) -> dict[str, object]:
+        start_block_reason = self._start_block_reason()
+        return {
+            "running": self.running,
+            "session_status": self._state,
+            "listener_count": self._hub.listener_count,
+            "audio_ready": self._audio.ready,
+            "audio_error": self._audio.error,
+            "error": self._error,
+            "sermon_session_id": self._sermon_session_id,
+            "last_termination_reason": self._last_termination_reason,
+            "start_available": start_block_reason is None,
+            "start_block_reason": start_block_reason,
+        }
+
+    def session_event(self) -> dict[str, object]:
+        start_block_reason = self._start_block_reason()
+        return {
+            "type": "status",
+            "running": self.running,
+            "sessionStatus": self._state,
+            "listenerCount": self._hub.listener_count,
+            "audioReady": self._audio.ready,
+            "audioError": self._audio.error,
+            "error": self._error,
+            "sermonSessionId": self._sermon_session_id,
+            "reason": self._last_termination_reason,
+            "startAvailable": start_block_reason is None,
+            "startBlockReason": start_block_reason,
+        }
+
+    async def start(self, sermon_session_id: str | None = None) -> None:
+        async with self._transition_lock:
+            if self._state not in ("off", "error"):
+                raise SessionTransitionError(
+                    f"Cannot start translation session while {self._state}"
+                )
+            if not self._audio.ready:
+                message = self._audio.error or "Audio input device is not available"
+                self._state = "error"
+                self._error = message
+                await self._publish_status()
+                await self._publish_error(message)
+                raise RuntimeError(message)
+            self._state = "starting"
+            self._error = None
+            self._last_termination_reason = None
+            self._sermon_session_id = (
+                sermon_session_id or self._sermon_store.load().sermon_id or None
+            )
+
+        interpreter: LiveInterpreter | None = None
+        try:
+            await self._publish_status()
+            runtime = self._store.overlay_settings(self._settings)
+            if runtime.interpreter == "openai" and not runtime.openai_api_key:
+                self._store.set_key_status(
+                    runtime.interpreter, "missing", "OpenAI API key is not set"
+                )
+                raise RuntimeError("OpenAI API key is not set")
+
+            interpreter = create_interpreter(runtime)
+            try:
+                await interpreter.validate_key()
+            except KeyValidationError as exc:
+                self._store.set_key_status(runtime.interpreter, "invalid", str(exc))
+                raise RuntimeError(str(exc)) from exc
+            await interpreter.start()
+            if runtime.interpreter == "openai":
+                self._store.set_key_status(runtime.interpreter, "valid")
+
+            audio_queue = self._audio.attach_translation(interpreter)
+            async with self._transition_lock:
+                self._interpreter = interpreter
+                self._state = "live"
+                self._audio_task = asyncio.create_task(
+                    self._pump_audio(audio_queue), name="pump-translation-audio"
+                )
+                self._event_task = asyncio.create_task(
+                    self._pump_events(interpreter), name="pump-interpreter-events"
+                )
+                await self._publish_status()
+        except asyncio.CancelledError:
+            await self._abort_start(interpreter)
+            raise
+        except Exception as exc:
+            if interpreter is not None:
+                await self._close_interpreter(interpreter)
+            queue = await self._audio.finish_translation()
+            if queue is not None:
+                await self._drain_audio_queue(queue, None)
+            message = str(exc) or "Translation session failed to start"
+            async with self._transition_lock:
+                self._state = "error"
+                self._error = message
+                self._sermon_session_id = None
+                await self._publish_error(message)
+                await self._publish_status()
+            raise
+
+    async def stop(self, reason: TerminationReason = "manual") -> None:
+        async with self._transition_lock:
+            if self._state != "live":
+                raise SessionTransitionError(
+                    f"Cannot stop translation session while {self._state}"
+                )
+            self._state = "stopping"
+            await self._publish_status()
+        await self._finish(reason)
+
+    async def shutdown(self) -> None:
+        if self._state == "live":
+            await self.stop("server_shutdown")
+
+    async def _abort_start(self, interpreter: LiveInterpreter | None) -> None:
+        async with self._transition_lock:
+            self._state = "stopping"
+            await self._publish_status()
+
+        await self._audio.finish_translation(discard_pending=True)
+        tasks = [task for task in (self._audio_task, self._event_task) if task]
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        if interpreter is not None:
+            await self._close_interpreter(interpreter)
+
+        async with self._transition_lock:
+            self._interpreter = None
+            self._audio_task = None
+            self._event_task = None
+            self._sermon_session_id = None
+            self._state = "off"
+            await self._publish_status()
+
+    async def _finish(
+        self,
+        reason: TerminationReason,
+        error: str | None = None,
+        current_task: asyncio.Task[object] | None = None,
+    ) -> None:
+        queue = await self._audio.finish_translation(
+            discard_pending=current_task is self._audio_task
+        )
+        audio_task = self._audio_task
+        if queue is not None and audio_task is not None and audio_task is not current_task:
+            await asyncio.gather(audio_task, return_exceptions=True)
+
+        interpreter = self._interpreter
+        if interpreter is not None:
+            await self._close_interpreter(interpreter)
+
+        event_task = self._event_task
+        if event_task is not None and event_task is not current_task:
+            try:
+                await asyncio.wait_for(asyncio.shield(event_task), timeout=2.0)
+            except asyncio.TimeoutError:
+                event_task.cancel()
+                await asyncio.gather(event_task, return_exceptions=True)
+
+        async with self._transition_lock:
+            self._interpreter = None
+            self._audio_task = None
+            self._event_task = None
+            self._error = error
+            self._last_termination_reason = reason
+            self._state = (
+                "error"
+                if reason in ("interpreter_error", "device_error")
+                else "off"
+            )
+            if error:
+                await self._publish_error(error)
+            await self._publish_status()
+            await self._publish_ended(reason)
+
+    async def _pump_audio(self, queue: asyncio.Queue[bytes | None]) -> None:
+        interpreter = self._interpreter
+        if interpreter is None:
+            return
+        while True:
+            chunk = await queue.get()
+            if chunk is None:
+                return
+            await interpreter.send_pcm(chunk)
+
+    async def _pump_events(self, interpreter: LiveInterpreter) -> None:
+        try:
+            async for event in interpreter.events():
+                if event.kind == "audio" and event.pcm:
+                    await self._hub.broadcast_audio(event.pcm, event.sample_rate)
+                elif event.kind in ("text", "output_text") and event.text:
+                    await self._hub.broadcast_text(event.text)
+                    await self._hub.broadcast_operator(
+                        {"type": "transcript", "role": "output", "text": event.text}
+                    )
+                elif event.kind == "input_text" and event.text:
+                    await self._hub.broadcast_operator(
+                        {"type": "transcript", "role": "input", "text": event.text}
+                    )
+                elif event.kind == "error" and event.text:
+                    logger.error("Interpreter error: %s", event.text)
+                    await self._finish_from_task(
+                        "interpreter_error", event.text
+                    )
+                    return
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.exception("Interpreter event pump failed")
+            await self._finish_from_task("interpreter_error", str(exc))
+            return
+        if self._state == "live":
+            await self._finish_from_task(
+                "interpreter_error", "Interpreter event stream ended unexpectedly"
+            )
+
+    async def _finish_from_task(
+        self, reason: TerminationReason, error: str
+    ) -> None:
+        async with self._transition_lock:
+            if self._state != "live":
+                return
+            self._state = "stopping"
+            await self._publish_status()
+        await self._finish(reason, error, asyncio.current_task())
+
+    async def _handle_device_error(self, message: str) -> None:
+        await self._finish_from_task("device_error", message)
+
+    async def _drain_audio_queue(
+        self,
+        queue: asyncio.Queue[bytes | None],
+        interpreter: LiveInterpreter | None,
+    ) -> None:
+        while True:
+            chunk = await queue.get()
+            if chunk is None:
+                return
+            if interpreter is not None:
+                await interpreter.send_pcm(chunk)
+
+    async def _close_interpreter(self, interpreter: LiveInterpreter) -> None:
+        try:
+            await interpreter.close()
+        except Exception:
+            logger.exception("Interpreter close failed")
+
+    async def _publish_status(self) -> None:
+        payload = self.session_event()
+        broadcaster = getattr(self._hub, "broadcast_session", None)
+        if broadcaster is None:
+            await self._hub.broadcast_operator(payload)
+        else:
+            await broadcaster(payload)
+
+    async def _publish_error(self, message: str) -> None:
+        payload = {"type": "error", "text": message, "sessionStatus": self._state}
+        broadcaster = getattr(self._hub, "broadcast_session", None)
+        if broadcaster is None:
+            await self._hub.broadcast_operator(payload)
+        else:
+            await broadcaster(payload)
+
+    async def _publish_ended(self, reason: TerminationReason) -> None:
+        payload = {"type": "session_ended", "reason": reason}
+        broadcaster = getattr(self._hub, "broadcast_session", None)
+        if broadcaster is None:
+            await self._hub.broadcast_operator(payload)
+        else:
+            await broadcaster(payload)
+
+import asyncio
+import logging
 import time
 
 from core.config import Settings
@@ -15,9 +349,8 @@ from services.operator_store import OperatorSettingsStore, store as default_stor
 logger = logging.getLogger(__name__)
 
 
-class SessionService:
+class LegacySessionService:
     _AUDIO_LEVEL_BROADCAST_INTERVAL = 0.1
-
     def __init__(
         self,
         settings: Settings,
@@ -230,3 +563,108 @@ class SessionService:
                 async with self._lifecycle_lock:
                     if self._running:
                         await self._stop_locked()
+
+
+class SessionService(_TranslationSessionService):
+    def __init__(
+        self,
+        settings: Settings,
+        hub: BroadcastHub,
+        audio: AudioRuntime,
+        operator_store: OperatorSettingsStore | None = None,
+        sermon_store: SermonSessionStore | None = None,
+    ) -> None:
+        super().__init__(settings, hub, audio, operator_store, sermon_store)
+        self._first_audio_chunk_since_text_sent_at: float | None = None
+
+    async def _pump_audio(self, queue: asyncio.Queue[bytes | None]) -> None:
+        interpreter = self._interpreter
+        if interpreter is None:
+            return
+        self._first_audio_chunk_since_text_sent_at = None
+        loop = asyncio.get_running_loop()
+        try:
+            while True:
+                chunk = await queue.get()
+                if chunk is None:
+                    return
+                await interpreter.send_pcm(chunk)
+                if self._first_audio_chunk_since_text_sent_at is None:
+                    self._first_audio_chunk_since_text_sent_at = loop.time()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.exception("Translation audio pump failed")
+            await self._finish_from_task("interpreter_error", str(exc))
+
+    async def _pump_events(self, interpreter: LiveInterpreter) -> None:
+        loop = asyncio.get_running_loop()
+        try:
+            async for event in interpreter.events():
+                if event.kind == "audio" and event.pcm:
+                    await self._hub.broadcast_audio(event.pcm, event.sample_rate)
+                elif event.kind in ("text", "output_text") and event.text:
+                    if self._first_audio_chunk_since_text_sent_at is not None:
+                        latency_ms = max(
+                            0,
+                            round(
+                                (
+                                    loop.time()
+                                    - self._first_audio_chunk_since_text_sent_at
+                                )
+                                * 1000
+                            ),
+                        )
+                        self._first_audio_chunk_since_text_sent_at = None
+                        await self._hub.broadcast_operator(
+                            {"type": "latency", "milliseconds": latency_ms}
+                        )
+                    await self._hub.broadcast_text(event.text)
+                    await self._hub.broadcast_operator(
+                        {"type": "transcript", "role": "output", "text": event.text}
+                    )
+                elif event.kind == "input_text" and event.text:
+                    await self._hub.broadcast_operator(
+                        {"type": "transcript", "role": "input", "text": event.text}
+                    )
+                elif event.kind == "error" and event.text:
+                    await self._finish_from_task("interpreter_error", event.text)
+                    return
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.exception("Interpreter event pump failed")
+            await self._finish_from_task("interpreter_error", str(exc))
+            return
+        if self._state == "live":
+            await self._finish_from_task(
+                "interpreter_error", "Interpreter event stream ended unexpectedly"
+            )
+
+    def _start_block_reason(self) -> str | None:
+        if self._state not in ("off", "error"):
+            return f"Translation session is {self._state}"
+        if not self._audio.ready:
+            return self._audio.error or "Audio input device is not available"
+        runtime = self._store.overlay_settings(self._settings)
+        if runtime.interpreter == "openai":
+            settings_view = self._store.public_view(self._settings)
+            if not settings_view["openai_key_set"]:
+                return "OpenAI API key is not set"
+            if settings_view["openai_key_status"] == "invalid":
+                return str(settings_view["openai_key_warning"] or "OpenAI API key is invalid")
+        return None
+
+    def status(self) -> dict[str, object]:
+        result = super().status()
+        reason = self._start_block_reason()
+        result["start_available"] = reason is None
+        result["start_block_reason"] = reason
+        return result
+
+    def session_event(self) -> dict[str, object]:
+        result = super().session_event()
+        reason = self._start_block_reason()
+        result["startAvailable"] = reason is None
+        result["startBlockReason"] = reason
+        return result
