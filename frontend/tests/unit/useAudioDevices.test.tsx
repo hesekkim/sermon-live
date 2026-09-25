@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useAudioDevices } from '../../src/pages/Operator/settings/useAudioDevices';
+import { useAudioDevices } from '../../src/pages/Operator/settings/hooks/useAudioDevices';
 
 (globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT: boolean;

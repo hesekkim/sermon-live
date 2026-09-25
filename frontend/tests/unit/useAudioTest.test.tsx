@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import Settings from '../../src/pages/Operator/settings/Settings';
 import { operatorCopy } from '../../src/pages/Operator/translations';
 import { ToastProvider } from '../../src/shared/components/Toast/ToastProvider';
-import { useAudioTest } from '../../src/pages/Operator/settings/useAudioTest';
+import { useAudioTest } from '../../src/pages/Operator/settings/hooks/useAudioTest';
 
 vi.mock('../../src/pages/Operator/OperatorPrefs', () => ({
   useOperatorPrefs: () => ({
@@ -16,7 +16,7 @@ vi.mock('../../src/pages/Operator/OperatorPrefs', () => ({
   }),
 }));
 
-vi.mock('../../src/pages/Operator/settings/useAudioDevices', () => ({
+vi.mock('../../src/pages/Operator/settings/hooks/useAudioDevices', () => ({
   useAudioDevices: () => ({
     deviceOptions: [],
     selectedDevice: '',
@@ -25,7 +25,7 @@ vi.mock('../../src/pages/Operator/settings/useAudioDevices', () => ({
   }),
 }));
 
-vi.mock('../../src/pages/Operator/settings/useOperatorSettings', () => ({
+vi.mock('../../src/pages/Operator/settings/hooks/useOperatorSettings', () => ({
   useOperatorSettings: () => ({
     interpreter: 'echo',
     setInterpreter: vi.fn(),

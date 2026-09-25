@@ -1,19 +1,14 @@
 import { useEffect, useMemo } from 'react';
-import AudioLevelMeter from '../../../shared/components/AudioLevelMeter/AudioLevelMeter';
 import Button from '../../../shared/components/Button/Button';
-import InputField from '../../../shared/components/InputField/InputField';
-import Select from '../../../shared/components/Select/Select';
-import SlideToggle from '../../../shared/components/SlideToggle/SlideToggle';
-import StatusTag from '../../../shared/components/StatusTag/StatusTag';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
-import type { UiLanguage } from '../translations';
-import { useAudioDevices } from './useAudioDevices';
-import { useAudioTest } from './useAudioTest';
-import { useOperatorSettings } from './useOperatorSettings';
+import AppearanceSection from './components/AppearanceSection';
+import AudioDeviceSection from './components/AudioDeviceSection';
+import InterpreterSection from './components/InterpreterSection';
+import { useAudioDevices } from './hooks/useAudioDevices';
+import { useAudioTest } from './hooks/useAudioTest';
+import { useOperatorSettings } from './hooks/useOperatorSettings';
 import styles from './Settings.module.css';
-
-type InterpreterName = 'echo' | 'openai';
 
 export default function Settings() {
   const { labels, language, theme, setLanguage, setTheme } = useOperatorPrefs();
@@ -52,14 +47,6 @@ export default function Settings() {
     }
   }, [deviceError, error, labels.audioDeviceLoadFailed]);
 
-  const interpreterOptions = useMemo(
-    () => [
-      { value: 'echo', label: labels.echo },
-      { value: 'openai', label: labels.openai },
-    ],
-    [labels]
-  );
-
   const languageOptions = useMemo(
     () => [
       { value: 'ko', label: labels.languageKo },
@@ -69,188 +56,47 @@ export default function Settings() {
     [labels]
   );
 
-  const keyDisabled = interpreter === 'echo';
-  const canRunAudioTest =
-    Boolean(selectedDevice) &&
-    deviceOptions.some((option) => option.value === selectedDevice);
   const currentKeyStatus =
     interpreter === 'openai' ? openaiKeyStatus : 'missing';
-  const audioStatusLabel = result
-    ? result.status === 'signal'
-      ? labels.audioTestSignal
-      : result.status === 'silent'
-        ? labels.audioTestSilent
-        : labels.audioTestDisconnected
-    : labels.audioTestNotRun;
-  const detectedFormatText = result
-    ? formatAudioFormat(
-        result.detected_sample_rate,
-        result.detected_channels,
-        result.detected_sample_width
-      )
-    : labels.audioTestNotRun;
-  const processingFormatText = formatAudioFormat(
-    result?.processing_sample_rate ?? 24000,
-    result?.processing_channels ?? 1,
-    result?.processing_sample_width ?? 2
-  );
-  const keyStatusLabel =
-    currentKeyStatus === 'valid'
-      ? labels.keyStatusValid
-      : currentKeyStatus === 'invalid'
-        ? labels.keyStatusInvalid
-        : labels.keyStatusMissing;
-  const keyStatusVariant =
-    currentKeyStatus === 'valid'
-      ? 'decided'
-      : currentKeyStatus === 'invalid'
-        ? 'deprecated'
-        : 'readonly';
-  const savedKeyPreview = openaiKeyMasked;
 
   return (
     <div className={styles.page}>
       <h1>{labels.navSettings}</h1>
       <div className={styles.stack}>
-        <section className={styles.section}>
-          <h2>{labels.appearance}</h2>
-          <Select
-            label={labels.language}
-            options={languageOptions}
-            value={draftLanguage}
-            onChange={(value) => setDraftLanguage(value as UiLanguage)}
-          />
-          <SlideToggle
-            label={labels.darkMode}
-            checked={draftTheme === 'dark'}
-            onChange={(checked) => setDraftTheme(checked ? 'dark' : 'light')}
-          />
-        </section>
-        <section className={styles.section}>
-          <h2>{labels.audioDevice}</h2>
-          <Select
-            label={labels.audioDevice}
-            options={deviceOptions}
-            value={selectedDevice}
-            placeholder={labels.audioDevicePlaceholder}
-            disabled={deviceOptions.length === 0}
-            onChange={setSelectedDevice}
-          />
-
-          <div
-            className={[
-              styles.audioTestPanel,
-              isTesting ? styles.audioTestPanelTesting : '',
-              !canRunAudioTest ? styles.audioTestPanelDisabled : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            aria-busy={isTesting}
-            aria-disabled={!canRunAudioTest}
-          >
-            <div className={styles.audioTestGrid}>
-              <div className={styles.audioTestRow}>
-                <span>{labels.audioTestStatus}</span>
-                <strong>{audioStatusLabel}</strong>
-              </div>
-              <div className={styles.audioTestRow}>
-                <span>{labels.audioTestInputLevel}</span>
-                <div className={styles.audioTestMeter}>
-                  <AudioLevelMeter
-                    level={
-                      isTesting
-                        ? liveInputLevel
-                        : canRunAudioTest && result?.status === 'signal'
-                          ? result.input_level_dbfs
-                        : null
-                    }
-                    label={labels.audioTestInputLevel}
-                    isActive={isTesting}
-                  />
-                </div>
-              </div>
-              <div className={styles.audioTestRow}>
-                <span>{labels.audioTestDetectedFormat}</span>
-                <strong>{canRunAudioTest ? detectedFormatText : '—'}</strong>
-              </div>
-              <div className={styles.audioTestRow}>
-                <span>{labels.audioTestProcessingFormat}</span>
-                <strong>{canRunAudioTest ? processingFormatText : '—'}</strong>
-              </div>
-            </div>
-            <div className={styles.audioTestAction}>
-              <Button
-                variant="secondary"
-                disabled={isTesting || !canRunAudioTest}
-                onClick={() => void runTest()}
-              >
-                {isTesting ? labels.audioTestRunning : labels.audioTest}
-              </Button>
-            </div>
-            {audioTestError ? (
-              <p className={[styles.audioTestMessage, styles.audioTestMessageError].join(' ')} role="alert">
-                {audioTestError}
-              </p>
-            ) : null}
-            {result?.message ? (
-              <p
-                className={[
-                  styles.audioTestMessage,
-                  result.status === 'signal'
-                    ? styles.audioTestMessageSuccess
-                    : result.status === 'silent'
-                      ? styles.audioTestMessageWarning
-                      : styles.audioTestMessageError,
-                ].join(' ')}
-                role="status"
-              >
-                {result.message}
-              </p>
-            ) : null}
-          </div>
-        </section>
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            {labels.interpreter}
-            {interpreter !== 'echo' ? (
-              <StatusTag
-                label={keyStatusLabel}
-                variant={keyStatusVariant}
-              />
-            ) : null}
-          </h2>
-          <Select
-            label={labels.interpreter}
-            options={interpreterOptions}
-            value={interpreter}
-            onChange={(value) => {
-              setInterpreter(value as InterpreterName);
-              setApiKey('');
-            }}
-          />
-          <div className={styles.keyRow}>
-            <div className={styles.inputWrap}>
-              <InputField
-                label={labels.apiKey}
-                type="password"
-                showPasswordToggle
-                showPasswordLabel={labels.showApiKey}
-                hidePasswordLabel={labels.hideApiKey}
-                value={apiKey}
-                disabled={keyDisabled}
-                placeholder={
-                  keyDisabled
-                    ? labels.echoNoKey
-                    : savedKeyPreview || labels.apiKeyPlaceholder
-                }
-                onChange={setApiKey}
-              />
-            </div>
-          </div>
-          {keyWarning && currentKeyStatus === 'invalid' ? (
-            <p role="status">{keyWarning}</p>
-          ) : null}
-        </section>
+        <AppearanceSection
+          title={labels.appearance}
+          languageLabel={labels.language}
+          languageOptions={languageOptions}
+          language={draftLanguage}
+          onLanguageChange={setDraftLanguage}
+          darkModeLabel={labels.darkMode}
+          theme={draftTheme}
+          onThemeChange={setDraftTheme}
+        />
+        <AudioDeviceSection
+          labels={labels}
+          options={deviceOptions}
+          selectedDevice={selectedDevice}
+          onDeviceChange={setSelectedDevice}
+          result={result}
+          liveInputLevel={liveInputLevel}
+          error={audioTestError}
+          isTesting={isTesting}
+          onRunTest={() => void runTest()}
+        />
+        <InterpreterSection
+          labels={labels}
+          interpreter={interpreter}
+          onInterpreterChange={(value) => {
+            setInterpreter(value);
+            setApiKey('');
+          }}
+          apiKey={apiKey}
+          onApiKeyChange={setApiKey}
+          keyStatus={currentKeyStatus}
+          savedKeyPreview={openaiKeyMasked}
+          keyWarning={keyWarning}
+        />
         <div className={styles.applyActions}>
           <Button disabled={isSaving} onClick={() => void handleSave()}>
             {labels.apply}
@@ -259,16 +105,4 @@ export default function Settings() {
       </div>
     </div>
   );
-}
-
-function formatAudioFormat(
-  sampleRate: number | null | undefined,
-  channels: number | null | undefined,
-  sampleWidth: number | null | undefined
-) {
-  if (sampleRate == null || channels == null || sampleWidth == null) {
-    return '—';
-  }
-
-  return `${sampleRate} Hz / ${channels} ch / ${sampleWidth} bytes`;
 }
