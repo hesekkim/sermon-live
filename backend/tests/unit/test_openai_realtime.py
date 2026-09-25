@@ -71,6 +71,7 @@ async def test_start_sends_translation_configuration_and_pcm():
         "type": "session.input_audio_buffer.append",
         "audio": base64.b64encode(b"\x01\x02").decode("ascii"),
     }
+    await adapter.close()
 
 
 @pytest.mark.asyncio
@@ -97,10 +98,11 @@ async def test_start_uses_translation_settings():
         "model": "custom-whisper"
     }
     assert websocket.sent[0]["session"]["audio"]["output"] == {"language": "fr"}
+    await adapter.close()
 
 
 @pytest.mark.asyncio
-async def test_start_uses_configured_target_audio_format():
+async def test_translation_audio_format_matches_api_requirements():
     websocket = FakeWebSocket(
         [
             {"type": "session.created"},
@@ -120,9 +122,10 @@ async def test_start_uses_configured_target_audio_format():
 
     await adapter.start()
 
-    assert adapter.required_sample_rate == 16000
-    assert adapter.required_channels == 2
-    assert adapter.required_sample_width == 4
+    assert adapter.required_sample_rate == 24000
+    assert adapter.required_channels == 1
+    assert adapter.required_sample_width == 2
+    await adapter.close()
 
 
 @pytest.mark.asyncio
@@ -174,6 +177,8 @@ async def test_events_map_translation_audio_and_transcripts():
         if len(events) == 4:
             break
 
+    await adapter.close()
+
     assert [(event.kind, event.pcm, event.text) for event in events] == [
         ("audio", audio, None),
         ("output_text", None, "Hallo"),
@@ -220,6 +225,26 @@ async def test_validate_key_rejects_handshake_error():
     with pytest.raises(KeyValidationError):
         await adapter.validate_key()
     assert websocket.closed
+
+
+@pytest.mark.asyncio
+async def test_validate_key_rejects_missing_key_without_connecting():
+    called = False
+
+    async def factory(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("WebSocket factory must not be called without an API key")
+
+    adapter = OpenAIRealtimeInterpreter(
+        Settings(interpreter="openai", openai_api_key=""),
+        websocket_factory=factory,
+    )
+
+    with pytest.raises(KeyValidationError, match="API key is not set"):
+        await adapter.validate_key()
+
+    assert called is False
 
 
 async def collect_events(adapter: OpenAIRealtimeInterpreter):
