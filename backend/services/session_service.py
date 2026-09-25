@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Literal
 
 from core.config import Settings
@@ -50,6 +51,13 @@ class _TranslationSessionService:
         self._interpreter: LiveInterpreter | None = None
         self._audio_task: asyncio.Task[None] | None = None
         self._event_task: asyncio.Task[None] | None = None
+        self._timer_task: asyncio.Task[None] | None = None
+        self._timer_started_at: float | None = None
+        self._timer_deadline_at: float | None = None
+        self._timer_warning_sent = False
+        self._timer_extension_count = 0
+        self._active_settings: Settings | None = None
+        self._clock = time.monotonic
         self._transition_lock = asyncio.Lock()
         self._audio.on_device_error = self._handle_device_error
 
@@ -63,7 +71,7 @@ class _TranslationSessionService:
 
     def status(self) -> dict[str, object]:
         start_block_reason = self._start_block_reason()
-        return {
+        payload = {
             "running": self.running,
             "session_status": self._state,
             "listener_count": self._hub.listener_count,
@@ -75,10 +83,14 @@ class _TranslationSessionService:
             "start_available": start_block_reason is None,
             "start_block_reason": start_block_reason,
         }
+        timer = self._timer_status()
+        if timer is not None:
+            payload["timer"] = timer
+        return payload
 
     def session_event(self) -> dict[str, object]:
         start_block_reason = self._start_block_reason()
-        return {
+        payload = {
             "type": "status",
             "running": self.running,
             "sessionStatus": self._state,
@@ -91,6 +103,93 @@ class _TranslationSessionService:
             "startAvailable": start_block_reason is None,
             "startBlockReason": start_block_reason,
         }
+        timer = self._timer_status()
+        if timer is not None:
+            payload["timer"] = timer
+        return payload
+
+    def _auto_stop_seconds(self) -> float:
+        settings = self._active_settings or self._settings
+        return float(settings.translation_session_auto_stop_minutes * 60)
+
+    def _warning_before_stop_seconds(self) -> float:
+        settings = self._active_settings or self._settings
+        return float(settings.translation_session_warning_minutes * 60)
+
+    def _extension_seconds(self) -> float:
+        settings = self._active_settings or self._settings
+        return float(settings.translation_session_extension_minutes * 60)
+
+    def _hard_limit_seconds(self) -> float:
+        settings = self._active_settings or self._settings
+        return float(settings.translation_session_hard_limit_minutes * 60)
+
+    def _timer_status(self) -> dict[str, object] | None:
+        if self._state != "live" or self._timer_started_at is None:
+            return None
+        now = self._clock()
+        deadline = self._timer_deadline_at or (
+            self._timer_started_at + self._auto_stop_seconds()
+        )
+        elapsed = max(0.0, now - self._timer_started_at)
+        remaining = max(0.0, deadline - now)
+        hard_limit = self._timer_started_at + self._hard_limit_seconds()
+        return {
+            "elapsedSeconds": int(elapsed),
+            "remainingSeconds": int(remaining),
+            "warning": remaining <= self._warning_before_stop_seconds(),
+            "extensionCount": self._timer_extension_count,
+            "hardLimitReached": now >= hard_limit,
+        }
+
+    async def _publish_timer(self) -> None:
+        timer = self._timer_status()
+        if timer is None:
+            return
+        payload = {"type": "timer", "timer": timer}
+        broadcaster = getattr(self._hub, "broadcast_session", None)
+        if broadcaster is None:
+            await self._hub.broadcast_operator(payload)
+        else:
+            await broadcaster(payload)
+
+    async def _refresh_timer_state(self) -> None:
+        if self._state != "live" or self._timer_started_at is None:
+            return
+        now = self._clock()
+        deadline = self._timer_deadline_at or (
+            self._timer_started_at + self._auto_stop_seconds()
+        )
+        hard_limit = self._timer_started_at + self._hard_limit_seconds()
+        if now >= hard_limit:
+            reason: TerminationReason | None = "hard_limit"
+        elif now >= deadline:
+            reason = "auto_stop"
+        else:
+            reason = None
+        if reason is not None:
+            async with self._transition_lock:
+                if self._state != "live":
+                    return
+                self._state = "stopping"
+                await self._publish_status()
+            await self._finish(reason, current_task=asyncio.current_task())
+            return
+        timer = self._timer_status()
+        if timer is None:
+            return
+        warning = bool(timer["warning"])
+        if warning and not self._timer_warning_sent:
+            self._timer_warning_sent = True
+            await self._publish_timer()
+        elif not warning:
+            self._timer_warning_sent = False
+        await self._publish_status()
+
+    async def _run_timer_loop(self) -> None:
+        while self._state == "live":
+            await asyncio.sleep(1.0)
+            await self._refresh_timer_state()
 
     async def start(self, sermon_session_id: str | None = None) -> None:
         async with self._transition_lock:
@@ -111,6 +210,10 @@ class _TranslationSessionService:
             self._sermon_session_id = (
                 sermon_session_id or self._sermon_store.load().sermon_id or None
             )
+            self._timer_started_at = None
+            self._timer_deadline_at = None
+            self._timer_warning_sent = False
+            self._timer_extension_count = 0
 
         interpreter: LiveInterpreter | None = None
         try:
@@ -135,12 +238,20 @@ class _TranslationSessionService:
             audio_queue = self._audio.attach_translation(interpreter)
             async with self._transition_lock:
                 self._interpreter = interpreter
+                self._active_settings = runtime
                 self._state = "live"
+                self._timer_started_at = self._clock()
+                self._timer_deadline_at = self._timer_started_at + self._auto_stop_seconds()
+                self._timer_warning_sent = False
+                self._timer_extension_count = 0
                 self._audio_task = asyncio.create_task(
                     self._pump_audio(audio_queue), name="pump-translation-audio"
                 )
                 self._event_task = asyncio.create_task(
                     self._pump_events(interpreter), name="pump-interpreter-events"
+                )
+                self._timer_task = asyncio.create_task(
+                    self._run_timer_loop(), name="translation-session-timer"
                 )
                 await self._publish_status()
         except asyncio.CancelledError:
@@ -171,6 +282,43 @@ class _TranslationSessionService:
             await self._publish_status()
         await self._finish(reason)
 
+    async def extend_session(self) -> dict[str, object]:
+        async with self._transition_lock:
+            if self._state != "live":
+                if self._last_termination_reason == "hard_limit":
+                    raise RuntimeError("Hard limit reached; the session cannot be extended")
+                raise SessionTransitionError(
+                    f"Cannot extend translation session while {self._state}"
+                )
+            if self._timer_started_at is None or self._timer_deadline_at is None:
+                raise RuntimeError("Translation session timer is not active")
+            now = self._clock()
+            hard_limit = self._timer_started_at + self._hard_limit_seconds()
+            if now >= hard_limit:
+                raise RuntimeError("Hard limit reached; the session cannot be extended")
+            if now >= self._timer_deadline_at:
+                raise RuntimeError("Auto-stop deadline has passed; the session cannot be extended")
+            remaining = self._timer_deadline_at - now
+            if remaining > self._warning_before_stop_seconds():
+                raise RuntimeError(
+                    "Session extension is only available during the warning period"
+                )
+            if self._timer_deadline_at >= hard_limit:
+                raise RuntimeError(
+                    "Session is already scheduled to stop at the hard limit"
+                )
+            next_deadline = min(
+                self._timer_deadline_at + self._extension_seconds(),
+                hard_limit,
+            )
+            self._timer_deadline_at = next_deadline
+            self._timer_warning_sent = False
+            self._timer_extension_count += 1
+            timer = self._timer_status()
+            await self._publish_timer()
+            await self._publish_status()
+            return timer or {}
+
     async def shutdown(self) -> None:
         if self._state == "live":
             await self.stop("server_shutdown")
@@ -193,6 +341,7 @@ class _TranslationSessionService:
             self._interpreter = None
             self._audio_task = None
             self._event_task = None
+            self._active_settings = None
             self._sermon_session_id = None
             self._state = "off"
             await self._publish_status()
@@ -223,9 +372,19 @@ class _TranslationSessionService:
                 await asyncio.gather(event_task, return_exceptions=True)
 
         async with self._transition_lock:
+            timer_task = self._timer_task
+            self._timer_task = None
+            if timer_task is not None and timer_task is not current_task:
+                timer_task.cancel()
+                await asyncio.gather(timer_task, return_exceptions=True)
             self._interpreter = None
             self._audio_task = None
             self._event_task = None
+            self._timer_started_at = None
+            self._timer_deadline_at = None
+            self._timer_warning_sent = False
+            self._timer_extension_count = 0
+            self._active_settings = None
             self._error = error
             self._last_termination_reason = reason
             self._state = (

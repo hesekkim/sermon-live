@@ -16,6 +16,10 @@ class OperatorRecord:
     interpreter: InterpreterName | None = None
     openai_api_key: str = ""
     audio_device: str = ""
+    translation_session_auto_stop_minutes: int | None = None
+    translation_session_warning_minutes: int | None = None
+    translation_session_extension_minutes: int | None = None
+    translation_session_hard_limit_minutes: int | None = None
 
 
 class OperatorSettingsStore:
@@ -39,6 +43,18 @@ class OperatorSettingsStore:
             interpreter=name,
             openai_api_key=_as_str(raw.get("openai_api_key")),
             audio_device=_as_str(raw.get("audio_device")),
+            translation_session_auto_stop_minutes=_as_optional_int(
+                raw.get("translation_session_auto_stop_minutes")
+            ),
+            translation_session_warning_minutes=_as_optional_int(
+                raw.get("translation_session_warning_minutes")
+            ),
+            translation_session_extension_minutes=_as_optional_int(
+                raw.get("translation_session_extension_minutes")
+            ),
+            translation_session_hard_limit_minutes=_as_optional_int(
+                raw.get("translation_session_hard_limit_minutes")
+            ),
         )
 
     def save(
@@ -47,6 +63,11 @@ class OperatorSettingsStore:
         interpreter: InterpreterName,
         openai_api_key: str | None = None,
         audio_device: str | None = None,
+        settings: Settings | None = None,
+        translation_session_auto_stop_minutes: int | None = None,
+        translation_session_warning_minutes: int | None = None,
+        translation_session_extension_minutes: int | None = None,
+        translation_session_hard_limit_minutes: int | None = None,
     ) -> OperatorRecord:
         current = self.load()
         openai = current.openai_api_key
@@ -55,16 +76,58 @@ class OperatorSettingsStore:
         device = current.audio_device
         if audio_device is not None and audio_device != "":
             device = audio_device
+        timer_updates = {
+            "translation_session_auto_stop_minutes": (
+                translation_session_auto_stop_minutes
+                if translation_session_auto_stop_minutes is not None
+                else current.translation_session_auto_stop_minutes
+            ),
+            "translation_session_warning_minutes": (
+                translation_session_warning_minutes
+                if translation_session_warning_minutes is not None
+                else current.translation_session_warning_minutes
+            ),
+            "translation_session_extension_minutes": (
+                translation_session_extension_minutes
+                if translation_session_extension_minutes is not None
+                else current.translation_session_extension_minutes
+            ),
+            "translation_session_hard_limit_minutes": (
+                translation_session_hard_limit_minutes
+                if translation_session_hard_limit_minutes is not None
+                else current.translation_session_hard_limit_minutes
+            ),
+        }
+        base_settings = settings or Settings()
+        effective_timer_settings = {
+            field: value for field, value in timer_updates.items() if value is not None
+        }
+        Settings.model_validate(
+            {**base_settings.model_dump(), **effective_timer_settings}
+        )
         record = OperatorRecord(
             interpreter=interpreter,
             openai_api_key=openai,
             audio_device=device,
+            **timer_updates,
         )
         self._path.parent.mkdir(parents=True, exist_ok=True)
         payload: dict[str, Any] = {
             "interpreter": record.interpreter,
             "openai_api_key": record.openai_api_key,
             "audio_device": record.audio_device,
+            "translation_session_auto_stop_minutes": (
+                record.translation_session_auto_stop_minutes
+            ),
+            "translation_session_warning_minutes": (
+                record.translation_session_warning_minutes
+            ),
+            "translation_session_extension_minutes": (
+                record.translation_session_extension_minutes
+            ),
+            "translation_session_hard_limit_minutes": (
+                record.translation_session_hard_limit_minutes
+            ),
         }
         self._path.write_text(
             json.dumps(payload, indent=2) + "\n", encoding="utf-8"
@@ -81,6 +144,22 @@ class OperatorSettingsStore:
         return {
             "interpreter": interpreter,
             "audio_device": audio_device,
+            "translation_session_auto_stop_minutes": (
+                record.translation_session_auto_stop_minutes
+                or settings.translation_session_auto_stop_minutes
+            ),
+            "translation_session_warning_minutes": (
+                record.translation_session_warning_minutes
+                or settings.translation_session_warning_minutes
+            ),
+            "translation_session_extension_minutes": (
+                record.translation_session_extension_minutes
+                or settings.translation_session_extension_minutes
+            ),
+            "translation_session_hard_limit_minutes": (
+                record.translation_session_hard_limit_minutes
+                or settings.translation_session_hard_limit_minutes
+            ),
             "openai_key_set": bool(openai_key),
             "openai_key_masked": _mask_key(openai_key),
             "openai_key_status": openai_status,
@@ -134,15 +213,30 @@ class OperatorSettingsStore:
             updates["openai_api_key"] = record.openai_api_key
         if record.audio_device:
             updates["audio_device"] = record.audio_device
+        for field in (
+            "translation_session_auto_stop_minutes",
+            "translation_session_warning_minutes",
+            "translation_session_extension_minutes",
+            "translation_session_hard_limit_minutes",
+        ):
+            value = getattr(record, field)
+            if value is not None:
+                updates[field] = value
         if not updates:
             return settings
-        return settings.model_copy(update=updates)
+        return Settings.model_validate({**settings.model_dump(), **updates})
 
 
 def _as_str(value: object) -> str:
     if isinstance(value, str):
         return value
     return ""
+
+
+def _as_optional_int(value: object) -> int | None:
+    if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+        return value
+    return None
 
 
 def _mask_key(value: str) -> str:

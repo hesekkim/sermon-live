@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 InterpreterName = Literal["echo", "openai"]
@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-realtime-translate"
     translation_target_language: str = "de"
     translation_source_transcription_model: str = "gpt-realtime-whisper"
+    translation_session_auto_stop_minutes: int = 90
+    translation_session_warning_minutes: int = 5
+    translation_session_extension_minutes: int = 10
+    translation_session_hard_limit_minutes: int = 120
     audio_device: str = ""
     audio_chunk_frames: int = 1024
     input_sample_rate: int | None = 16000
@@ -51,6 +55,24 @@ class Settings(BaseSettings):
     @classmethod
     def parse_input_sample_rate(cls, value: object) -> object:
         return None if value == "" else value
+
+    @model_validator(mode="after")
+    def validate_translation_timer_settings(self) -> "Settings":
+        if self.translation_session_auto_stop_minutes <= 0:
+            raise ValueError("translation_session_auto_stop_minutes must be greater than 0")
+        if self.translation_session_warning_minutes <= 0:
+            raise ValueError("translation_session_warning_minutes must be greater than 0")
+        if self.translation_session_warning_minutes >= self.translation_session_auto_stop_minutes:
+            raise ValueError(
+                "translation_session_warning_minutes must be less than translation_session_auto_stop_minutes"
+            )
+        if self.translation_session_extension_minutes <= 0:
+            raise ValueError("translation_session_extension_minutes must be greater than 0")
+        if self.translation_session_hard_limit_minutes < self.translation_session_auto_stop_minutes:
+            raise ValueError(
+                "translation_session_hard_limit_minutes must be greater than or equal to translation_session_auto_stop_minutes"
+            )
+        return self
 
     @property
     def frontend_dist_path(self) -> Path:

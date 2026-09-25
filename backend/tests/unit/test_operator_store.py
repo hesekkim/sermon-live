@@ -1,3 +1,5 @@
+import pytest
+
 from core.config import Settings
 from services.operator_store import OperatorSettingsStore
 
@@ -71,3 +73,38 @@ def test_public_view_reports_missing_when_key_is_empty(tmp_path):
 
     assert view["openai_key_status"] == "missing"
     assert view["openai_key_warning"] == "OpenAI API key is not set"
+
+
+def test_timer_settings_persist_and_overlay(tmp_path):
+    settings = Settings(interpreter="echo")
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+    store.save(
+        interpreter="echo",
+        settings=settings,
+        translation_session_auto_stop_minutes=60,
+        translation_session_warning_minutes=4,
+        translation_session_extension_minutes=15,
+        translation_session_hard_limit_minutes=90,
+    )
+
+    view = store.public_view(settings)
+    overlay = store.overlay_settings(settings)
+
+    assert view["translation_session_auto_stop_minutes"] == 60
+    assert view["translation_session_warning_minutes"] == 4
+    assert view["translation_session_extension_minutes"] == 15
+    assert view["translation_session_hard_limit_minutes"] == 90
+    assert overlay.translation_session_auto_stop_minutes == 60
+    assert overlay.translation_session_warning_minutes == 4
+    assert overlay.translation_session_extension_minutes == 15
+    assert overlay.translation_session_hard_limit_minutes == 90
+
+
+def test_timer_settings_reject_invalid_ranges(tmp_path):
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+
+    with pytest.raises(ValueError):
+        store.save(
+            interpreter="echo",
+            translation_session_warning_minutes=90,
+        )

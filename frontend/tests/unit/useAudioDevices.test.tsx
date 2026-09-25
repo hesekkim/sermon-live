@@ -42,6 +42,45 @@ afterEach(() => {
 });
 
 describe('useAudioDevices', () => {
+  it('preserves a saved device while the device list is loading', async () => {
+    let resolveFetch!: (response: {
+      ok: boolean;
+      json: () => Promise<unknown>;
+    }) => void;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveFetch = resolve;
+          })
+      )
+    );
+
+    let state!: AudioDevicesState;
+    const cleanup = renderProbe((nextState) => {
+      state = nextState;
+    });
+
+    act(() => {
+      state.setSelectedDevice('1');
+    });
+    expect(state.selectedDevice).toBe('1');
+
+    await act(async () => {
+      resolveFetch({
+        ok: true,
+        json: async () => [
+          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+          { index: 1, name: 'USB Audio', input_channels: 2, default_sample_rate: 48000 },
+        ],
+      });
+    });
+
+    expect(state.selectedDevice).toBe('1');
+    cleanup();
+  });
+
   it('loads entry devices and updates the selected device', async () => {
     vi.stubGlobal(
       'fetch',

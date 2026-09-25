@@ -15,6 +15,10 @@ class OperatorSettingsBody(BaseModel):
     interpreter: InterpreterName
     openai_api_key: str | None = Field(default=None)
     audio_device: str | None = Field(default=None)
+    translation_session_auto_stop_minutes: int | None = Field(default=None, gt=0)
+    translation_session_warning_minutes: int | None = Field(default=None, gt=0)
+    translation_session_extension_minutes: int | None = Field(default=None, gt=0)
+    translation_session_hard_limit_minutes: int | None = Field(default=None, gt=0)
 
 
 class StartSessionBody(BaseModel):
@@ -42,12 +46,27 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
             interpreter=body.interpreter,
             openai_api_key=body.openai_api_key,
             audio_device=body.audio_device,
+            settings=current_settings,
+            translation_session_auto_stop_minutes=(
+                body.translation_session_auto_stop_minutes
+            ),
+            translation_session_warning_minutes=(
+                body.translation_session_warning_minutes
+            ),
+            translation_session_extension_minutes=(
+                body.translation_session_extension_minutes
+            ),
+            translation_session_hard_limit_minutes=(
+                body.translation_session_hard_limit_minutes
+            ),
         )
-    except (OSError, ValueError, TypeError) as exc:
+    except OSError as exc:
         raise HTTPException(
             status_code=500,
             detail="Failed to save operator settings",
         ) from exc
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if device_changed:
         await audio.restart()
     await validate_operator_key(get_settings(), store)
@@ -80,6 +99,17 @@ async def stop_session() -> dict[str, object]:
         await session.stop()
     except SessionTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return session.status()
+
+
+@router.post("/api/v1/session/extend")
+async def extend_session() -> dict[str, object]:
+    try:
+        await session.extend_session()
+    except SessionTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return session.status()
 
 

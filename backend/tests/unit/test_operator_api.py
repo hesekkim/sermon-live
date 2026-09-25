@@ -24,15 +24,38 @@ def test_operator_settings_roundtrip(tmp_path):
                 "interpreter": "openai",
                 "openai_api_key": "unit-test-key",
                 "audio_device": "USB Audio",
+                "translation_session_auto_stop_minutes": 60,
+                "translation_session_warning_minutes": 4,
+                "translation_session_extension_minutes": 15,
+                "translation_session_hard_limit_minutes": 90,
             },
         )
         assert saved.status_code == 200
         body = saved.json()
         assert body["interpreter"] == "openai"
         assert body["audio_device"] == "USB Audio"
+        assert body["translation_session_auto_stop_minutes"] == 60
+        assert body["translation_session_warning_minutes"] == 4
+        assert body["translation_session_extension_minutes"] == 15
+        assert body["translation_session_hard_limit_minutes"] == 90
         assert body["openai_key_set"] is True
         assert body["openai_key_masked"] == "unit...-key"
         assert "unit-test-key" not in str(body)
+
+
+def test_operator_settings_reject_invalid_timer_ranges(tmp_path):
+    store._path = tmp_path / "operator.json"
+    with TestClient(app) as client:
+        response = client.put(
+            "/api/v1/operator/settings",
+            json={
+                "interpreter": "echo",
+                "translation_session_auto_stop_minutes": 10,
+                "translation_session_warning_minutes": 10,
+            },
+        )
+
+    assert response.status_code == 422
 
 
 def test_operator_settings_storage_error_returns_generic_http_500():

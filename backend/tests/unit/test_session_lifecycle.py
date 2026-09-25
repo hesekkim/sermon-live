@@ -132,6 +132,127 @@ async def test_automatic_end_reasons_are_broadcast(tmp_path, reason):
 
 
 @pytest.mark.asyncio
+async def test_translation_timer_warns_and_auto_stops_using_monotonic_time(tmp_path):
+    service, hub = make_service(tmp_path)
+    clock = {"value": 0.0}
+    service._clock = lambda: clock["value"]
+
+    await service.start()
+    clock["value"] = service._timer_started_at + (90 * 60 - 300) + 1
+    await service._refresh_timer_state()
+    assert service.status()["timer"]["warning"] is True
+    assert service.status()["timer"]["remainingSeconds"] == 299
+
+    clock["value"] = service._timer_started_at + (90 * 60) + 1
+    await service._refresh_timer_state()
+
+    assert service.state == "off"
+    assert service.status()["last_termination_reason"] == "auto_stop"
+    assert hub.operator_events[-1]["reason"] == "auto_stop"
+    assert hub.listener_events[-1] == hub.operator_events[-1]
+
+
+@pytest.mark.asyncio
+async def test_timer_task_can_finish_session_without_awaiting_itself(tmp_path):
+    service, hub = make_service(tmp_path)
+    clock = {"value": 0.0}
+    service._clock = lambda: clock["value"]
+
+    await service.start()
+    timer_task = service._timer_task
+    timer_task.cancel()
+    await asyncio.gather(timer_task, return_exceptions=True)
+    clock["value"] = service._timer_deadline_at + 1
+
+    async def expire_from_timer_task():
+        await service._refresh_timer_state()
+
+    expiring_task = asyncio.create_task(expire_from_timer_task())
+    service._timer_task = expiring_task
+    await expiring_task
+
+    assert service.state == "off"
+    assert service.status()["last_termination_reason"] == "auto_stop"
+    assert hub.operator_events[-1] == {"type": "session_ended", "reason": "auto_stop"}
+
+
+@pytest.mark.asyncio
+async def test_translation_timer_extension_clamps_to_hard_limit(tmp_path):
+    service, _hub = make_service(tmp_path)
+    clock = {"value": 0.0}
+    service._clock = lambda: clock["value"]
+
+    await service.start()
+    clock["value"] = service._timer_started_at + (90 * 60) - 1
+    await service._refresh_timer_state()
+
+    await service.extend_session()
+    assert service.status()["timer"]["extensionCount"] == 1
+    with pytest.raises(RuntimeError, match="warning period"):
+        await service.extend_session()
+
+    clock["value"] = service._timer_deadline_at - 300
+    await service.extend_session()
+    clock["value"] = service._timer_deadline_at - 300
+    await service.extend_session()
+    assert service.status()["timer"]["extensionCount"] == 3
+    assert service._timer_deadline_at == service._timer_started_at + (120 * 60)
+
+    clock["value"] = service._timer_started_at + (120 * 60) + 1
+    await service._refresh_timer_state()
+    assert service.state == "off"
+    assert service.status()["last_termination_reason"] == "hard_limit"
+    assert "timer" not in service.status()
+
+    with pytest.raises(RuntimeError, match="Hard limit"):
+        await service.extend_session()
+
+
+@pytest.mark.asyncio
+async def test_extension_is_rejected_after_auto_stop_deadline(tmp_path):
+    service, _hub = make_service(tmp_path)
+    clock = {"value": 0.0}
+    service._clock = lambda: clock["value"]
+
+    await service.start()
+    clock["value"] = service._timer_deadline_at + 1
+
+    with pytest.raises(RuntimeError, match="Auto-stop deadline has passed"):
+        await service.extend_session()
+
+    await service._refresh_timer_state()
+    assert service.state == "off"
+    assert service.status()["last_termination_reason"] == "auto_stop"
+
+
+@pytest.mark.asyncio
+async def test_operator_timer_settings_are_used_for_session_deadline(tmp_path):
+    settings = Settings(interpreter="echo")
+    operator_store = OperatorSettingsStore(tmp_path / "operator.json")
+    operator_store.save(
+        interpreter="echo",
+        settings=settings,
+        translation_session_auto_stop_minutes=2,
+        translation_session_warning_minutes=1,
+        translation_session_extension_minutes=3,
+        translation_session_hard_limit_minutes=5,
+    )
+    service, _hub = make_service(
+        tmp_path,
+        settings=settings,
+        operator_store=operator_store,
+    )
+    clock = {"value": 10.0}
+    service._clock = lambda: clock["value"]
+
+    await service.start()
+
+    assert service.status()["timer"]["remainingSeconds"] == 120
+    assert service._hard_limit_seconds() == 300
+    await service.stop()
+
+
+@pytest.mark.asyncio
 async def test_duplicate_start_and_stop_are_rejected_while_starting(tmp_path, monkeypatch):
     started = asyncio.Event()
     release = asyncio.Event()

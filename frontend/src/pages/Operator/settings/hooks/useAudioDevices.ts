@@ -25,6 +25,10 @@ export function useAudioDevices() {
 				setSelectedDeviceState('');
 				return;
 			}
+			if (devices.length === 0) {
+				setSelectedDeviceState(trimmed);
+				return;
+			}
 
 			const match = devices.find(
 				(device) =>
@@ -40,7 +44,7 @@ export function useAudioDevices() {
 	useEffect(() => {
 		setSelectedDeviceState((current) => {
 			const trimmed = current.trim();
-			if (!trimmed) {
+			if (!trimmed || devices.length === 0) {
 				return current;
 			}
 

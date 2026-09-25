@@ -32,3 +32,27 @@ def test_translation_defaults_match_openai_target_format():
     assert settings.translation_target_sample_rate == 24000
     assert settings.translation_target_channels == 1
     assert settings.translation_target_sample_width == 2
+
+
+def test_translation_timer_defaults():
+    settings = Settings()
+
+    assert settings.translation_session_auto_stop_minutes == 90
+    assert settings.translation_session_warning_minutes == 5
+    assert settings.translation_session_extension_minutes == 10
+    assert settings.translation_session_hard_limit_minutes == 120
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"translation_session_auto_stop_minutes": 0},
+        {"translation_session_warning_minutes": 0},
+        {"translation_session_warning_minutes": 90},
+        {"translation_session_extension_minutes": 0},
+        {"translation_session_hard_limit_minutes": 89},
+    ],
+)
+def test_translation_timer_rejects_invalid_ranges(overrides):
+    with pytest.raises(ValidationError):
+        Settings(**overrides)

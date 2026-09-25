@@ -1,6 +1,6 @@
 # 028 Translation Safety Timer
 
-상태: 대기
+상태: 완료
 
 ## Goal
 
@@ -23,6 +23,10 @@ Translation Session의 자동 종료, 사전 경고, 연장, 강제 상한을 ba
 - Extension 요청은 Hard Limit을 넘지 않도록 clamp
 - Hard Limit 도달 시 강제 종료
 - 자동 종료 reason을 `auto_stop` 또는 `hard_limit`로 기록
+- Timer는 Translation Session이 LIVE가 될 때 시작하고
+  Translation Session 종료 시 함께 정리한다.
+- Extension 후 새로운 종료 시점을 기준으로 Warning을 다시 계산한다.
+- 실제 elapsed time 계산은 monotonic clock을 사용한다.
 
 ## Acceptance criteria
 
