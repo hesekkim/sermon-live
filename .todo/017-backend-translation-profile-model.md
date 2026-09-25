@@ -23,13 +23,14 @@
 ## Implementation notes
 
 - 필드: `name, source_language(고정 Korean), target_language(고정 German), style, biblical_terminology(bool), no_explanation(bool), no_summarization(bool)`.
-- **007에서 확인된 사실에 따라 실제 적용 범위를 조정한다.** gpt-realtime-translate가 세션 설정/instructions를 지원하지 않는다면, 이 티켓은 저장/조회 UI만 제공하고 실제 세션 주입은 020에서 명시적으로 보류 처리한다.
+- **공식 문서 확인 결과에 따라 실제 적용 범위를 조정한다.** gpt-realtime-translate가 세션 설정/instructions를 지원하지 않는다면, 이 티켓은 저장/조회만 제공하고 실제 세션 적용을 약속하지 않는다. 적용은 020에서 별도로 결정한다.
+- API key와 모델처럼 Operator가 바꿀 수 있는 값은 설정 UI에서 관리하되, secret 원문은 API 응답·로그·frontend 상태에 노출하지 않는다.
 - 과도한 데이터 모델(우선순위, 버전 관리 등)을 추가하지 않는다.
 
 ## Acceptance criteria
 
 - Profile 저장/조회 가능.
-- OpenAI adapter에 실제로 전달 가능한지 여부가 티켓 노트에 명시되어 있다.
+- OpenAI adapter에 실제로 전달 가능한지 여부와 확인한 공식 문서 근거가 티켓 노트에 명시되어 있다.
 
 ## Tests
 

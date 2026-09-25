@@ -4,7 +4,7 @@
 
 ## Goal
 
-Listen 페이지에 볼륨 조절 컨트롤을 추가한다 (현재 없음).
+Listen 페이지에 재생 볼륨 조절 컨트롤을 추가한다. Listener의 전체 단순 UX는 030에서 관리한다.
 
 ## Why
 
@@ -23,6 +23,7 @@ Listen 페이지에 볼륨 조절 컨트롤을 추가한다 (현재 없음).
 
 - Web Audio API `GainNode`를 오디오 재생 경로에 추가해 볼륨 조절.
 - 기존 subtitle/status 흐름 회귀 없어야 함.
+- 연결 상태, 자막, 듣기 시작 버튼, 글자 크기, 테마는 이 티켓의 범위에 포함하지 않는다.
 
 ## Acceptance criteria
 

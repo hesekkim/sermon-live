@@ -10,9 +10,9 @@
 
 ## 지금 (미완료)
 
-OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 진행.
+개인 예배용 실시간 통역 운영 기능. Server는 계속 실행할 수 있고, 비용이 발생하는 Translation Session만 필요할 때 실행한다.
 
-1. `008-backend-openai-e2e-verify.md` — OpenAI end-to-end 검증
+1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
 2. `011-backend-audio-level-broadcast.md` — 오디오 입력 레벨 브로드캐스트
 3. `012-frontend-audio-level-meter.md` — 오디오 레벨 미터 UI
 4. `013-backend-audio-test-endpoint.md` — 오디오 테스트 엔드포인트
@@ -26,6 +26,14 @@ OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 �
 12. `021-frontend-glossary-ui.md` — Glossary UI
 13. `022-frontend-broadcast-metadata-panel.md` — Broadcast 메타데이터 패널
 14. `023-frontend-listen-volume-control.md` — Listen 볼륨 컨트롤
+15. `024-backend-translation-session-lifecycle.md` — Translation Session lifecycle
+16. `025-backend-translation-safety-timer.md` — Translation Safety Timer
+17. `026-backend-broadcast-observability.md` — Broadcast 상태 이벤트 계약
+18. `027-frontend-operator-navigation-restructure.md` — Operator 3영역 navigation
+19. `028-frontend-translation-session-controls.md` — Broadcast Translation 제어
+20. `029-frontend-settings-configuration-ui.md` — 운영 설정 UI
+21. `030-frontend-listener-core-ux.md` — Listener 핵심 UX
+22. `031-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
 
 ## 완료 (`done/`)
 
@@ -49,3 +57,8 @@ OpenAI 통역 전환 (Gemini -> OpenAI `gpt-realtime-translate`). 순서대로 �
 - 언어 방향: SOURCE Korean -> TARGET German 고정
 - API key는 코드·테스트 fixture·로그·API 응답에 평문으로 남기지 않으며, 노출 시 폐기·재발급을 먼저 수행
 - 외부 API 구현은 공식 문서 확인 결과(endpoint/model/event/audio format)를 ticket에 기록한 후 진행
+- Operator 메뉴는 `방송 / 설교 / 설정` 3개 영역으로 구성한다
+- `Server ONLINE`과 `Translation LIVE/OFF`는 별도 상태로 표시하고 제어한다
+- Translation Safety Timer 기본값은 Auto Stop 90분, Warning 5분 전, Extension 10분, Hard Limit 120분이다
+- Listener는 상태, 자막, 명시적 듣기 시작, 글자 크기, 테마만 우선 제공한다
+- QR code, join link, 다중 언어, transcript history, RAG/vector DB는 이번 범위에 포함하지 않는다

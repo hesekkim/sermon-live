@@ -4,7 +4,7 @@
 
 ## Goal
 
-설교 메타데이터(제목/설교자/성경 본문/노트)와 lifecycle(Prepare/Ready/Live/Ended)을 관리하는 Sermon Session을 추가한다. 서버 on/off(SessionService)와는 별개 개념으로 분리한다.
+설교 메타데이터(제목/설교자/성경 본문/노트)와 준비 상태를 관리하는 Sermon Session을 추가한다. FastAPI Server, AudioCapture, Translation Session과는 별개 개념으로 분리한다.
 
 ## Why
 
@@ -23,13 +23,15 @@
 ## Implementation notes
 
 - 필드: `title, speaker, bible_reference, bible_text, notes`.
-- lifecycle: `prepare | ready | live | ended`. `SessionService.start()`가 자동으로 `live`로, `stop()`이 `ended`로 전이시키되, lifecycle 상태 자체는 SessionService와 별도 모듈이 소유한다 (SessionService가 sermon lifecycle을 몰라야 하면 이벤트/콜백으로 연결).
+- sermon 상태: `prepare | ready | ended`. `live`는 Translation Session의 상태로 관리하며 Sermon Session 상태에 섞지 않는다.
+- Translation Session 시작/중지가 Sermon Session의 현재 sermon id와 연결될 수는 있지만, `SessionService`가 Sermon Session lifecycle을 직접 소유하지 않는다.
 - 저장은 기존 `operator_store.py`와 유사하게 JSON 파일 기반으로 단순하게 시작.
 
 ## Acceptance criteria
 
 - 설교 메타데이터를 서버 재시작 여부와 무관하게 저장/조회 가능.
-- lifecycle 상태가 서버 실행 여부와 독립적으로 조회 가능 (server off여도 이전 sermon 정보 조회 가능).
+- sermon 상태와 메타데이터가 서버 실행 여부와 독립적으로 조회 가능 (server off여도 이전 sermon 정보 조회 가능).
+- Translation Session이 없는 상태에서도 Sermon Session을 저장하고 준비할 수 있다.
 
 ## Tests
 
