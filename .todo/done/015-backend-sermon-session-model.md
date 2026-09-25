@@ -1,6 +1,6 @@
 # 015 Sermon Session 모델
 
-상태: 대기
+상태: 완료
 
 ## Goal
 
