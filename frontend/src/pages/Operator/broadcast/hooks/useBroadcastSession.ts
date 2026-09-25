@@ -2,7 +2,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OperatorCopy } from '../../translations';
 import { appendTranscriptLine } from '../utils/transcriptFile';
 
-interface SessionStatus { running: boolean; listener_count: number }
+export type ServerStatus = 'connecting' | 'online' | 'offline';
+export type OperatorConnectionStatus = 'connecting' | 'connected' | 'reconnecting';
+export type InterpreterStatus = 'connected' | 'disconnected' | 'error';
+
+export interface SessionTimerState {
+  elapsedSeconds?: number;
+  remainingSeconds?: number | null;
+  warning?: boolean;
+  extensionCount?: number;
+  hardLimitReached?: boolean;
+}
+
+interface SessionStatus {
+  running: boolean;
+  listener_count: number;
+  timer?: SessionTimerState;
+}
+
 interface OperatorMessage {
   type?: string;
   role?: 'input' | 'output';
@@ -10,10 +27,14 @@ interface OperatorMessage {
   running?: boolean;
   listenerCount?: number;
   level?: number;
+  milliseconds?: number;
+  timer?: SessionTimerState;
+  reason?: string;
 }
 
 const AUDIO_LEVEL_MIN_DBFS = -60;
 const AUDIO_LEVEL_MAX_DBFS = 0;
+const SOCKET_RETRY_DELAY_MS = 1000;
 
 function clampAudioLevel(level: number) {
   return Math.min(AUDIO_LEVEL_MAX_DBFS, Math.max(AUDIO_LEVEL_MIN_DBFS, level));
@@ -23,9 +44,17 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
   const [running, setRunning] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [audioLevel, setAudioLevel] = useState<number | null>(null);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [serverStatus, setServerStatus] = useState<ServerStatus>('connecting');
+  const [operatorConnectionStatus, setOperatorConnectionStatus] =
+    useState<OperatorConnectionStatus>('connecting');
+  const [interpreterStatus, setInterpreterStatus] = useState<InterpreterStatus>('disconnected');
+  const [timer, setTimer] = useState<SessionTimerState | null>(null);
+  const [lastTerminationReason, setLastTerminationReason] = useState<string | null>(null);
   const [inputLines, setInputLines] = useState<string[]>([]);
   const [outputLines, setOutputLines] = useState<string[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isUnmountingRef = useRef(false);
   const socketErrorReportedRef = useRef(false);
   const onSessionErrorRef = useRef(onSessionError);
@@ -46,62 +75,116 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
   const applyStatus = useCallback((data: SessionStatus) => {
     setRunning(data.running);
     setListenerCount(data.listener_count);
+    if (data.timer) setTimer(data.timer);
+    setInterpreterStatus((current) =>
+      current === 'error' ? current : data.running ? 'connected' : 'disconnected'
+    );
     if (!data.running) setAudioLevel(null);
   }, []);
   const refreshStatus = useCallback(async () => {
-    const response = await fetch('/api/v1/session');
-    if (response.ok) applyStatus((await response.json()) as SessionStatus);
+    try {
+      const response = await fetch('/api/v1/session');
+      if (!response.ok) throw new Error('Session status unavailable');
+      applyStatus((await response.json()) as SessionStatus);
+      setServerStatus('online');
+    } catch {
+      if (socketRef.current?.readyState !== WebSocket.OPEN) setServerStatus('offline');
+    }
   }, [applyStatus]);
 
   useEffect(() => {
+    isUnmountingRef.current = false;
     void refreshStatus();
+    const statusRefresh = window.setInterval(() => void refreshStatus(), 5000);
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${protocol}//${location.host}/ws/operator`);
-    socketRef.current = socket;
-    socketErrorReportedRef.current = false;
-    socket.addEventListener('message', (event) => {
-      if (typeof event.data !== 'string') return;
-      try {
-        const payload = JSON.parse(event.data) as OperatorMessage;
-        if (payload.type === 'status') {
-          if (typeof payload.running === 'boolean') {
-            setRunning(payload.running);
-            if (!payload.running) setAudioLevel(null);
+    const socketUrl = `${protocol}//${location.host}/ws/operator`;
+    let shouldReconnect = true;
+
+    const connect = () => {
+      if (!shouldReconnect) return;
+      const socket = new WebSocket(socketUrl);
+      socketRef.current = socket;
+      socket.addEventListener('open', () => {
+        setOperatorConnectionStatus('connected');
+        socketErrorReportedRef.current = false;
+      });
+      socket.addEventListener('message', (event) => {
+        if (typeof event.data !== 'string') return;
+        try {
+          const payload = JSON.parse(event.data) as OperatorMessage;
+          if (payload.type === 'status') {
+            if (typeof payload.running === 'boolean') {
+              setRunning(payload.running);
+              setInterpreterStatus((current) =>
+                current === 'error'
+                  ? current
+                  : payload.running ? 'connected' : 'disconnected'
+              );
+              if (!payload.running) setAudioLevel(null);
+            }
+            if (typeof payload.listenerCount === 'number') setListenerCount(payload.listenerCount);
+            if (payload.timer) setTimer(payload.timer);
+            return;
           }
-          if (typeof payload.listenerCount === 'number') setListenerCount(payload.listenerCount);
-          return;
-        }
-        if (payload.type === 'audio_level') {
-          if (typeof payload.level === 'number' && Number.isFinite(payload.level)) {
-            setAudioLevel(clampAudioLevel(payload.level));
+          if (payload.type === 'audio_level') {
+            if (typeof payload.level === 'number' && Number.isFinite(payload.level)) {
+              setAudioLevel(clampAudioLevel(payload.level));
+            }
+            return;
           }
-          return;
-        }
-        if (payload.type === 'error' && payload.text) {
-          emitSessionError(payload.text);
-          return;
-        }
-        if (payload.type === 'transcript' && payload.text) {
-          if (payload.role === 'input') {
-            setInputLines((lines) => appendTranscriptLine(lines, payload.text ?? ''));
-          } else if (payload.role === 'output') {
-            setOutputLines((lines) => appendTranscriptLine(lines, payload.text ?? ''));
+          if (payload.type === 'latency') {
+            if (typeof payload.milliseconds === 'number' && Number.isFinite(payload.milliseconds)) {
+              setLatencyMs(Math.max(0, payload.milliseconds));
+            }
+            return;
           }
+          if (payload.type === 'timer' && payload.timer) {
+            setTimer(payload.timer);
+            return;
+          }
+          if (payload.type === 'session_ended') {
+            if (payload.reason) setLastTerminationReason(payload.reason);
+            return;
+          }
+          if (payload.type === 'error' && payload.text) {
+            setInterpreterStatus('error');
+            emitSessionError(payload.text);
+            return;
+          }
+          if (payload.type === 'transcript' && payload.text) {
+            if (payload.role === 'input') {
+              setInputLines((lines) => appendTranscriptLine(lines, payload.text ?? ''));
+            } else if (payload.role === 'output') {
+              setOutputLines((lines) => appendTranscriptLine(lines, payload.text ?? ''));
+            }
+          }
+        } catch { return; }
+      });
+      const handleSocketFailure = () => {
+        if (isUnmountingRef.current || !shouldReconnect) return;
+        setOperatorConnectionStatus('reconnecting');
+        setAudioLevel(null);
+        if (!socketErrorReportedRef.current) {
+          socketErrorReportedRef.current = true;
+          emitSessionError();
         }
-      } catch { return; }
-    });
-    const handleSocketFailure = () => {
-      setAudioLevel(null);
-      if (!isUnmountingRef.current && !socketErrorReportedRef.current) {
-        socketErrorReportedRef.current = true;
-        emitSessionError();
-      }
+      };
+      socket.addEventListener('error', handleSocketFailure);
+      socket.addEventListener('close', () => {
+        handleSocketFailure();
+        if (!shouldReconnect) return;
+        retryTimerRef.current = setTimeout(connect, SOCKET_RETRY_DELAY_MS);
+      });
     };
-    socket.addEventListener('error', handleSocketFailure);
-    socket.addEventListener('close', handleSocketFailure);
+
+    connect();
     return () => {
+      shouldReconnect = false;
       isUnmountingRef.current = true;
-      if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) {
+      window.clearInterval(statusRefresh);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      const socket = socketRef.current;
+      if (socket?.readyState === WebSocket.CONNECTING || socket?.readyState === WebSocket.OPEN) {
         socket.close(1000, 'Page closed');
       }
       socketRef.current = null;
@@ -119,6 +202,9 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
       throw new Error(detail);
     }
     applyStatus((await response.json()) as SessionStatus);
+    setInterpreterStatus('connected');
+    setTimer(null);
+    setLastTerminationReason(null);
   }, [applyStatus]);
   const stop = useCallback(async () => {
     const response = await fetch('/api/v1/session/stop', { method: 'POST' });
@@ -126,5 +212,19 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
     applyStatus((await response.json()) as SessionStatus);
   }, [applyStatus]);
 
-  return { running, listenerCount, audioLevel, inputLines, outputLines, start, stop };
+  return {
+    running,
+    listenerCount,
+    audioLevel,
+    latencyMs,
+    serverStatus,
+    operatorConnectionStatus,
+    interpreterStatus,
+    timer,
+    lastTerminationReason,
+    inputLines,
+    outputLines,
+    start,
+    stop,
+  };
 }

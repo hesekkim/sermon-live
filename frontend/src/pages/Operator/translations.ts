@@ -63,6 +63,35 @@ export interface OperatorCopy {
   sessionOn: string;
   sessionOff: string;
   listeners: string;
+  broadcastStatus: string;
+  serverStatus: string;
+  serverOnline: string;
+  serverConnecting: string;
+  serverOffline: string;
+  operatorConnection: string;
+  operatorConnected: string;
+  operatorConnecting: string;
+  operatorReconnecting: string;
+  translationStatus: string;
+  translationLive: string;
+  translationOff: string;
+  latency: string;
+  latencyUnavailable: string;
+  audioStatus: string;
+  audioSignal: string;
+  audioSilent: string;
+  audioUnavailable: string;
+  interpreterConnection: string;
+  connectionConnected: string;
+  connectionDisconnected: string;
+  connectionError: string;
+  elapsedTime: string;
+  remainingTime: string;
+  timerStatus: string;
+  timerWarning: string;
+  timerHardLimit: string;
+  extensionCount: string;
+  lastTerminationReason: string;
   inputLabel: string;
   outputLabel: string;
   inputDownload: string;
@@ -141,6 +170,35 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionOn: '방송 중지',
     sessionOff: '방송 시작',
     listeners: '참여 인원',
+    broadcastStatus: '방송 운영 상태',
+    serverStatus: '서버',
+    serverOnline: '온라인',
+    serverConnecting: '연결 중',
+    serverOffline: '오프라인',
+    operatorConnection: '운영 연결',
+    operatorConnected: '연결됨',
+    operatorConnecting: '연결 중',
+    operatorReconnecting: '재연결 중',
+    translationStatus: '통역 세션',
+    translationLive: 'LIVE',
+    translationOff: 'OFF',
+    latency: '청크 → 자막 지연',
+    latencyUnavailable: '측정 대기',
+    audioStatus: '오디오 신호',
+    audioSignal: '신호 감지',
+    audioSilent: '무음',
+    audioUnavailable: '세션 꺼짐',
+    interpreterConnection: '통역 연결',
+    connectionConnected: '연결됨',
+    connectionDisconnected: '연결 안 됨',
+    connectionError: '오류',
+    elapsedTime: '경과 시간',
+    remainingTime: '남은 시간',
+    timerStatus: '타이머 상태',
+    timerWarning: '종료 임박 경고',
+    timerHardLimit: '최대 시간 도달',
+    extensionCount: '연장 횟수',
+    lastTerminationReason: '마지막 종료 사유',
     inputLabel: '입력 (한국어)',
     outputLabel: '출력 (독일어)',
     inputDownload: '한국어 전사 다운로드',
@@ -217,6 +275,35 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionOn: 'Stop broadcast',
     sessionOff: 'Start broadcast',
     listeners: 'Listeners',
+    broadcastStatus: 'Broadcast status',
+    serverStatus: 'Server',
+    serverOnline: 'Online',
+    serverConnecting: 'Connecting',
+    serverOffline: 'Offline',
+    operatorConnection: 'Operator connection',
+    operatorConnected: 'Connected',
+    operatorConnecting: 'Connecting',
+    operatorReconnecting: 'Reconnecting',
+    translationStatus: 'Translation session',
+    translationLive: 'LIVE',
+    translationOff: 'OFF',
+    latency: 'Chunk to caption',
+    latencyUnavailable: 'Waiting for data',
+    audioStatus: 'Audio signal',
+    audioSignal: 'Signal detected',
+    audioSilent: 'Silent',
+    audioUnavailable: 'Session off',
+    interpreterConnection: 'Interpreter connection',
+    connectionConnected: 'Connected',
+    connectionDisconnected: 'Disconnected',
+    connectionError: 'Error',
+    elapsedTime: 'Elapsed',
+    remainingTime: 'Remaining',
+    timerStatus: 'Timer status',
+    timerWarning: 'Ending soon',
+    timerHardLimit: 'Hard limit reached',
+    extensionCount: 'Extensions',
+    lastTerminationReason: 'Last termination reason',
     inputLabel: 'Input (Korean)',
     outputLabel: 'Output (German)',
     inputDownload: 'Download Korean transcript',
@@ -293,6 +380,35 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionOn: 'Sendung stoppen',
     sessionOff: 'Sendung starten',
     listeners: 'Zuhörer',
+    broadcastStatus: 'Sendungsstatus',
+    serverStatus: 'Server',
+    serverOnline: 'Online',
+    serverConnecting: 'Verbindung wird hergestellt',
+    serverOffline: 'Offline',
+    operatorConnection: 'Operator-Verbindung',
+    operatorConnected: 'Verbunden',
+    operatorConnecting: 'Verbindung wird hergestellt',
+    operatorReconnecting: 'Verbindung wird wiederhergestellt',
+    translationStatus: 'Übersetzungssitzung',
+    translationLive: 'LIVE',
+    translationOff: 'AUS',
+    latency: 'Chunk bis Untertitel',
+    latencyUnavailable: 'Warte auf Daten',
+    audioStatus: 'Audiosignal',
+    audioSignal: 'Signal erkannt',
+    audioSilent: 'Stumm',
+    audioUnavailable: 'Sitzung aus',
+    interpreterConnection: 'Dolmetschverbindung',
+    connectionConnected: 'Verbunden',
+    connectionDisconnected: 'Getrennt',
+    connectionError: 'Fehler',
+    elapsedTime: 'Vergangen',
+    remainingTime: 'Verbleibend',
+    timerStatus: 'Timerstatus',
+    timerWarning: 'Ende steht bevor',
+    timerHardLimit: 'Maximale Dauer erreicht',
+    extensionCount: 'Verlängerungen',
+    lastTerminationReason: 'Letzter Beendigungsgrund',
     inputLabel: 'Eingabe (Koreanisch)',
     outputLabel: 'Ausgabe (Deutsch)',
     inputDownload: 'Koreanisches Transkript herunterladen',

@@ -34,6 +34,7 @@ class SessionService:
         self._running = False
         self._lifecycle_lock = asyncio.Lock()
         self._last_audio_level_broadcast: float | None = None
+        self._first_audio_chunk_since_text_sent_at: float | None = None
         self._clock = time.monotonic
 
     @property
@@ -93,6 +94,7 @@ class SessionService:
             self._capture = capture
             self._running = True
             self._last_audio_level_broadcast = None
+            self._first_audio_chunk_since_text_sent_at = None
             self._tasks = [
                 asyncio.create_task(self._pump_capture(), name="pump-capture"),
                 asyncio.create_task(self._pump_events(), name="pump-events"),
@@ -163,6 +165,8 @@ class SessionService:
                     self._last_audio_level_broadcast = now
                 if processed:
                     await self._interpreter.send_pcm(processed)
+                    if self._first_audio_chunk_since_text_sent_at is None:
+                        self._first_audio_chunk_since_text_sent_at = self._clock()
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -171,6 +175,8 @@ class SessionService:
             processed = self._processor.flush()
             if processed:
                 await self._interpreter.send_pcm(processed)
+                if self._first_audio_chunk_since_text_sent_at is None:
+                    self._first_audio_chunk_since_text_sent_at = self._clock()
 
     async def _pump_events(self) -> None:
         assert self._interpreter is not None
@@ -179,6 +185,21 @@ class SessionService:
                 if event.kind == "audio" and event.pcm:
                     await self._hub.broadcast_audio(event.pcm, event.sample_rate)
                 elif event.kind in ("text", "output_text") and event.text:
+                    if self._first_audio_chunk_since_text_sent_at is not None:
+                        latency_ms = max(
+                            0,
+                            round(
+                                (
+                                    self._clock()
+                                    - self._first_audio_chunk_since_text_sent_at
+                                )
+                                * 1000
+                            ),
+                        )
+                        self._first_audio_chunk_since_text_sent_at = None
+                        await self._hub.broadcast_operator(
+                            {"type": "latency", "milliseconds": latency_ms}
+                        )
                     await self._hub.broadcast_text(event.text)
                     await self._hub.broadcast_operator(
                         {

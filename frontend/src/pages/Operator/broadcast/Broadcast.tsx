@@ -19,6 +19,12 @@ export default function Broadcast() {
     running,
     listenerCount,
     audioLevel,
+    latencyMs,
+    serverStatus,
+    operatorConnectionStatus,
+    interpreterStatus,
+    timer,
+    lastTerminationReason,
     inputLines,
     outputLines,
     start,
@@ -42,6 +48,12 @@ export default function Broadcast() {
         running={running}
         listenerCount={listenerCount}
         audioLevel={audioLevel}
+        latencyMs={latencyMs}
+        serverStatus={serverStatus}
+        operatorConnectionStatus={operatorConnectionStatus}
+        interpreterStatus={interpreterStatus}
+        timer={timer}
+        lastTerminationReason={lastTerminationReason}
         togglePending={togglePending}
         onToggle={() => void toggleSession()}
       />

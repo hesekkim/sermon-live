@@ -129,6 +129,47 @@ async def test_input_text_is_operator_only():
 
 
 @pytest.mark.asyncio
+async def test_output_text_reports_audio_chunk_to_caption_latency():
+    hub = FakeHub()
+    service = SessionService(Settings(interpreter="echo"), hub)  # type: ignore[arg-type]
+    service._interpreter = FakeInterpreter(
+        [InterpreterEvent(kind="output_text", text="Guten Tag")]
+    )
+    service._first_audio_chunk_since_text_sent_at = 4.0
+    service._clock = lambda: 4.275
+
+    await service._pump_events()
+
+    assert hub.operator[0] == {"type": "latency", "milliseconds": 275}
+    assert hub.operator[1] == {
+        "type": "transcript",
+        "role": "output",
+        "text": "Guten Tag",
+    }
+
+
+@pytest.mark.asyncio
+async def test_output_text_latency_uses_first_audio_chunk_since_previous_text():
+    hub = FakeHub()
+    service = SessionService(Settings(interpreter="echo"), hub)  # type: ignore[arg-type]
+    service._interpreter = FakeInterpreter(
+        [
+            InterpreterEvent(kind="output_text", text="Guten Tag"),
+            InterpreterEvent(kind="output_text", text="Wie geht es Ihnen?"),
+        ]
+    )
+    timestamps = iter([4.0, 4.1, 4.4])
+    service._first_audio_chunk_since_text_sent_at = next(timestamps)
+    service._clock = lambda: next(timestamps)
+
+    await service._pump_events()
+
+    assert [event for event in hub.operator if event["type"] == "latency"] == [
+        {"type": "latency", "milliseconds": 100},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_event_stream_end_stops_session_and_closes_interpreter():
     hub = FakeHub()
     service = SessionService(Settings(interpreter="echo"), hub)

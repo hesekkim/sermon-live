@@ -10,6 +10,58 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--cf-space-16);
+  flex-wrap: wrap;
+}
+
+.statusPanel {
+  padding: var(--cf-space-12) var(--cf-space-16);
+  border: 1px solid var(--cms-border);
+  border-radius: var(--cf-radius-card);
+  background: var(--cms-surface);
+}
+
+.statusGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--cf-space-12) var(--cf-space-16);
+  margin: 0;
+}
+
+.statusItem {
+  min-width: 0;
+}
+
+.statusItem dt {
+  margin-bottom: var(--cf-space-4);
+  color: var(--cms-text-secondary);
+  font-size: 0.75rem;
+}
+
+.statusItem dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--cms-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.statusItem dd[data-state='online'],
+.statusItem dd[data-state='connected'],
+.statusItem dd[data-state='live'] {
+  color: var(--cms-success, #15803d);
+}
+
+.statusItem dd[data-state='reconnecting'],
+.statusItem dd[data-state='connecting'],
+.statusItem dd[data-state='warning'] {
+  color: var(--cms-warning-text, #a16207);
+}
+
+.statusItem dd[data-state='offline'],
+.statusItem dd[data-state='error'],
+.statusItem dd[data-state='disconnected'],
+.statusItem dd[data-state='off'] {
+  color: var(--cms-text-secondary);
 }
 
 .listeners {
@@ -137,4 +189,24 @@
   color: var(--highlight);
   font-weight: 600;
   line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .statusGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .statusGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .levelWrap {
+    min-width: 0;
+  }
+
+  .levelMeter {
+    width: 6rem;
+  }
 }

@@ -54,6 +54,7 @@ describe('useBroadcastSession', () => {
   afterEach(() => {
     FakeWebSocket.instances = [];
     vi.restoreAllMocks();
+    vi.useRealTimers();
     document.body.replaceChildren();
   });
 
@@ -125,6 +126,64 @@ describe('useBroadcastSession', () => {
     act(() => root.unmount());
   });
 
+  it('updates operational status from operator messages and recovers the connection', async () => {
+    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+      current: null,
+    };
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    function StateProbe() {
+      latestSession.current = useBroadcastSession(operatorCopy.ko);
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<StateProbe />);
+      await Promise.resolve();
+    });
+
+    const firstSocket = FakeWebSocket.latest;
+    expect(firstSocket).not.toBeNull();
+
+    await act(async () => {
+      firstSocket?.emit('open');
+      firstSocket?.emit('message', JSON.stringify({
+        type: 'status',
+        running: true,
+        listenerCount: 4,
+        timer: { elapsedSeconds: 65, remainingSeconds: 535, warning: false },
+      }));
+      firstSocket?.emit('message', JSON.stringify({ type: 'latency', milliseconds: 180 }));
+      firstSocket?.emit('message', JSON.stringify({ type: 'session_ended', reason: 'auto_stop' }));
+    });
+
+    expect(latestSession.current?.serverStatus).toBe('online');
+    expect(latestSession.current?.operatorConnectionStatus).toBe('connected');
+    expect(latestSession.current?.running).toBe(true);
+    expect(latestSession.current?.listenerCount).toBe(4);
+    expect(latestSession.current?.latencyMs).toBe(180);
+    expect(latestSession.current?.timer?.elapsedSeconds).toBe(65);
+    expect(latestSession.current?.lastTerminationReason).toBe('auto_stop');
+
+    vi.useFakeTimers();
+    act(() => firstSocket?.emit('close'));
+    expect(latestSession.current?.serverStatus).toBe('online');
+    expect(latestSession.current?.operatorConnectionStatus).toBe('reconnecting');
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+    const recoveredSocket = FakeWebSocket.latest;
+    expect(FakeWebSocket.instances).toHaveLength(2);
+
+    act(() => recoveredSocket?.emit('open'));
+    expect(latestSession.current?.operatorConnectionStatus).toBe('connected');
+    act(() => root.unmount());
+  });
+
   it('reports a WebSocket error and following close only once', async () => {
     const errors: string[] = [];
     const container = document.createElement('div');
@@ -145,6 +204,41 @@ describe('useBroadcastSession', () => {
     });
 
     expect(errors).toEqual(['방송 처리 중 오류가 발생했습니다']);
+    act(() => root.unmount());
+  });
+
+  it('keeps interpreter errors visible while status polling reports a running session', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ running: true, listener_count: 0 }),
+    }));
+    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+      current: null,
+    };
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    function StateProbe() {
+      latestSession.current = useBroadcastSession(operatorCopy.ko);
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<StateProbe />);
+      await Promise.resolve();
+    });
+
+    const socket = FakeWebSocket.latest;
+    act(() => socket?.emit('message', JSON.stringify({ type: 'error', text: 'interpreter failed' })));
+    expect(latestSession.current?.interpreterStatus).toBe('error');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(latestSession.current?.interpreterStatus).toBe('error');
     act(() => root.unmount());
   });
 });
