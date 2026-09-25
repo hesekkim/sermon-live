@@ -1,5 +1,7 @@
 import { LuPower, LuPowerOff } from 'react-icons/lu';
 import AudioLevelMeter from '../../../../shared/components/AudioLevelMeter/AudioLevelMeter';
+import Button from '../../../../shared/components/Button/Button';
+import Dialog from '../../../../shared/components/Dialog/Dialog';
 import type { OperatorCopy } from '../../translations';
 import type {
   InterpreterStatus,
@@ -27,8 +29,10 @@ interface BroadcastHeaderProps {
   interpreterStatus: InterpreterStatus;
   timer: SessionTimerState | null;
   lastTerminationReason: string | null;
-  togglePending: boolean;
+  actionPending: boolean;
   onToggle: () => void;
+  onExtend: () => void;
+  onStopNow: () => void;
 }
 
 function formatDuration(seconds?: number | null) {
@@ -59,8 +63,10 @@ export default function BroadcastHeader({
   interpreterStatus,
   timer,
   lastTerminationReason,
-  togglePending,
+  actionPending,
   onToggle,
+  onExtend,
+  onStopNow,
 }: BroadcastHeaderProps) {
   const serverLabel = {
     connecting: labels.serverConnecting,
@@ -91,6 +97,19 @@ export default function BroadcastHeader({
   }[sessionStatus];
   const startDisabled = !running && (serverStatus !== 'online' || !startAvailable);
   const disabledReason = serverStatus !== 'online' ? labels.serverOffline : startBlockReason;
+  const showWarningDialog = Boolean(timer?.warning && running);
+  const warnTitle = timer?.hardLimitReached ? labels.timerHardLimit : labels.timerWarningTitle;
+  const extensionMinutes = timer?.extensionMinutes;
+  const remainingMinutes = typeof timer?.remainingSeconds === 'number'
+    ? Math.max(0, Math.ceil(timer.remainingSeconds / 60))
+    : 0;
+  const warnBody = timer?.hardLimitReached
+    ? labels.timerHardLimit
+    : typeof extensionMinutes === 'number'
+      ? labels.timerWarningBody
+        .replace('{remainingMinutes}', String(remainingMinutes))
+        .replace('{extensionMinutes}', String(extensionMinutes))
+      : labels.timerWarningTitle;
 
   return (
     <>
@@ -109,7 +128,7 @@ export default function BroadcastHeader({
             aria-pressed={sessionStatus === 'live'}
             aria-label={running ? labels.sessionOn : labels.sessionOff}
             title={startDisabled ? disabledReason || labels.sessionOff : running ? labels.sessionOn : labels.sessionOff}
-            disabled={togglePending || sessionStatus === 'starting' || sessionStatus === 'stopping' || startDisabled}
+            disabled={actionPending || sessionStatus === 'starting' || sessionStatus === 'stopping' || startDisabled}
             onClick={onToggle}
           >
             {running ? <LuPower size={22} aria-hidden /> : <LuPowerOff size={22} aria-hidden />}
@@ -190,6 +209,37 @@ export default function BroadcastHeader({
           ) : null}
         </dl>
       </section>
+      <Dialog
+        isOpen={showWarningDialog}
+        title={warnTitle}
+        overlayClassName={styles.warningDialogOverlay}
+        onClose={() => undefined}
+        closeOnOverlayClick={false}
+        closeOnEscape={false}
+        showFooterDivider={false}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onStopNow}
+              disabled={actionPending}
+            >
+              {labels.stopNow}
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={onExtend}
+              disabled={actionPending || Boolean(timer?.hardLimitReached)}
+            >
+              {timer?.hardLimitReached ? labels.timerHardLimit : labels.extendSession}
+            </Button>
+          </>
+        }
+      >
+        <p className={styles.warningMessage}>{warnBody}</p>
+      </Dialog>
     </>
   );
 }

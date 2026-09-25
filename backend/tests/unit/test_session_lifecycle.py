@@ -268,6 +268,7 @@ async def test_operator_timer_settings_are_used_for_session_deadline(tmp_path):
     await service.start()
 
     assert service.status()["timer"]["remainingSeconds"] == 120
+    assert service.status()["timer"]["extensionMinutes"] == 3
     assert service._hard_limit_seconds() == 300
     await service.stop()
 

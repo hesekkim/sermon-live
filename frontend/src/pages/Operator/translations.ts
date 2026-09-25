@@ -94,6 +94,11 @@ export interface OperatorCopy {
   timerWarning: string;
   timerHardLimit: string;
   extensionCount: string;
+  timerWarningTitle: string;
+  timerWarningBody: string;
+  extendSession: string;
+  extendFailed: string;
+  stopNow: string;
   lastTerminationReason: string;
   inputLabel: string;
   outputLabel: string;
@@ -205,6 +210,11 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     timerWarning: '종료 임박 경고',
     timerHardLimit: '최대 시간 도달',
     extensionCount: '연장 횟수',
+    timerWarningTitle: '세션 종료 임박',
+    timerWarningBody: '남은 시간이 {remainingMinutes}분 남았습니다. {extensionMinutes}분 연장하거나 지금 종료할 수 있습니다.',
+    extendSession: '연장',
+    extendFailed: '세션을 연장하지 못했습니다',
+    stopNow: '지금 종료',
     lastTerminationReason: '마지막 종료 사유',
     inputLabel: '입력 (한국어)',
     outputLabel: '출력 (독일어)',
@@ -314,6 +324,11 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     timerWarning: 'Ending soon',
     timerHardLimit: 'Hard limit reached',
     extensionCount: 'Extensions',
+    timerWarningTitle: 'Session ending soon',
+    timerWarningBody: 'You have {remainingMinutes} minutes remaining. You can extend by {extensionMinutes} minutes or stop now.',
+    extendSession: 'Extend',
+    extendFailed: 'Could not extend the session',
+    stopNow: 'Stop now',
     lastTerminationReason: 'Last termination reason',
     inputLabel: 'Input (Korean)',
     outputLabel: 'Output (German)',
@@ -423,6 +438,11 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     timerWarning: 'Ende steht bevor',
     timerHardLimit: 'Maximale Dauer erreicht',
     extensionCount: 'Verlängerungen',
+    timerWarningTitle: 'Sitzung endet bald',
+    timerWarningBody: 'Es bleiben noch {remainingMinutes} Minuten. Sie können um {extensionMinutes} Minuten verlängern oder sofort beenden.',
+    extendSession: 'Verlängern',
+    extendFailed: 'Die Sitzung konnte nicht verlängert werden',
+    stopNow: 'Jetzt beenden',
     lastTerminationReason: 'Letzter Beendigungsgrund',
     inputLabel: 'Eingabe (Koreanisch)',
     outputLabel: 'Ausgabe (Deutsch)',

@@ -123,6 +123,7 @@ class _TranslationSessionService:
             "elapsedSeconds": int(elapsed),
             "remainingSeconds": int(remaining),
             "warning": remaining <= self._warning_before_stop_seconds(),
+            "extensionMinutes": int(self._extension_seconds() / 60),
             "extensionCount": self._timer_extension_count,
             "hardLimitReached": now >= hard_limit,
         }

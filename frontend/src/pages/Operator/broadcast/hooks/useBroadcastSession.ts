@@ -11,6 +11,7 @@ export interface SessionTimerState {
   elapsedSeconds?: number;
   remainingSeconds?: number | null;
   warning?: boolean;
+  extensionMinutes?: number;
   extensionCount?: number;
   hardLimitReached?: boolean;
 }
@@ -102,15 +103,19 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
   }, [formatSessionError]);
   const applyStatus = useCallback((data: SessionStatus) => {
     setRunning(data.running);
-      setSessionStatus(data.session_status ?? (data.running ? 'live' : 'off'));
-      if (typeof data.audio_ready === 'boolean') setAudioReady(data.audio_ready);
-      if ('audio_error' in data) setAudioError(data.audio_error ?? null);
-      if (typeof data.start_available === 'boolean') setStartAvailable(data.start_available);
-      if ('start_block_reason' in data) setStartBlockReason(data.start_block_reason ?? null);
-      if ('error' in data) setSessionError(data.error ?? null);
-      if (data.last_termination_reason) setLastTerminationReason(data.last_termination_reason);
+    setSessionStatus(data.session_status ?? (data.running ? 'live' : 'off'));
+    if (typeof data.audio_ready === 'boolean') setAudioReady(data.audio_ready);
+    if ('audio_error' in data) setAudioError(data.audio_error ?? null);
+    if (typeof data.start_available === 'boolean') setStartAvailable(data.start_available);
+    if ('start_block_reason' in data) setStartBlockReason(data.start_block_reason ?? null);
+    if ('error' in data) setSessionError(data.error ?? null);
+    if (data.last_termination_reason) setLastTerminationReason(data.last_termination_reason);
     setListenerCount(data.listener_count);
-    if (data.timer) setTimer(data.timer);
+    if ('timer' in data) {
+      setTimer(data.timer ?? null);
+    } else if (!data.running) {
+      setTimer(null);
+    }
     setInterpreterStatus((current) =>
       current === 'error' ? current : data.running ? 'connected' : 'disconnected'
     );
@@ -176,7 +181,11 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
             if ('error' in payload) setSessionError(payload.error ?? null);
             if (payload.reason || payload.last_termination_reason) setLastTerminationReason(payload.reason ?? payload.last_termination_reason ?? null);
             if (typeof listenerCount === 'number') setListenerCount(listenerCount);
-            if (payload.timer) setTimer(payload.timer);
+            if ('timer' in payload) {
+              setTimer(payload.timer ?? null);
+            } else if (!payload.running) {
+              setTimer(null);
+            }
             return;
           }
           if (payload.type === 'listener_count') {
@@ -289,6 +298,17 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
     if (!response.ok) throw new Error('stop failed');
     applyStatus((await response.json()) as SessionStatus);
   }, [applyStatus]);
+  const extend = useCallback(async () => {
+    const response = await fetch('/api/v1/session/extend', { method: 'POST' });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+      const detail = body?.detail ?? 'extend failed';
+      throw new Error(detail);
+    }
+    const payload = (await response.json()) as SessionStatus;
+    applyStatus(payload);
+    return payload;
+  }, [applyStatus]);
 
   return {
     running,
@@ -310,5 +330,7 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
     outputLines,
     start,
     stop,
+    extend,
+    setTimer,
   };
 }

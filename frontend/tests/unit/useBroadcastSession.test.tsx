@@ -250,4 +250,55 @@ describe('useBroadcastSession', () => {
     expect(latestSession.current?.interpreterStatus).toBe('error');
     act(() => root.unmount());
   });
+
+  it('supports timer extension during the warning window and clears stale timer data afterward', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ running: true, session_status: 'live', listener_count: 2, timer: { elapsedSeconds: 90, remainingSeconds: 60, warning: true, extensionCount: 0 } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ running: true, session_status: 'live', listener_count: 2, timer: { elapsedSeconds: 100, remainingSeconds: 120, warning: false, extensionCount: 1 } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ running: false, session_status: 'off', listener_count: 0 }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+      current: null,
+    };
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    function StateProbe() {
+      latestSession.current = useBroadcastSession(operatorCopy.ko);
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<StateProbe />);
+      await Promise.resolve();
+    });
+
+    expect(latestSession.current?.timer?.remainingSeconds).toBe(60);
+
+    await act(async () => {
+      await latestSession.current?.extend();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/session/extend', { method: 'POST' });
+    expect(latestSession.current?.timer?.extensionCount).toBe(1);
+    expect(latestSession.current?.timer?.warning).toBe(false);
+
+    await act(async () => {
+      latestSession.current?.setTimer(null);
+    });
+
+    expect(latestSession.current?.timer).toBeNull();
+    act(() => root.unmount());
+  });
 });

@@ -130,6 +130,20 @@
   background: var(--cms-surface);
 }
 
+.warningMessage {
+  margin: 0;
+  color: var(--cms-text);
+  line-height: 1.5;
+}
+
+.warningDialogOverlay.warningDialogOverlay {
+  background-color: rgba(15, 23, 42, 0.24);
+}
+
+:global(body[data-cms-theme='dark']) .warningDialogOverlay.warningDialogOverlay {
+  background-color: rgba(0, 0, 0, 0.32);
+}
+
 .error {
   margin: 0;
   color: var(--cms-danger);

@@ -7,6 +7,7 @@ interface UseBroadcastToggleOptions {
   running: boolean;
   start: () => Promise<void>;
   stop: () => Promise<void>;
+  extend: () => Promise<unknown>;
   sessionErrorDuringAttemptRef: MutableRefObject<boolean>;
 }
 
@@ -15,21 +16,38 @@ export function useBroadcastToggle({
   running,
   start,
   stop,
+  extend,
   sessionErrorDuringAttemptRef,
 }: UseBroadcastToggleOptions) {
   const { info, error: toastError } = useToast();
-  const [togglePending, setTogglePending] = useState(false);
-  const togglePendingRef = useRef(false);
+  const [actionPending, setActionPending] = useState(false);
+  const actionPendingRef = useRef(false);
+
+  const runPendingAction = async (
+    action: () => Promise<unknown>,
+    onError: (caught: unknown) => void,
+  ) => {
+    if (actionPendingRef.current) return;
+
+    actionPendingRef.current = true;
+    setActionPending(true);
+    try {
+      await action();
+    } catch (caught) {
+      onError(caught);
+    } finally {
+      actionPendingRef.current = false;
+      setActionPending(false);
+    }
+  };
 
   const toggleSession = async () => {
-    if (togglePendingRef.current) return;
+    if (actionPendingRef.current) return;
 
     const isStopping = running;
-    togglePendingRef.current = true;
     sessionErrorDuringAttemptRef.current = false;
-    setTogglePending(true);
 
-    try {
+    await runPendingAction(async () => {
       if (isStopping) {
         await stop();
         info(labels.sessionStopped);
@@ -39,7 +57,7 @@ export function useBroadcastToggle({
         if (sessionErrorDuringAttemptRef.current) return;
         info(labels.sessionStarted);
       }
-    } catch (caught) {
+    }, (caught) => {
       const detail = caught instanceof Error ? caught.message : '';
       const invalidApiKey =
         detail.includes('invalid_api_key') ||
@@ -51,11 +69,15 @@ export function useBroadcastToggle({
             ? labels.stopFailed
             : labels.startFailed
       );
-    } finally {
-      togglePendingRef.current = false;
-      setTogglePending(false);
-    }
+    });
   };
 
-  return { togglePending, toggleSession };
+  const stopNow = () => runPendingAction(async () => {
+    await stop();
+    info(labels.sessionStopped);
+  }, () => toastError(labels.stopFailed));
+
+  const extendSession = () => runPendingAction(extend, () => toastError(labels.extendFailed));
+
+  return { actionPending, toggleSession, stopNow, extendSession };
 }

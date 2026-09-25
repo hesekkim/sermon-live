@@ -1,10 +1,10 @@
 # 031 Broadcast Translation 제어
 
-상태: 대기
+상태: 완료
 
 ## Goal
 
-Broadcast를 실제 Translation 운영 Dashboard로 확장한다.
+Broadcast에서 Translation Session을 시작/중지하고, Timer 및 종료 상태를 Operator가 제어할 수 있도록 한다.
 
 ## Why
 

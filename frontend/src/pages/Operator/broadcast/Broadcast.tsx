@@ -35,15 +35,17 @@ export default function Broadcast() {
     outputLines,
     start,
     stop,
+    extend,
   } = useBroadcastSession(labels, (message) => {
     sessionErrorDuringAttemptRef.current = true;
     toastError(message);
   });
-  const { togglePending, toggleSession } = useBroadcastToggle({
+  const { actionPending, toggleSession, stopNow, extendSession } = useBroadcastToggle({
     labels,
     running,
     start,
     stop,
+    extend,
     sessionErrorDuringAttemptRef,
   });
 
@@ -66,8 +68,10 @@ export default function Broadcast() {
         interpreterStatus={interpreterStatus}
         timer={timer}
         lastTerminationReason={lastTerminationReason}
-        togglePending={togglePending}
+        actionPending={actionPending}
         onToggle={() => void toggleSession()}
+        onExtend={() => void extendSession()}
+        onStopNow={() => void stopNow()}
       />
       <div className={showInputPane ? styles.panes : styles.panesSingle}>
         {showInputPane ? (

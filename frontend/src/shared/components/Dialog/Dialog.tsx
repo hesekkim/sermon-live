@@ -14,6 +14,7 @@ export interface DialogProps {
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  overlayClassName?: string;
   closeOnOverlayClick?: boolean;
   closeOnEscape?: boolean;
   /** When false, footer has no top border (default true). */
@@ -29,6 +30,7 @@ export default function Dialog({
   footer,
   size = 'md',
   className = '',
+  overlayClassName = '',
   closeOnOverlayClick = true,
   closeOnEscape = true,
   showFooterDivider = true,
@@ -64,7 +66,7 @@ export default function Dialog({
 
   return createPortal(
     <div
-      className={`cms-theme ${styles.overlay}`}
+      className={`cms-theme ${styles.overlay} ${overlayClassName}`}
       onClick={handleOverlayClick}
       role="presentation"
     >
