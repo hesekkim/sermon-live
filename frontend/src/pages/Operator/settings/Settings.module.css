@@ -46,6 +46,55 @@
   flex: 1;
 }
 
+.audioTestPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-12);
+  padding: var(--cf-space-16);
+  border: 1px solid var(--cms-border);
+  border-radius: var(--cf-radius-input);
+  background: rgba(255, 255, 255, 0.02);
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.audioTestPanelDisabled {
+  opacity: 0.5;
+  filter: grayscale(0.2);
+}
+
+.audioTestGrid {
+  display: grid;
+  gap: var(--cf-space-12);
+}
+
+.audioTestRow {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) 1fr;
+  gap: var(--cf-space-12);
+  align-items: center;
+}
+
+.audioTestRow span {
+  color: var(--cms-text);
+  opacity: 0.8;
+}
+
+.audioTestRow strong {
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.audioTestMeter {
+  display: flex;
+  align-items: center;
+  min-height: 1.5rem;
+}
+
+.audioTestAction {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .applyActions {
   display: flex;
   justify-content: flex-end;

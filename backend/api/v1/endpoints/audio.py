@@ -19,6 +19,10 @@ class AudioDeviceResponse(BaseModel):
     default_sample_rate: float
 
 
+class AudioTestRequest(BaseModel):
+    audio_device: str | None = None
+
+
 class AudioTestResponse(BaseModel):
     status: Literal["disconnected", "silent", "signal"]
     detected_sample_rate: int | None = None
@@ -38,7 +42,7 @@ def get_audio_devices() -> list[dict[str, object]]:
 
 
 @router.post("/api/v1/audio/test", response_model=AudioTestResponse)
-async def test_audio_input() -> AudioTestResponse:
+async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTestResponse:
     if session.running:
         raise HTTPException(
             status_code=409,
@@ -46,6 +50,8 @@ async def test_audio_input() -> AudioTestResponse:
         )
 
     settings = get_settings()
+    if request is not None and request.audio_device is not None:
+        settings = settings.model_copy(update={"audio_device": request.audio_device})
     capture = AudioCapture(settings)
     started = False
     try:

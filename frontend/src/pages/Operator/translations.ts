@@ -16,6 +16,18 @@ export interface OperatorCopy {
   audioDevice: string;
   audioDevicePlaceholder: string;
   audioDeviceLoadFailed: string;
+  audioTest: string;
+  audioTestDevice: string;
+  audioTestStatus: string;
+  audioTestInputLevel: string;
+  audioTestDetectedFormat: string;
+  audioTestProcessingFormat: string;
+  audioTestRunning: string;
+  audioTestNotRun: string;
+  audioTestNoDevice: string;
+  audioTestSignal: string;
+  audioTestSilent: string;
+  audioTestDisconnected: string;
   apiKey: string;
   apiKeyPlaceholder: string;
   apiKeySaved: string;
@@ -67,6 +79,18 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDevice: '입력 장치',
     audioDevicePlaceholder: '입력 장치를 선택하세요',
     audioDeviceLoadFailed: '입력 장치를 불러오지 못했습니다',
+    audioTest: '오디오 테스트',
+    audioTestDevice: '장치',
+    audioTestStatus: '상태',
+    audioTestInputLevel: '입력 레벨',
+    audioTestDetectedFormat: '감지 포맷',
+    audioTestProcessingFormat: 'OpenAI 처리 포맷',
+    audioTestRunning: '테스트 중...',
+    audioTestNotRun: '아직 테스트하지 않았습니다',
+    audioTestNoDevice: '장치 미선택',
+    audioTestSignal: '신호 감지',
+    audioTestSilent: '무음',
+    audioTestDisconnected: '연결 안 됨',
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'API KEY를 입력하세요',
     apiKeySaved: '저장된 키가 있습니다',
@@ -116,6 +140,18 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDevice: 'Input device',
     audioDevicePlaceholder: 'Select an input device',
     audioDeviceLoadFailed: 'Could not load input devices',
+    audioTest: 'Audio test',
+    audioTestDevice: 'Device',
+    audioTestStatus: 'Status',
+    audioTestInputLevel: 'Input level',
+    audioTestDetectedFormat: 'Detected format',
+    audioTestProcessingFormat: 'OpenAI processing format',
+    audioTestRunning: 'Testing...',
+    audioTestNotRun: 'Not tested yet',
+    audioTestNoDevice: 'No device selected',
+    audioTestSignal: 'Signal detected',
+    audioTestSilent: 'Silent',
+    audioTestDisconnected: 'Disconnected',
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'Enter API KEY',
     apiKeySaved: 'A key is already saved',
@@ -165,6 +201,18 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDevice: 'Eingabegerät',
     audioDevicePlaceholder: 'Eingabegerät auswählen',
     audioDeviceLoadFailed: 'Eingabegeräte konnten nicht geladen werden',
+    audioTest: 'Audio-Test',
+    audioTestDevice: 'Gerät',
+    audioTestStatus: 'Status',
+    audioTestInputLevel: 'Eingangspegel',
+    audioTestDetectedFormat: 'Erkannte Format',
+    audioTestProcessingFormat: 'OpenAI-Verarbeitungsformat',
+    audioTestRunning: 'Wird getestet...',
+    audioTestNotRun: 'Noch nicht getestet',
+    audioTestNoDevice: 'Kein Gerät ausgewählt',
+    audioTestSignal: 'Signal erkannt',
+    audioTestSilent: 'Stumm',
+    audioTestDisconnected: 'Getrennt',
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'API KEY eingeben',
     apiKeySaved: 'Ein Schlüssel ist gespeichert',

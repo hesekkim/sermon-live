@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import AudioLevelMeter from '../../../shared/components/AudioLevelMeter/AudioLevelMeter';
 import Button from '../../../shared/components/Button/Button';
 import InputField from '../../../shared/components/InputField/InputField';
 import Select from '../../../shared/components/Select/Select';
@@ -8,6 +9,7 @@ import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
 import type { UiLanguage } from '../translations';
 import { useAudioDevices } from './useAudioDevices';
+import { useAudioTest } from './useAudioTest';
 import { useOperatorSettings } from './useOperatorSettings';
 import styles from './Settings.module.css';
 
@@ -17,6 +19,8 @@ export default function Settings() {
   const { labels, language, theme, setLanguage, setTheme } = useOperatorPrefs();
   const { deviceOptions, selectedDevice, setSelectedDevice, error: deviceError } =
     useAudioDevices();
+  const { result, error: audioTestError, isTesting, runTest } =
+    useAudioTest(selectedDevice);
   const { error } = useToast();
   const {
     interpreter,
@@ -66,8 +70,30 @@ export default function Settings() {
   );
 
   const keyDisabled = interpreter === 'echo';
+  const canRunAudioTest =
+    Boolean(selectedDevice) &&
+    deviceOptions.some((option) => option.value === selectedDevice);
   const currentKeyStatus =
     interpreter === 'openai' ? openaiKeyStatus : 'missing';
+  const audioStatusLabel = result
+    ? result.status === 'signal'
+      ? labels.audioTestSignal
+      : result.status === 'silent'
+        ? labels.audioTestSilent
+        : labels.audioTestDisconnected
+    : labels.audioTestNotRun;
+  const detectedFormatText = result
+    ? formatAudioFormat(
+        result.detected_sample_rate,
+        result.detected_channels,
+        result.detected_sample_width
+      )
+    : labels.audioTestNotRun;
+  const processingFormatText = formatAudioFormat(
+    result?.processing_sample_rate ?? 24000,
+    result?.processing_channels ?? 1,
+    result?.processing_sample_width ?? 2
+  );
   const keyStatusLabel =
     currentKeyStatus === 'valid'
       ? labels.keyStatusValid
@@ -110,6 +136,51 @@ export default function Settings() {
             disabled={deviceOptions.length === 0}
             onChange={setSelectedDevice}
           />
+
+          <div
+            className={[
+              styles.audioTestPanel,
+              !canRunAudioTest ? styles.audioTestPanelDisabled : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            aria-disabled={!canRunAudioTest}
+          >
+            <div className={styles.audioTestGrid}>
+              <div className={styles.audioTestRow}>
+                <span>{labels.audioTestStatus}</span>
+                <strong>{audioStatusLabel}</strong>
+              </div>
+              <div className={styles.audioTestRow}>
+                <span>{labels.audioTestInputLevel}</span>
+                <div className={styles.audioTestMeter}>
+                  <AudioLevelMeter
+                    level={canRunAudioTest ? result?.input_level_dbfs ?? null : null}
+                    label={labels.audioTestInputLevel}
+                  />
+                </div>
+              </div>
+              <div className={styles.audioTestRow}>
+                <span>{labels.audioTestDetectedFormat}</span>
+                <strong>{canRunAudioTest ? detectedFormatText : '—'}</strong>
+              </div>
+              <div className={styles.audioTestRow}>
+                <span>{labels.audioTestProcessingFormat}</span>
+                <strong>{canRunAudioTest ? processingFormatText : '—'}</strong>
+              </div>
+            </div>
+            <div className={styles.audioTestAction}>
+              <Button
+                variant="secondary"
+                disabled={isTesting || !canRunAudioTest}
+                onClick={() => void runTest()}
+              >
+                {isTesting ? labels.audioTestRunning : labels.audioTest}
+              </Button>
+            </div>
+            {audioTestError ? <p role="alert">{audioTestError}</p> : null}
+            {result?.message ? <p role="status">{result.message}</p> : null}
+          </div>
         </section>
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>
@@ -161,4 +232,16 @@ export default function Settings() {
       </div>
     </div>
   );
+}
+
+function formatAudioFormat(
+  sampleRate: number | null | undefined,
+  channels: number | null | undefined,
+  sampleWidth: number | null | undefined
+) {
+  if (sampleRate == null || channels == null || sampleWidth == null) {
+    return '—';
+  }
+
+  return `${sampleRate} Hz / ${channels} ch / ${sampleWidth} bytes`;
 }

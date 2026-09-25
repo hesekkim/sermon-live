@@ -1,6 +1,18 @@
 # 014 오디오 테스트 UX
 
-상태: 대기
+상태: 완료
+
+## Result
+
+- 설정 페이지에 Audio Test 패널을 추가했습니다.
+- 장치 선택, 상태, 입력 레벨, 감지 포맷, OpenAI 처리 포맷, Test 버튼을 표시합니다.
+- `/api/v1/audio/test` POST 호출을 통해 결과를 가져오고, 성공/실패 메시지를 화면에 노출합니다.
+- 관련 단위 테스트를 추가해 mock fetch 결과 렌더링과 에러 처리를 검증했습니다.
+
+## Verification
+
+- `cd 'd:\dev\sermon-live\frontend'; npm test -- --run tests/unit/useAudioDevices.test.tsx tests/unit/useAudioTest.test.tsx`
+- 결과: 2개 파일 통과, 6개 테스트 통과
 
 ## Goal
 

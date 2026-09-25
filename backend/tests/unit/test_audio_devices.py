@@ -174,6 +174,33 @@ def test_audio_test_endpoint_rejects_when_session_is_running():
     assert response.json()["detail"] == "Audio test is unavailable while a session is running"
 
 
+def test_audio_test_endpoint_uses_requested_device(monkeypatch):
+    captured_devices: list[str] = []
+
+    class FakeCapture:
+        input_format = (16000, 1, 2)
+
+        def __init__(self, settings: object) -> None:
+            captured_devices.append(str(settings.audio_device))
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+        async def collect(self, _duration_seconds: float) -> bytes:
+            return b"\x00\x00"
+
+    monkeypatch.setattr("api.v1.endpoints.audio.AudioCapture", FakeCapture)
+
+    with TestClient(app) as client:
+        response = client.post("/api/v1/audio/test", json={"audio_device": "3"})
+
+    assert response.status_code == 200
+    assert captured_devices == ["3"]
+
+
 class FakePyAudio:
     def __init__(self, devices: list[dict[str, object]]) -> None:
         self.devices = devices
