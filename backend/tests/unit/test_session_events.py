@@ -58,6 +58,10 @@ class FakeCapture:
             yield chunk
 
 
+def pcm16(values: list[int]) -> bytes:
+    return np.asarray(values, dtype="<i2").tobytes()
+
+
 @pytest.mark.asyncio
 async def test_capture_is_processed_before_interpreter_send():
     hub = FakeHub()
@@ -78,6 +82,30 @@ async def test_capture_is_processed_before_interpreter_send():
     assert np.frombuffer(
         b"".join(interpreter.received_pcm), dtype="<i2"
     ).tolist() == [500]
+
+
+@pytest.mark.asyncio
+async def test_capture_broadcasts_throttled_input_audio_level(monkeypatch):
+    hub = FakeHub()
+    service = SessionService(Settings(interpreter="echo"), hub)
+    interpreter = FakeInterpreter([])
+    service._interpreter = interpreter
+    service._capture = FakeCapture(
+        [pcm16([0, 0]), pcm16([32767, 32767]), pcm16([32767, 32767])]
+    )
+    service._processor = session_service_module.AudioProcessor(
+        16000, 1, 2, 16000, 1, 2
+    )
+    service._running = True
+    times = iter([0.0, 0.05, 0.1])
+    monkeypatch.setattr(service, "_clock", lambda: next(times))
+
+    await service._pump_capture()
+
+    assert hub.operator == [
+        {"type": "audio_level", "level": -60.0},
+        {"type": "audio_level", "level": pytest.approx(0.0, abs=0.001)},
+    ]
 
 
 @pytest.mark.asyncio

@@ -3,6 +3,18 @@ from __future__ import annotations
 import numpy as np
 
 
+AUDIO_LEVEL_FLOOR_DBFS = -60.0
+
+
+def calculate_audio_level(samples: np.ndarray) -> float:
+    if samples.size == 0:
+        return AUDIO_LEVEL_FLOOR_DBFS
+    rms = float(np.sqrt(np.mean(np.square(samples))))
+    if rms == 0.0:
+        return AUDIO_LEVEL_FLOOR_DBFS
+    return float(max(AUDIO_LEVEL_FLOOR_DBFS, 20.0 * np.log10(rms)))
+
+
 class AudioProcessor:
     def __init__(
         self,
@@ -33,6 +45,11 @@ class AudioProcessor:
         self._pending_bytes = b""
         self._resample_buffer = np.empty((0, target_channels), dtype=np.float64)
         self._source_position = 0.0
+        self._input_level_dbfs: float | None = None
+
+    @property
+    def input_level_dbfs(self) -> float | None:
+        return self._input_level_dbfs
 
     def process(self, chunk: bytes) -> bytes:
         if not chunk:
@@ -45,6 +62,7 @@ class AudioProcessor:
             return b""
 
         samples = self._decode(data[:complete_size], self._source_width)
+        self._input_level_dbfs = calculate_audio_level(samples)
         samples = samples.reshape(-1, self._source_channels)
         samples = self._convert_channels(samples)
         if self._source_rate == self._target_rate:

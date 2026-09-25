@@ -1,6 +1,6 @@
 # 011 오디오 입력 레벨 브로드캐스트
 
-상태: 대기
+상태: 완료
 
 ## Goal
 
@@ -33,6 +33,7 @@ AI 문제와 오디오 하드웨어/입력 문제를 구분하려면 Operator가
 ## Tests
 
 - 합성 PCM(무음/신호)로 레벨 계산 함수 단위 테스트.
+- `pytest -q tests/unit/test_audio_processor.py tests/unit/test_session_events.py` 통과
 
 ## Risks
 

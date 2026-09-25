@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from core.config import Settings
 from services.audio_capture import AudioCapture
@@ -15,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 class SessionService:
+    _AUDIO_LEVEL_BROADCAST_INTERVAL = 0.1
+
     def __init__(
         self,
         settings: Settings,
@@ -30,6 +33,8 @@ class SessionService:
         self._tasks: list[asyncio.Task[None]] = []
         self._running = False
         self._lifecycle_lock = asyncio.Lock()
+        self._last_audio_level_broadcast: float | None = None
+        self._clock = time.monotonic
 
     @property
     def running(self) -> bool:
@@ -87,6 +92,7 @@ class SessionService:
             self._interpreter = interpreter
             self._capture = capture
             self._running = True
+            self._last_audio_level_broadcast = None
             self._tasks = [
                 asyncio.create_task(self._pump_capture(), name="pump-capture"),
                 asyncio.create_task(self._pump_events(), name="pump-events"),
@@ -141,6 +147,20 @@ class SessionService:
                 if not self._running:
                     break
                 processed = self._processor.process(chunk)
+                level = self._processor.input_level_dbfs
+                now = self._clock()
+                if (
+                    level is not None
+                    and (
+                        self._last_audio_level_broadcast is None
+                        or now - self._last_audio_level_broadcast
+                        >= self._AUDIO_LEVEL_BROADCAST_INTERVAL
+                    )
+                ):
+                    await self._hub.broadcast_operator(
+                        {"type": "audio_level", "level": level}
+                    )
+                    self._last_audio_level_broadcast = now
                 if processed:
                     await self._interpreter.send_pcm(processed)
         except asyncio.CancelledError:

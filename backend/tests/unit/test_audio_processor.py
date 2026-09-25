@@ -1,10 +1,17 @@
 import numpy as np
+import pytest
 
-from services.audio_processor import AudioProcessor
+from services.audio_processor import AudioProcessor, calculate_audio_level
 
 
 def pcm16(values: list[int]) -> bytes:
     return np.asarray(values, dtype="<i2").tobytes()
+
+
+def test_calculates_audio_level_in_dbfs():
+    assert calculate_audio_level(np.asarray([0.0, 0.0])) == -60.0
+    assert calculate_audio_level(np.asarray([1.0, -1.0])) == 0.0
+    assert calculate_audio_level(np.asarray([0.1, -0.1])) == pytest.approx(-20.0)
 
 
 def test_downmixes_stereo_and_downsamples_in_chunks():
