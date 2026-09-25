@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { LiaFileDownloadSolid } from 'react-icons/lia';
 import { LuPower, LuPowerOff } from 'react-icons/lu';
+import AudioLevelMeter from '../../../shared/components/AudioLevelMeter/AudioLevelMeter';
 import Button from '../../../shared/components/Button/Button';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import type { OperatorOutletContext } from '../layout/OperatorLayout';
@@ -18,11 +19,18 @@ export default function Broadcast() {
   const [togglePending, setTogglePending] = useState(false);
   const togglePendingRef = useRef(false);
   const sessionErrorDuringAttemptRef = useRef(false);
-  const { running, listenerCount, inputLines, outputLines, start, stop } =
-    useBroadcastSession(labels, (message) => {
-      sessionErrorDuringAttemptRef.current = true;
-      toastError(message);
-    });
+  const {
+    running,
+    listenerCount,
+    audioLevel,
+    inputLines,
+    outputLines,
+    start,
+    stop,
+  } = useBroadcastSession(labels, (message) => {
+    sessionErrorDuringAttemptRef.current = true;
+    toastError(message);
+  });
 
   const toggleSession = async () => {
     if (togglePendingRef.current) {
@@ -68,6 +76,10 @@ export default function Broadcast() {
   return (
     <div className={styles.page}>
       <header className={styles.topBar}>
+        <div className={styles.levelWrap}>
+          <span className={styles.levelLabel}>Input level</span>
+          <AudioLevelMeter level={audioLevel} className={styles.levelMeter} />
+        </div>
         <div className={styles.listeners}>
           {labels.listeners}: {listenerCount}
         </div>
@@ -132,7 +144,7 @@ function TranscriptPane({
       <div className={styles.paneHeader}>
         <h2>{title}</h2>
         <Button
-          variant="text"
+          variant="ghost"
           icon={<LiaFileDownloadSolid size={20} />}
           aria-label={downloadLabel}
           title={downloadLabel}

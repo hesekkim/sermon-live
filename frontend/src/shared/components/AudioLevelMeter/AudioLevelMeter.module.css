@@ -1,0 +1,36 @@
+.meter {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--cms-border);
+  background: var(--cms-surface-alt, #f3f4f6);
+  overflow: hidden;
+}
+
+.idle {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--cms-surface-alt, #f3f4f6),
+    var(--cms-surface-alt, #f3f4f6) 10px,
+    var(--cms-border) 10px,
+    var(--cms-border) 12px
+  );
+}
+
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  align-items: stretch;
+  border-radius: inherit;
+  overflow: hidden;
+  transition: width 120ms ease-out;
+}
+
+.segment {
+  flex: 1 1 0;
+  height: 100%;
+  transition: opacity 120ms ease-out;
+}

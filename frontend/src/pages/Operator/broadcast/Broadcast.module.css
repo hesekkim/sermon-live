@@ -15,13 +15,29 @@
 .listeners {
   font-size: 0.95rem;
   color: var(--cms-text-secondary);
+  margin-left: auto;
+}
+
+.levelWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-8);
+  min-width: 12rem;
+}
+
+.levelLabel {
+  font-size: 0.8rem;
+  color: var(--cms-text-secondary);
+}
+
+.levelMeter {
+  width: 8rem;
 }
 
 .topActions {
   display: flex;
   align-items: center;
   gap: var(--cf-space-16);
-  margin-left: auto;
 }
 
 .power {

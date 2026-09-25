@@ -13,6 +13,14 @@ interface OperatorMessage {
   text?: string;
   running?: boolean;
   listenerCount?: number;
+  level?: number;
+}
+
+const AUDIO_LEVEL_MIN_DBFS = -60;
+const AUDIO_LEVEL_MAX_DBFS = 0;
+
+function clampAudioLevel(level: number) {
+  return Math.min(AUDIO_LEVEL_MAX_DBFS, Math.max(AUDIO_LEVEL_MIN_DBFS, level));
 }
 
 export function useBroadcastSession(
@@ -21,11 +29,18 @@ export function useBroadcastSession(
 ) {
   const [running, setRunning] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
+  const [audioLevel, setAudioLevel] = useState<number | null>(null);
   const [inputLines, setInputLines] = useState<string[]>([]);
   const [outputLines, setOutputLines] = useState<string[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
   const isUnmountingRef = useRef(false);
   const socketErrorReportedRef = useRef(false);
+
+  const onSessionErrorRef = useRef(onSessionError);
+
+  useEffect(() => {
+    onSessionErrorRef.current = onSessionError;
+  }, [onSessionError]);
 
   const formatSessionError = useCallback(
     (message?: string) => {
@@ -43,14 +58,17 @@ export function useBroadcastSession(
 
   const emitSessionError = useCallback(
     (message?: string) => {
-      onSessionError?.(formatSessionError(message));
+      onSessionErrorRef.current?.(formatSessionError(message));
     },
-    [formatSessionError, onSessionError]
+    [formatSessionError]
   );
 
   const applyStatus = useCallback((data: SessionStatus) => {
     setRunning(data.running);
     setListenerCount(data.listener_count);
+    if (!data.running) {
+      setAudioLevel(null);
+    }
   }, []);
 
   const refreshStatus = useCallback(async () => {
@@ -76,9 +94,18 @@ export function useBroadcastSession(
         if (payload.type === 'status') {
           if (typeof payload.running === 'boolean') {
             setRunning(payload.running);
+            if (!payload.running) {
+              setAudioLevel(null);
+            }
           }
           if (typeof payload.listenerCount === 'number') {
             setListenerCount(payload.listenerCount);
+          }
+          return;
+        }
+        if (payload.type === 'audio_level') {
+          if (typeof payload.level === 'number' && Number.isFinite(payload.level)) {
+            setAudioLevel(clampAudioLevel(payload.level));
           }
           return;
         }
@@ -102,6 +129,7 @@ export function useBroadcastSession(
       }
     });
     socket.addEventListener('error', () => {
+      setAudioLevel(null);
       if (!isUnmountingRef.current) {
         if (!socketErrorReportedRef.current) {
           socketErrorReportedRef.current = true;
@@ -110,6 +138,7 @@ export function useBroadcastSession(
       }
     });
     socket.addEventListener('close', () => {
+      setAudioLevel(null);
       if (!isUnmountingRef.current) {
         if (!socketErrorReportedRef.current) {
           socketErrorReportedRef.current = true;
@@ -159,6 +188,7 @@ export function useBroadcastSession(
   return {
     running,
     listenerCount,
+    audioLevel,
     inputLines,
     outputLines,
     start,
