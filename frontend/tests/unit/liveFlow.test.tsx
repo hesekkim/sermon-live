@@ -1,5 +1,5 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Listen from '../../src/pages/Listen/Listen';
 import { useBroadcastSession } from '../../src/pages/Operator/broadcast/hooks/useBroadcastSession';
@@ -193,7 +193,7 @@ describe('core live broadcast flow', () => {
       });
     });
 
-    expect(operator.sessionRef.current?.lastTerminationReason).toBe('auto_stop');
+    expect(operator.sessionRef.current?.lastTerminationReason).toBe(operatorCopy.ko.terminationAutoStop);
     expect(listener.container).toHaveTextContent('SENDUNG BEENDET');
 
     act(() => {
@@ -229,7 +229,7 @@ describe('core live broadcast flow', () => {
     });
 
     expect(operator.sessionRef.current?.sessionStatus).toBe('error');
-    expect(operator.sessionRef.current?.lastTerminationReason).toBe('interpreter_error');
+    expect(operator.sessionRef.current?.lastTerminationReason).toBe(operatorCopy.ko.terminationInterpreterError);
     expect(listener.container).toHaveTextContent('ÜBERSETZUNG NICHT VERFÜGBAR');
     expect(listener.container).not.toHaveTextContent('SENDUNG BEENDET');
 

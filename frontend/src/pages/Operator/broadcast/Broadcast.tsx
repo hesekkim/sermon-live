@@ -16,7 +16,6 @@ export default function Broadcast() {
   const { error: toastError } = useToast();
   const sessionErrorDuringAttemptRef = useRef(false);
   const {
-    running,
     sessionStatus,
     audioReady,
     audioError,
@@ -42,7 +41,7 @@ export default function Broadcast() {
   });
   const { actionPending, toggleSession, stopNow, extendSession } = useBroadcastToggle({
     labels,
-    running,
+    sessionStatus,
     start,
     stop,
     extend,
@@ -53,7 +52,6 @@ export default function Broadcast() {
     <div className={styles.page}>
       <BroadcastHeader
         labels={labels}
-        running={running}
         sessionStatus={sessionStatus}
         audioReady={audioReady}
         audioError={audioError}

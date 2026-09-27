@@ -14,7 +14,6 @@ import styles from '../Broadcast.module.css';
 
 interface BroadcastHeaderProps {
   labels: OperatorCopy;
-  running: boolean;
   sessionStatus: TranslationSessionStatus;
   audioReady: boolean;
   audioError: string | null;
@@ -48,7 +47,6 @@ function formatDuration(seconds?: number | null) {
 
 export default function BroadcastHeader({
   labels,
-  running,
   sessionStatus,
   audioReady,
   audioError,
@@ -95,9 +93,11 @@ export default function BroadcastHeader({
     stopping: labels.translationStopping,
     error: labels.translationError,
   }[sessionStatus];
-  const startDisabled = !running && (serverStatus !== 'online' || !startAvailable);
+  const isLive = sessionStatus === 'live';
+  const isTransitioning = sessionStatus === 'starting' || sessionStatus === 'stopping';
+  const startDisabled = !isLive && (serverStatus !== 'online' || !startAvailable);
   const disabledReason = serverStatus !== 'online' ? labels.serverOffline : startBlockReason;
-  const showWarningDialog = Boolean(timer?.warning && running);
+  const showWarningDialog = Boolean(timer?.warning && isLive);
   const warnTitle = timer?.hardLimitReached ? labels.timerHardLimit : labels.timerWarningTitle;
   const extensionMinutes = timer?.extensionMinutes;
   const remainingMinutes = typeof timer?.remainingSeconds === 'number'
@@ -124,14 +124,14 @@ export default function BroadcastHeader({
         <div className={styles.topActions}>
           <button
             type="button"
-            className={[styles.power, running ? styles.powerOn : styles.powerOff].join(' ')}
-            aria-pressed={sessionStatus === 'live'}
-            aria-label={running ? labels.sessionOn : labels.sessionOff}
-            title={startDisabled ? disabledReason || labels.sessionOff : running ? labels.sessionOn : labels.sessionOff}
-            disabled={actionPending || sessionStatus === 'starting' || sessionStatus === 'stopping' || startDisabled}
+            className={[styles.power, isLive ? styles.powerOn : styles.powerOff].join(' ')}
+            aria-pressed={isLive}
+            aria-label={isLive ? labels.sessionOn : labels.sessionOff}
+            title={startDisabled ? disabledReason || labels.sessionOff : isLive ? labels.sessionOn : labels.sessionOff}
+            disabled={actionPending || isTransitioning || startDisabled}
             onClick={onToggle}
           >
-            {running ? <LuPower size={22} aria-hidden /> : <LuPowerOff size={22} aria-hidden />}
+            {isLive ? <LuPower size={22} aria-hidden /> : <LuPowerOff size={22} aria-hidden />}
           </button>
         </div>
       </header>
@@ -201,7 +201,7 @@ export default function BroadcastHeader({
               <dd data-state="error">{sessionError}</dd>
             </div>
           ) : null}
-          {!running && startBlockReason && (sessionStatus === 'off' || sessionStatus === 'error') ? (
+          {!isLive && startBlockReason && (sessionStatus === 'off' || sessionStatus === 'error') ? (
             <div className={styles.statusItem} role="status">
               <dt>{labels.sessionErrorLabel}</dt>
               <dd data-state="warning">{startBlockReason}</dd>

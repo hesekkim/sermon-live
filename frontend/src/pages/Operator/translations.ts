@@ -110,6 +110,13 @@ export interface OperatorCopy {
   extendFailed: string;
   stopNow: string;
   lastTerminationReason: string;
+  terminationManual: string;
+  terminationAutoStop: string;
+  terminationHardLimit: string;
+  terminationInterpreterError: string;
+  terminationDeviceError: string;
+  terminationServerShutdown: string;
+  terminationUnknown: string;
   inputLabel: string;
   outputLabel: string;
   inputDownload: string;
@@ -236,6 +243,13 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     extendFailed: '세션을 연장하지 못했습니다',
     stopNow: '지금 종료',
     lastTerminationReason: '마지막 종료 사유',
+    terminationManual: '수동 종료',
+    terminationAutoStop: '자동 종료',
+    terminationHardLimit: '최대 시간 도달',
+    terminationInterpreterError: '통역 오류로 종료',
+    terminationDeviceError: '입력 장치 오류로 종료',
+    terminationServerShutdown: '서버 종료로 중단',
+    terminationUnknown: '세션 종료',
     inputLabel: '입력 (한국어)',
     outputLabel: '출력 (독일어)',
     inputDownload: '한국어 전사 다운로드',
@@ -360,6 +374,13 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     extendFailed: 'Could not extend the session',
     stopNow: 'Stop now',
     lastTerminationReason: 'Last termination reason',
+    terminationManual: 'Stopped manually',
+    terminationAutoStop: 'Automatically stopped',
+    terminationHardLimit: 'Hard limit reached',
+    terminationInterpreterError: 'Stopped due to an interpreter error',
+    terminationDeviceError: 'Stopped due to a device error',
+    terminationServerShutdown: 'Stopped by server shutdown',
+    terminationUnknown: 'Session ended',
     inputLabel: 'Input (Korean)',
     outputLabel: 'Output (German)',
     inputDownload: 'Download Korean transcript',
@@ -484,6 +505,13 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     extendFailed: 'Die Sitzung konnte nicht verlängert werden',
     stopNow: 'Jetzt beenden',
     lastTerminationReason: 'Letzter Beendigungsgrund',
+    terminationManual: 'Manuell beendet',
+    terminationAutoStop: 'Automatisch beendet',
+    terminationHardLimit: 'Maximale Dauer erreicht',
+    terminationInterpreterError: 'Wegen Dolmetschfehler beendet',
+    terminationDeviceError: 'Wegen Gerätefehler beendet',
+    terminationServerShutdown: 'Wegen Serverabschaltung beendet',
+    terminationUnknown: 'Sitzung beendet',
     inputLabel: 'Eingabe (Koreanisch)',
     outputLabel: 'Ausgabe (Deutsch)',
     inputDownload: 'Koreanisches Transkript herunterladen',

@@ -1,10 +1,11 @@
 import { useRef, useState, type MutableRefObject } from 'react';
 import { useToast } from '../../../../shared/components/Toast/ToastProvider';
 import type { OperatorCopy } from '../../translations';
+import type { TranslationSessionStatus } from './useBroadcastSession';
 
 interface UseBroadcastToggleOptions {
   labels: OperatorCopy;
-  running: boolean;
+  sessionStatus: TranslationSessionStatus;
   start: () => Promise<void>;
   stop: () => Promise<void>;
   extend: () => Promise<unknown>;
@@ -13,7 +14,7 @@ interface UseBroadcastToggleOptions {
 
 export function useBroadcastToggle({
   labels,
-  running,
+  sessionStatus,
   start,
   stop,
   extend,
@@ -44,7 +45,7 @@ export function useBroadcastToggle({
   const toggleSession = async () => {
     if (actionPendingRef.current) return;
 
-    const isStopping = running;
+    const isStopping = sessionStatus === 'live';
     sessionErrorDuringAttemptRef.current = false;
 
     await runPendingAction(async () => {

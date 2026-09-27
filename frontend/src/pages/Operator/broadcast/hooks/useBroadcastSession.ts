@@ -6,6 +6,13 @@ export type ServerStatus = 'connecting' | 'online' | 'offline';
 export type OperatorConnectionStatus = 'connecting' | 'connected' | 'reconnecting';
 export type InterpreterStatus = 'connected' | 'disconnected' | 'error';
 export type TranslationSessionStatus = 'off' | 'starting' | 'live' | 'stopping' | 'error';
+export type TerminationReason =
+  | 'manual'
+  | 'auto_stop'
+  | 'hard_limit'
+  | 'interpreter_error'
+  | 'device_error'
+  | 'server_shutdown';
 
 export interface SessionTimerState {
   elapsedSeconds?: number;
@@ -25,7 +32,7 @@ interface SessionStatus {
   start_available?: boolean;
   start_block_reason?: string | null;
   error?: string | null;
-  last_termination_reason?: string | null;
+  last_termination_reason?: TerminationReason | null;
   timer?: SessionTimerState;
 }
 
@@ -51,8 +58,8 @@ interface OperatorMessage {
   level?: number;
   milliseconds?: number;
   timer?: SessionTimerState;
-  reason?: string;
-  last_termination_reason?: string | null;
+  reason?: TerminationReason;
+  last_termination_reason?: TerminationReason | null;
 }
 
 const AUDIO_LEVEL_MIN_DBFS = -60;
@@ -61,6 +68,18 @@ const SOCKET_RETRY_DELAY_MS = 1000;
 
 function clampAudioLevel(level: number) {
   return Math.min(AUDIO_LEVEL_MAX_DBFS, Math.max(AUDIO_LEVEL_MIN_DBFS, level));
+}
+
+function getTerminationLabel(labels: OperatorCopy, reason: TerminationReason | null) {
+  switch (reason) {
+    case 'manual': return labels.terminationManual;
+    case 'auto_stop': return labels.terminationAutoStop;
+    case 'hard_limit': return labels.terminationHardLimit;
+    case 'interpreter_error': return labels.terminationInterpreterError;
+    case 'device_error': return labels.terminationDeviceError;
+    case 'server_shutdown': return labels.terminationServerShutdown;
+    default: return reason ? labels.terminationUnknown : null;
+  }
 }
 
 export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (message: string) => void) {
@@ -86,6 +105,9 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isUnmountingRef = useRef(false);
   const socketErrorReportedRef = useRef(false);
+  const sessionEndedRef = useRef(false);
+  const statusRequestGenerationRef = useRef(0);
+  const startRequestPendingRef = useRef(false);
   const onSessionErrorRef = useRef(onSessionError);
 
   useEffect(() => {
@@ -102,14 +124,18 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
     onSessionErrorRef.current?.(formatSessionError(message));
   }, [formatSessionError]);
   const applyStatus = useCallback((data: SessionStatus) => {
+    const status = data.session_status ?? (data.running ? 'live' : 'off');
+    if (sessionEndedRef.current && data.running && status !== 'error') return;
     setRunning(data.running);
-    setSessionStatus(data.session_status ?? (data.running ? 'live' : 'off'));
+    setSessionStatus(status);
     if (typeof data.audio_ready === 'boolean') setAudioReady(data.audio_ready);
     if ('audio_error' in data) setAudioError(data.audio_error ?? null);
     if (typeof data.start_available === 'boolean') setStartAvailable(data.start_available);
     if ('start_block_reason' in data) setStartBlockReason(data.start_block_reason ?? null);
     if ('error' in data) setSessionError(data.error ?? null);
-    if (data.last_termination_reason) setLastTerminationReason(data.last_termination_reason);
+    if (data.last_termination_reason) {
+      setLastTerminationReason(getTerminationLabel(labels, data.last_termination_reason));
+    }
     setListenerCount(data.listener_count);
     if ('timer' in data) {
       setTimer(data.timer ?? null);
@@ -120,14 +146,24 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
       current === 'error' ? current : data.running ? 'connected' : 'disconnected'
     );
     if (!data.running) setAudioLevel(null);
-  }, []);
+  }, [labels]);
   const refreshStatus = useCallback(async () => {
+    const requestGeneration = ++statusRequestGenerationRef.current;
     try {
       const response = await fetch('/api/v1/session');
       if (!response.ok) throw new Error('Session status unavailable');
-      applyStatus((await response.json()) as SessionStatus);
+      const data = (await response.json()) as SessionStatus;
+      if (
+        startRequestPendingRef.current ||
+        requestGeneration !== statusRequestGenerationRef.current
+      ) return;
+      applyStatus(data);
       setServerStatus('online');
     } catch {
+      if (
+        startRequestPendingRef.current ||
+        requestGeneration !== statusRequestGenerationRef.current
+      ) return;
       if (socketRef.current?.readyState !== WebSocket.OPEN) setServerStatus('offline');
     }
   }, [applyStatus]);
@@ -160,6 +196,9 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
                 : typeof payload.listenerCount === 'number'
                   ? payload.listenerCount
                   : undefined;
+            const isLiveStatus = sessionStatus === 'live'
+              || (!sessionStatus && payload.running === true);
+            if (sessionEndedRef.current && isLiveStatus) return;
             if (typeof payload.running === 'boolean') {
               setRunning(payload.running);
               setInterpreterStatus((current) =>
@@ -179,7 +218,11 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
             const startBlockReason = payload.start_block_reason ?? payload.startBlockReason;
             if ('start_block_reason' in payload || 'startBlockReason' in payload) setStartBlockReason(startBlockReason ?? null);
             if ('error' in payload) setSessionError(payload.error ?? null);
-            if (payload.reason || payload.last_termination_reason) setLastTerminationReason(payload.reason ?? payload.last_termination_reason ?? null);
+            if (payload.reason || payload.last_termination_reason) {
+              setLastTerminationReason(
+                getTerminationLabel(labels, payload.reason ?? payload.last_termination_reason ?? null),
+              );
+            }
             if (typeof listenerCount === 'number') setListenerCount(listenerCount);
             if ('timer' in payload) {
               setTimer(payload.timer ?? null);
@@ -215,7 +258,14 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
             return;
           }
           if (payload.type === 'session_ended') {
-            if (payload.reason) setLastTerminationReason(payload.reason);
+            sessionEndedRef.current = true;
+            const reason = payload.reason ?? null;
+            setRunning(false);
+            setSessionStatus(reason === 'interpreter_error' || reason === 'device_error' ? 'error' : 'off');
+            setInterpreterStatus(reason === 'interpreter_error' ? 'error' : 'disconnected');
+            setAudioLevel(null);
+            setTimer(null);
+            if (reason) setLastTerminationReason(getTerminationLabel(labels, reason));
             return;
           }
           if (payload.type === 'audio_status') {
@@ -278,20 +328,29 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
   }, [emitSessionError, refreshStatus]);
 
   const start = useCallback(async () => {
-    const response = await fetch('/api/v1/session/start', { method: 'POST' });
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { detail?: string } | null;
-      const detail = body?.detail ?? 'start failed';
-      if (detail.toLowerCase().includes('api key') && (detail.toLowerCase().includes('not valid') || detail.toLowerCase().includes('invalid'))) {
-        throw new Error('invalid_api_key');
+    statusRequestGenerationRef.current += 1;
+    startRequestPendingRef.current = true;
+    try {
+      const response = await fetch('/api/v1/session/start', { method: 'POST' });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+        const detail = body?.detail ?? 'start failed';
+        if (detail.toLowerCase().includes('api key') && (detail.toLowerCase().includes('not valid') || detail.toLowerCase().includes('invalid'))) {
+          throw new Error('invalid_api_key');
+        }
+        throw new Error(detail);
       }
-      throw new Error(detail);
+      const payload = (await response.json()) as SessionStatus;
+      sessionEndedRef.current = false;
+      applyStatus(payload);
+      setSessionError(null);
+      setInterpreterStatus('connected');
+      setTimer(null);
+      setLastTerminationReason(null);
+    } finally {
+      statusRequestGenerationRef.current += 1;
+      startRequestPendingRef.current = false;
     }
-    applyStatus((await response.json()) as SessionStatus);
-    setSessionError(null);
-    setInterpreterStatus('connected');
-    setTimer(null);
-    setLastTerminationReason(null);
   }, [applyStatus]);
   const stop = useCallback(async () => {
     const response = await fetch('/api/v1/session/stop', { method: 'POST' });

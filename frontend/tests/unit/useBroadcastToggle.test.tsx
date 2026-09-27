@@ -10,16 +10,18 @@ import { useBroadcastToggle } from '../../src/pages/Operator/broadcast/hooks/use
 }).IS_REACT_ACT_ENVIRONMENT = true;
 
 interface ProbeProps {
+  sessionStatus: 'off' | 'live';
+  start?: () => Promise<void>;
   stop: () => Promise<void>;
   extend: () => Promise<unknown>;
 }
 
-function Probe({ stop, extend }: ProbeProps) {
+function Probe({ sessionStatus, start = async () => undefined, stop, extend }: ProbeProps) {
   const sessionErrorDuringAttemptRef = useRef(false);
-  const { actionPending, stopNow, extendSession } = useBroadcastToggle({
+  const { actionPending, toggleSession, stopNow, extendSession } = useBroadcastToggle({
     labels: operatorCopy.ko,
-    running: true,
-    start: async () => undefined,
+    sessionStatus,
+    start,
     stop,
     extend,
     sessionErrorDuringAttemptRef,
@@ -27,6 +29,7 @@ function Probe({ stop, extend }: ProbeProps) {
 
   return (
     <>
+      <button type="button" onClick={() => void toggleSession()}>Toggle</button>
       <button type="button" disabled={actionPending} onClick={() => void extendSession()}>
         Extend
       </button>
@@ -61,8 +64,8 @@ describe('useBroadcastToggle timer actions', () => {
     const extend = vi.fn(() => new Promise<unknown>((_resolve, reject) => {
       rejectExtension = reject;
     }));
-    const { container, root } = renderProbe({ stop: vi.fn(), extend });
-    const extendButton = container.querySelector<HTMLButtonElement>('button');
+    const { container, root } = renderProbe({ sessionStatus: 'live', stop: vi.fn(), extend });
+    const extendButton = container.querySelectorAll<HTMLButtonElement>('button')[1];
 
     await act(async () => {
       extendButton?.click();
@@ -88,8 +91,8 @@ describe('useBroadcastToggle timer actions', () => {
 
   it('reports stop-now errors', async () => {
     const stop = vi.fn().mockRejectedValue(new Error('stop failed'));
-    const { container, root } = renderProbe({ stop, extend: vi.fn() });
-    const stopButton = container.querySelectorAll<HTMLButtonElement>('button')[1];
+    const { container, root } = renderProbe({ sessionStatus: 'live', stop, extend: vi.fn() });
+    const stopButton = container.querySelectorAll<HTMLButtonElement>('button')[2];
 
     await act(async () => {
       stopButton?.click();
@@ -100,6 +103,21 @@ describe('useBroadcastToggle timer actions', () => {
     expect(document.body.querySelector('[role="alert"]')).toHaveTextContent(
       operatorCopy.ko.stopFailed,
     );
+    act(() => root.unmount());
+  });
+
+  it('starts after the session has ended', async () => {
+    const start = vi.fn().mockResolvedValue(undefined);
+    const stop = vi.fn();
+    const { container, root } = renderProbe({ sessionStatus: 'off', start, stop, extend: vi.fn() });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button')?.click();
+      await Promise.resolve();
+    });
+
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(stop).not.toHaveBeenCalled();
     act(() => root.unmount());
   });
 });

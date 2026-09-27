@@ -165,14 +165,24 @@ describe('useBroadcastSession', () => {
 
     expect(latestSession.current?.serverStatus).toBe('online');
     expect(latestSession.current?.operatorConnectionStatus).toBe('connected');
-    expect(latestSession.current?.running).toBe(true);
-    expect(latestSession.current?.sessionStatus).toBe('live');
+    expect(latestSession.current?.running).toBe(false);
+    expect(latestSession.current?.sessionStatus).toBe('off');
     expect(latestSession.current?.audioReady).toBe(true);
     expect(latestSession.current?.startAvailable).toBe(false);
     expect(latestSession.current?.listenerCount).toBe(4);
     expect(latestSession.current?.latencyMs).toBe(180);
-    expect(latestSession.current?.timer?.elapsedSeconds).toBe(65);
-    expect(latestSession.current?.lastTerminationReason).toBe('auto_stop');
+    expect(latestSession.current?.timer).toBeNull();
+    expect(latestSession.current?.lastTerminationReason).toBe(operatorCopy.ko.terminationAutoStop);
+
+    await act(async () => {
+      firstSocket?.emit('message', JSON.stringify({
+        type: 'status',
+        running: true,
+        session_status: 'live',
+      }));
+    });
+    expect(latestSession.current?.running).toBe(false);
+    expect(latestSession.current?.sessionStatus).toBe('off');
 
     vi.useFakeTimers();
     act(() => firstSocket?.emit('close'));
@@ -188,6 +198,91 @@ describe('useBroadcastSession', () => {
 
     act(() => recoveredSocket?.emit('open'));
     expect(latestSession.current?.operatorConnectionStatus).toBe('connected');
+    act(() => root.unmount());
+  });
+
+  it('does not restore live from a status without running after termination', async () => {
+    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+      current: null,
+    };
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    function StateProbe() {
+      latestSession.current = useBroadcastSession(operatorCopy.ko);
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<StateProbe />);
+      await Promise.resolve();
+    });
+
+    const socket = FakeWebSocket.latest;
+    await act(async () => {
+      socket?.emit('message', JSON.stringify({ type: 'session_ended', reason: 'auto_stop' }));
+      socket?.emit('message', JSON.stringify({ type: 'status', session_status: 'live' }));
+    });
+
+    expect(latestSession.current?.running).toBe(false);
+    expect(latestSession.current?.sessionStatus).toBe('off');
+    act(() => root.unmount());
+  });
+
+  it('ignores a status poll started before a failed session start', async () => {
+    let resolveStaleStatus!: (response: {
+      ok: boolean;
+      json: () => Promise<{ running: boolean; listener_count: number }>;
+    }) => void;
+    const staleStatus = new Promise<{
+      ok: boolean;
+      json: () => Promise<{ running: boolean; listener_count: number }>;
+    }>((resolve) => {
+      resolveStaleStatus = resolve;
+    });
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      if (String(input).endsWith('/start')) {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ detail: 'start failed' }),
+        });
+      }
+      return staleStatus;
+    }));
+
+    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+      current: null,
+    };
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    function StateProbe() {
+      latestSession.current = useBroadcastSession(operatorCopy.ko);
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<StateProbe />);
+      await Promise.resolve();
+    });
+    const socket = FakeWebSocket.latest;
+    act(() => socket?.emit('message', JSON.stringify({ type: 'session_ended', reason: 'auto_stop' })));
+
+    await act(async () => {
+      await expect(latestSession.current?.start()).rejects.toThrow('start failed');
+    });
+    await act(async () => {
+      resolveStaleStatus({
+        ok: true,
+        json: async () => ({ running: true, listener_count: 0 }),
+      });
+      await staleStatus;
+    });
+
+    expect(latestSession.current?.running).toBe(false);
+    expect(latestSession.current?.sessionStatus).toBe('off');
     act(() => root.unmount());
   });
 
@@ -248,6 +343,39 @@ describe('useBroadcastSession', () => {
     });
 
     expect(latestSession.current?.interpreterStatus).toBe('error');
+    act(() => root.unmount());
+  });
+
+  it.each([
+    ['manual', operatorCopy.ko.terminationManual, 'off'],
+    ['auto_stop', operatorCopy.ko.terminationAutoStop, 'off'],
+    ['hard_limit', operatorCopy.ko.terminationHardLimit, 'off'],
+    ['server_shutdown', operatorCopy.ko.terminationServerShutdown, 'off'],
+    ['interpreter_error', operatorCopy.ko.terminationInterpreterError, 'error'],
+    ['device_error', operatorCopy.ko.terminationDeviceError, 'error'],
+  ] as const)('normalizes %s termination', async (reason, label, status) => {
+    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = { current: null };
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    function StateProbe() {
+      latestSession.current = useBroadcastSession(operatorCopy.ko);
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<StateProbe />);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      FakeWebSocket.latest?.emit('message', JSON.stringify({ type: 'session_ended', reason }));
+    });
+
+    expect(latestSession.current?.running).toBe(false);
+    expect(latestSession.current?.sessionStatus).toBe(status);
+    expect(latestSession.current?.lastTerminationReason).toBe(label);
+    expect(latestSession.current?.lastTerminationReason).not.toContain('_');
     act(() => root.unmount());
   });
 
