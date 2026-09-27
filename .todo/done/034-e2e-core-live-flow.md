@@ -1,6 +1,6 @@
 # 034 핵심 live broadcast 흐름 검증
 
-상태: 대기
+상태: 완료
 
 ## Goal
 
@@ -41,3 +41,9 @@
 ## Risks
 
 - 실제 마이크와 외부 OpenAI는 자동화 대상이 아니다. 실제 장비 확인은 수동 체크리스트로 별도 기록한다.
+
+## Result
+
+- [frontend/tests/unit/liveFlow.test.tsx](../frontend/tests/unit/liveFlow.test.tsx)에 핵심 live 흐름 회귀 테스트 추가
+- OFF -> LIVE -> auto_stop 경로, interpreter error, listener reconnect 경로를 검증
+- `npm test -- --run tests/unit/liveFlow.test.tsx` 기준 3개 테스트 통과
