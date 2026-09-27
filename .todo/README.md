@@ -14,8 +14,7 @@
 
 ### 우선 진행: Operator UX
 
-1. `036-frontend-operator-control-sidebar.md` — Broadcast 제어 사이드바와 상단 작업
-3. `037-frontend-settings-tabs-and-save-scope.md` — Settings 탭과 섹션별 저장
+1. `037-frontend-settings-tabs-and-save-scope.md` — Settings 탭과 섹션별 저장
 
 ### 후속: 접근 제어와 오디오 안정성
 
@@ -68,6 +67,7 @@
 26. `032-frontend-settings-configuration-ui.md — 운영 설정 UI`
 27. `033-frontend-listener-core-ux.md — Listener 핵심 UX`28. `034-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
 28. `035-frontend-broadcast-termination-state.md — Auto Stop 종료 상태와 reason 표시`
+29. `036-frontend-operator-control-sidebar.md — Broadcast 제어 사이드바와 상단 작업`
 
 ## 결정 사항
 

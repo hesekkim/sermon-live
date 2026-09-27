@@ -2,25 +2,91 @@
   display: flex;
   min-height: 100vh;
   width: 100%;
-  min-width: 1280px;
+  min-width: 0;
   background-color: var(--cms-bg);
   color: var(--cms-text);
 }
 
-.sidebarDesktop {
-  flex-shrink: 0;
+.shell > aside {
+  flex: 0 0 16rem;
   height: 100vh;
   position: sticky;
   top: 0;
-  overflow: visible;
   z-index: 2;
   border-right: 1px solid var(--cms-border);
-  background-color: var(--cms-surface);
 }
 
 .content {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-width: 0;
-  overflow: auto;
-  padding: var(--cf-space-32) var(--cf-space-24);
+}
+
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 4rem;
+  padding: var(--cf-space-8) var(--cf-space-24);
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-8);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--cms-border);
+  border-radius: var(--cf-radius-input);
+  background: var(--cms-surface);
+  color: var(--cms-text);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.iconButton:hover {
+  background: var(--cms-hover);
+}
+
+.iconButton:focus-visible {
+  outline: 2px solid var(--cf-focus-color);
+  outline-offset: var(--cf-focus-offset);
+}
+
+.routeContent {
+  flex: 1;
+  min-width: 0;
+  padding: var(--cf-space-24);
+}
+
+@media (max-width: 760px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  .shell > aside {
+    position: relative;
+    width: 100%;
+    flex-basis: auto;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--cms-border);
+  }
+
+  .topbar {
+    min-height: 3.5rem;
+    padding: var(--cf-space-8) var(--cf-space-16);
+  }
+
+  .routeContent {
+    padding: var(--cf-space-16);
+  }
 }

@@ -54,6 +54,19 @@
   text-decoration: none;
 }
 
+.brandStatic {
+  min-width: 0;
+  overflow: hidden;
+  padding-left: var(--cf-space-8);
+  color: var(--cms-text, var(--cf-neutral-700));
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-style: italic;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .brand:hover {
   color: var(--cms-primary, var(--cf-blue-75));
 }

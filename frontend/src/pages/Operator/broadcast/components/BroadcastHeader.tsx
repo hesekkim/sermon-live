@@ -1,4 +1,3 @@
-import { LuPower, LuPowerOff } from 'react-icons/lu';
 import AudioLevelMeter from '../../../../shared/components/AudioLevelMeter/AudioLevelMeter';
 import Button from '../../../../shared/components/Button/Button';
 import Dialog from '../../../../shared/components/Dialog/Dialog';
@@ -17,7 +16,6 @@ interface BroadcastHeaderProps {
   sessionStatus: TranslationSessionStatus;
   audioReady: boolean;
   audioError: string | null;
-  startAvailable: boolean;
   startBlockReason: string | null;
   sessionError: string | null;
   listenerCount: number;
@@ -29,7 +27,6 @@ interface BroadcastHeaderProps {
   timer: SessionTimerState | null;
   lastTerminationReason: string | null;
   actionPending: boolean;
-  onToggle: () => void;
   onExtend: () => void;
   onStopNow: () => void;
 }
@@ -50,7 +47,6 @@ export default function BroadcastHeader({
   sessionStatus,
   audioReady,
   audioError,
-  startAvailable,
   startBlockReason,
   sessionError,
   listenerCount,
@@ -62,7 +58,6 @@ export default function BroadcastHeader({
   timer,
   lastTerminationReason,
   actionPending,
-  onToggle,
   onExtend,
   onStopNow,
 }: BroadcastHeaderProps) {
@@ -81,11 +76,11 @@ export default function BroadcastHeader({
     connected: labels.operatorConnected,
     reconnecting: labels.operatorReconnecting,
   }[operatorConnectionStatus];
-  const audioLabel = !audioReady
-    ? audioError || labels.audioUnavailable
-    : audioLevel !== null && audioLevel > -60
-      ? labels.audioSignal
-      : labels.audioSilent;
+  const audioLabel = audioReady
+    ? labels.inputDeviceReady
+    : audioError
+      ? `${labels.inputDeviceError}: ${audioError}`
+      : labels.inputDeviceUnavailable;
   const translationLabel = {
     off: labels.translationOff,
     starting: labels.translationStarting,
@@ -94,9 +89,6 @@ export default function BroadcastHeader({
     error: labels.translationError,
   }[sessionStatus];
   const isLive = sessionStatus === 'live';
-  const isTransitioning = sessionStatus === 'starting' || sessionStatus === 'stopping';
-  const startDisabled = !isLive && (serverStatus !== 'online' || !startAvailable);
-  const disabledReason = serverStatus !== 'online' ? labels.serverOffline : startBlockReason;
   const showWarningDialog = Boolean(timer?.warning && isLive);
   const warnTitle = timer?.hardLimitReached ? labels.timerHardLimit : labels.timerWarningTitle;
   const extensionMinutes = timer?.extensionMinutes;
@@ -113,70 +105,63 @@ export default function BroadcastHeader({
 
   return (
     <>
-      <header className={styles.topBar}>
-        <div className={styles.levelWrap}>
-          <span className={styles.levelLabel}>Input level</span>
-          <AudioLevelMeter level={audioLevel} className={styles.levelMeter} />
+      <section className={styles.controlSection} aria-label={labels.audioTestInputLevel}>
+        <h2 className={styles.sectionLabel}>{labels.audioTestInputLevel}</h2>
+        <div className={styles.levelRow}>
+          <AudioLevelMeter
+            level={audioLevel}
+            label={labels.audioTestInputLevel}
+            className={styles.levelMeter}
+          />
         </div>
-        <div className={styles.listeners}>
-          {labels.listeners}: {listenerCount}
-        </div>
-        <div className={styles.topActions}>
-          <button
-            type="button"
-            className={[styles.power, isLive ? styles.powerOn : styles.powerOff].join(' ')}
-            aria-pressed={isLive}
-            aria-label={isLive ? labels.sessionOn : labels.sessionOff}
-            title={startDisabled ? disabledReason || labels.sessionOff : isLive ? labels.sessionOn : labels.sessionOff}
-            disabled={actionPending || isTransitioning || startDisabled}
-            onClick={onToggle}
-          >
-            {isLive ? <LuPower size={22} aria-hidden /> : <LuPowerOff size={22} aria-hidden />}
-          </button>
-        </div>
-      </header>
+      </section>
+      <section className={styles.controlSection} aria-label={labels.listeners}>
+        <h2 className={styles.sectionLabel}>{labels.listeners}</h2>
+        <p className={styles.listenerCount}>{listenerCount}</p>
+      </section>
       <section className={styles.statusPanel} aria-label={labels.broadcastStatus}>
+        <h2 className={styles.sectionLabel}>{labels.broadcastStatus}</h2>
         <dl className={styles.statusGrid}>
           <div className={styles.statusItem}>
             <dt>{labels.serverStatus}</dt>
-            <dd data-state={serverStatus}>{serverLabel}</dd>
+            <dd data-state={serverStatus} title={serverLabel}>{serverLabel}</dd>
           </div>
           <div className={styles.statusItem}>
             <dt>{labels.operatorConnection}</dt>
-            <dd data-state={operatorConnectionStatus}>{operatorConnectionLabel}</dd>
+            <dd data-state={operatorConnectionStatus} title={operatorConnectionLabel}>{operatorConnectionLabel}</dd>
           </div>
           <div className={styles.statusItem}>
             <dt>{labels.translationStatus}</dt>
-            <dd data-state={sessionStatus}>{translationLabel}</dd>
+            <dd data-state={sessionStatus} title={translationLabel}>{translationLabel}</dd>
           </div>
           <div className={styles.statusItem}>
-            <dt>{labels.audioStatus}</dt>
-            <dd data-state={audioLabel === labels.audioSignal ? 'live' : 'off'}>{audioLabel}</dd>
+            <dt>{labels.inputDeviceStatus}</dt>
+            <dd data-state={audioReady ? 'live' : audioError ? 'error' : 'off'} title={audioLabel}>{audioLabel}</dd>
           </div>
           <div className={styles.statusItem}>
             <dt>{labels.latency}</dt>
-            <dd>{latencyMs === null ? labels.latencyUnavailable : `${latencyMs} ms`}</dd>
+            <dd title={latencyMs === null ? labels.latencyUnavailable : `${latencyMs} ms`}>{latencyMs === null ? labels.latencyUnavailable : `${latencyMs} ms`}</dd>
           </div>
           <div className={styles.statusItem}>
             <dt>{labels.interpreterConnection}</dt>
-            <dd data-state={interpreterStatus}>{interpreterLabel}</dd>
+            <dd data-state={interpreterStatus} title={interpreterLabel}>{interpreterLabel}</dd>
           </div>
           {timer ? (
             <>
               <div className={styles.statusItem}>
                 <dt>{labels.elapsedTime}</dt>
-                <dd>{formatDuration(timer.elapsedSeconds)}</dd>
+                <dd title={formatDuration(timer.elapsedSeconds)}>{formatDuration(timer.elapsedSeconds)}</dd>
               </div>
               {typeof timer.remainingSeconds === 'number' ? (
                 <div className={styles.statusItem}>
                   <dt>{labels.remainingTime}</dt>
-                  <dd>{formatDuration(timer.remainingSeconds)}</dd>
+                  <dd title={formatDuration(timer.remainingSeconds)}>{formatDuration(timer.remainingSeconds)}</dd>
                 </div>
               ) : null}
               {timer.warning || timer.hardLimitReached ? (
                 <div className={styles.statusItem}>
                   <dt>{labels.timerStatus}</dt>
-                  <dd data-state="warning">
+                  <dd data-state="warning" title={timer.hardLimitReached ? labels.timerHardLimit : labels.timerWarning}>
                     {timer.hardLimitReached ? labels.timerHardLimit : labels.timerWarning}
                   </dd>
                 </div>
@@ -184,7 +169,7 @@ export default function BroadcastHeader({
               {typeof timer.extensionCount === 'number' ? (
                 <div className={styles.statusItem}>
                   <dt>{labels.extensionCount}</dt>
-                  <dd>{timer.extensionCount}</dd>
+                  <dd title={String(timer.extensionCount)}>{timer.extensionCount}</dd>
                 </div>
               ) : null}
             </>
@@ -192,19 +177,19 @@ export default function BroadcastHeader({
           {lastTerminationReason ? (
             <div className={styles.statusItem}>
               <dt>{labels.lastTerminationReason}</dt>
-              <dd>{lastTerminationReason}</dd>
+              <dd title={lastTerminationReason}>{lastTerminationReason}</dd>
             </div>
           ) : null}
           {sessionError ? (
             <div className={styles.statusItem}>
               <dt>{labels.sessionErrorLabel}</dt>
-              <dd data-state="error">{sessionError}</dd>
+              <dd data-state="error" title={sessionError}>{sessionError}</dd>
             </div>
           ) : null}
           {!isLive && startBlockReason && (sessionStatus === 'off' || sessionStatus === 'error') ? (
             <div className={styles.statusItem} role="status">
               <dt>{labels.sessionErrorLabel}</dt>
-              <dd data-state="warning">{startBlockReason}</dd>
+              <dd data-state="warning" title={startBlockReason}>{startBlockReason}</dd>
             </div>
           ) : null}
         </dl>

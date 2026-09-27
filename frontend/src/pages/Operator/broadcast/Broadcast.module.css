@@ -5,29 +5,43 @@
   gap: var(--cf-space-16);
 }
 
-.topBar {
+.controlSection {
+  padding: var(--cf-space-12);
+}
+
+.sectionLabel {
+  margin: 0 0 var(--cf-space-8);
+  color: var(--cms-text);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.levelRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--cf-space-16);
-  flex-wrap: wrap;
+  min-height: 1.5rem;
+}
+
+.listenerCount {
+  margin: 0;
+  color: var(--cms-text);
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 .statusPanel {
-  padding: var(--cf-space-12) var(--cf-space-16);
-  border: 1px solid var(--cms-border);
-  border-radius: var(--cf-radius-card);
-  background: var(--cms-surface);
+  padding: var(--cf-space-12);
 }
 
 .statusGrid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--cf-space-12) var(--cf-space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-12);
   margin: 0;
 }
 
 .statusItem {
+  display: block;
   min-width: 0;
 }
 
@@ -38,6 +52,7 @@
 }
 
 .statusItem dd {
+  min-width: 0;
   overflow-wrap: anywhere;
   margin: 0;
   color: var(--cms-text);
@@ -64,70 +79,8 @@
   color: var(--cms-text-secondary);
 }
 
-.listeners {
-  font-size: 0.95rem;
-  color: var(--cms-text-secondary);
-  margin-left: auto;
-}
-
-.levelWrap {
-  display: flex;
-  align-items: center;
-  gap: var(--cf-space-8);
-  min-width: 12rem;
-}
-
-.levelLabel {
-  font-size: 0.8rem;
-  color: var(--cms-text-secondary);
-}
-
 .levelMeter {
-  width: 8rem;
-}
-
-.topActions {
-  display: flex;
-  align-items: center;
-  gap: var(--cf-space-16);
-}
-
-.power {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 999px;
-  border: 1px solid var(--cms-border);
-  background: var(--cms-surface);
-  color: var(--cms-text);
-  cursor: pointer;
-}
-
-.powerOn {
-  background: #eff6ff;
-  color: #2563eb;
-  border-color: #bfdbfe;
-}
-
-.powerOff {
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.powerOff:hover,
-.powerOn:hover {
-  background: var(--cms-hover);
-}
-
-.power:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.power:disabled:hover {
-  background: var(--cms-surface);
+  width: 100%;
 }
 
 .warningMessage {
@@ -214,22 +167,6 @@
   line-height: 1.5;
 }
 
-@media (max-width: 900px) {
-  .statusGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 520px) {
-  .statusGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .levelWrap {
-    min-width: 0;
-  }
-
-  .levelMeter {
-    width: 6rem;
-  }
+  .levelMeter { max-width: 100%; }
 }

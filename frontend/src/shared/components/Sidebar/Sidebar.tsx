@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import SidebarPanelIcon from '../SidebarPanelIcon/SidebarPanelIcon';
 import SidebarItem from './SidebarItem';
 import styles from './Sidebar.module.css';
@@ -13,24 +13,32 @@ export interface SidebarNavItem {
 
 export interface SidebarProps {
   brandLabel: string;
-  brandTo: string;
-  items: SidebarNavItem[];
+  brandTo?: string;
+  items?: SidebarNavItem[];
+  children?: ReactNode;
+  footer?: ReactNode;
+  ariaLabel?: string;
+  collapsible?: boolean;
   collapsed?: boolean;
-  expandLabel: string;
-  collapseLabel: string;
+  expandLabel?: string;
+  collapseLabel?: string;
   onToggleCollapsed?: () => void;
 }
 
 export default function Sidebar({
   brandLabel,
   brandTo,
-  items,
+  items = [],
+  children,
+  footer,
+  ariaLabel,
+  collapsible = true,
   collapsed = false,
-  expandLabel,
-  collapseLabel,
+  expandLabel = 'Expand sidebar',
+  collapseLabel = 'Collapse sidebar',
   onToggleCollapsed,
 }: SidebarProps) {
-  const collapseControl = (
+  const collapseControl = collapsible ? (
     <button
       type="button"
       className={collapsed ? styles.link : styles.collapseToggle}
@@ -47,52 +55,59 @@ export default function Sidebar({
         className={collapsed ? styles.linkIcon : undefined}
       />
     </button>
-  );
+  ) : null;
 
   return (
-    <div
+    <aside
       className={[
         styles.sidebar,
         collapsed ? styles.collapsed : '',
-        styles.collapsible,
+        collapsible ? styles.collapsible : '',
       ]
         .filter(Boolean)
         .join(' ')}
+      aria-label={ariaLabel}
     >
       <div className={styles.panel}>
         <div className={styles.lead}>
-          {collapsed ? (
+          {collapsible && collapsed ? (
             collapseControl
-          ) : (
+          ) : brandTo ? (
             <SidebarItem
               variant="brand"
               label={brandLabel}
               to={brandTo}
               collapsed={collapsed}
             />
+          ) : (
+            <div className={styles.brandStatic}>{brandLabel}</div>
           )}
         </div>
 
         <div className={styles.sections}>
-          <div className={styles.sectionItems}>
-            {items.map((item) => (
-              <SidebarItem
-                key={item.id}
-                nav
-                to={item.to}
-                end={item.end}
-                label={item.label}
-                icon={item.icon}
-                collapsed={collapsed}
-              />
-            ))}
-          </div>
+          {items.length > 0 ? (
+            <div className={styles.sectionItems}>
+              {items.map((item) => (
+                <SidebarItem
+                  key={item.id}
+                  nav
+                  to={item.to}
+                  end={item.end}
+                  label={item.label}
+                  icon={item.icon}
+                  collapsed={collapsed}
+                />
+              ))}
+            </div>
+          ) : null}
+          {children}
         </div>
+        {footer ? <div className={styles.footer}>{footer}</div> : null}
       </div>
 
-      {!collapsed ? (
+      {collapsible && !collapsed ? (
         <div className={styles.dividerSlot}>{collapseControl}</div>
       ) : null}
-    </div>
+    </aside>
   );
 }

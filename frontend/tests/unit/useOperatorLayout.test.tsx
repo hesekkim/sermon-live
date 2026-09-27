@@ -10,9 +10,7 @@ import {
 }).IS_REACT_ACT_ENVIRONMENT = true;
 
 interface LayoutState {
-  isSidebarCollapsed: boolean;
   showInputPane: boolean;
-  toggleSidebarCollapsed: () => void;
 }
 
 function Probe({ onRender }: { onRender: (state: LayoutState) => void }) {
@@ -46,7 +44,7 @@ beforeEach(() => {
       clear: () => values.clear(),
     } satisfies Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'clear'>,
   });
-  window.innerWidth = 1280;
+  window.innerWidth = 768;
 });
 
 afterEach(() => {
@@ -54,34 +52,28 @@ afterEach(() => {
 });
 
 describe('useOperatorLayout', () => {
-  it('hides the input pane and collapses the sidebar below the dual-pane width', () => {
+  it('hides the input pane below the dual-pane width', () => {
     let state!: LayoutState;
     const cleanup = renderProbe((nextState) => {
       state = nextState;
     });
 
     expect(state.showInputPane).toBe(false);
-    expect(state.isSidebarCollapsed).toBe(true);
 
     cleanup();
   });
 
-  it('restores the user collapse preference when the viewport supports two panes', () => {
+  it('shows the input pane at standard desktop widths', () => {
     let state!: LayoutState;
     const cleanup = renderProbe((nextState) => {
       state = nextState;
     });
 
     act(() => {
-      window.innerWidth = 1920;
+      window.innerWidth = 1280;
       window.dispatchEvent(new Event('resize'));
     });
     expect(state.showInputPane).toBe(true);
-    expect(state.isSidebarCollapsed).toBe(false);
-
-    act(() => state.toggleSidebarCollapsed());
-    expect(state.isSidebarCollapsed).toBe(true);
-    expect(localStorage.getItem('operatorSidebarCollapsed')).toBe('true');
 
     cleanup();
   });

@@ -53,6 +53,7 @@ export interface OperatorCopy {
   applyFailed: string;
   settingsLoadFailed: string;
   darkMode: string;
+  lightMode: string;
   safety: string;
   autoStopMinutes: string;
   warningMinutes: string;
@@ -94,6 +95,10 @@ export interface OperatorCopy {
   audioSignal: string;
   audioSilent: string;
   audioUnavailable: string;
+  inputDeviceStatus: string;
+  inputDeviceReady: string;
+  inputDeviceUnavailable: string;
+  inputDeviceError: string;
   interpreterConnection: string;
   connectionConnected: string;
   connectionDisconnected: string;
@@ -186,6 +191,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     applyFailed: '설정 적용에 실패했습니다',
     settingsLoadFailed: '설정을 불러오지 못했습니다',
     darkMode: '다크 모드',
+    lightMode: '라이트 모드',
     safety: '안전 설정',
     autoStopMinutes: '자동 종료 (분)',
     warningMinutes: '경고 (분)',
@@ -227,6 +233,10 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioSignal: '신호 감지',
     audioSilent: '무음',
     audioUnavailable: '세션 꺼짐',
+    inputDeviceStatus: '입력 장치',
+    inputDeviceReady: '연결됨',
+    inputDeviceUnavailable: '사용할 수 없음',
+    inputDeviceError: '오류',
     interpreterConnection: '통역 연결',
     connectionConnected: '연결됨',
     connectionDisconnected: '연결 안 됨',
@@ -317,6 +327,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     applyFailed: 'Could not apply settings',
     settingsLoadFailed: 'Could not load settings',
     darkMode: 'Dark mode',
+    lightMode: 'Light mode',
     safety: 'Safety settings',
     autoStopMinutes: 'Auto stop (minutes)',
     warningMinutes: 'Warning (minutes)',
@@ -358,6 +369,10 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioSignal: 'Signal detected',
     audioSilent: 'Silent',
     audioUnavailable: 'Session off',
+    inputDeviceStatus: 'Input device',
+    inputDeviceReady: 'Ready',
+    inputDeviceUnavailable: 'Unavailable',
+    inputDeviceError: 'Error',
     interpreterConnection: 'Interpreter connection',
     connectionConnected: 'Connected',
     connectionDisconnected: 'Disconnected',
@@ -448,6 +463,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     applyFailed: 'Einstellungen konnten nicht angewendet werden',
     settingsLoadFailed: 'Einstellungen konnten nicht geladen werden',
     darkMode: 'Dunkelmodus',
+    lightMode: 'Heller Modus',
     safety: 'Sicherheitsoptionen',
     autoStopMinutes: 'Automatisches Stoppen (Minuten)',
     warningMinutes: 'Warnung (Minuten)',
@@ -489,6 +505,10 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioSignal: 'Signal erkannt',
     audioSilent: 'Stumm',
     audioUnavailable: 'Sitzung aus',
+    inputDeviceStatus: 'Eingabegerät',
+    inputDeviceReady: 'Verbunden',
+    inputDeviceUnavailable: 'Nicht verfügbar',
+    inputDeviceError: 'Fehler',
     interpreterConnection: 'Dolmetschverbindung',
     connectionConnected: 'Verbunden',
     connectionDisconnected: 'Getrennt',
