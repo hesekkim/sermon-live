@@ -64,7 +64,7 @@
 .routeContent {
   flex: 1;
   min-width: 0;
-  padding: var(--cf-space-24);
+  padding: 0 var(--cf-space-24) var(--cf-space-24);
 }
 
 @media (max-width: 760px) {
@@ -87,6 +87,6 @@
   }
 
   .routeContent {
-    padding: var(--cf-space-16);
+    padding: 0 var(--cf-space-16) var(--cf-space-16);
   }
 }

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '../../../../shared/components/Toast/ToastProvider';
-import type { OperatorCopy, UiLanguage, UiTheme } from '../../translations';
+import type { OperatorCopy, UiLanguage } from '../../translations';
 
 type InterpreterName = 'echo' | 'openai';
 type KeyStatus = 'valid' | 'missing' | 'invalid';
+type SaveScope = 'device' | 'safety' | 'api';
 type TimerValueKey =
 	| 'autoStopMinutes'
 	| 'warningMinutes'
@@ -39,20 +40,12 @@ export interface TimerValidationState {
 interface UseOperatorSettingsOptions {
 	labels: OperatorCopy;
 	language: UiLanguage;
-	theme: UiTheme;
-	setLanguage: (language: UiLanguage) => void;
-	setTheme: (theme: UiTheme) => void;
-	selectedDevice: string;
 	setSelectedDevice: (device: string) => void;
 }
 
 export function useOperatorSettings({
 	labels,
 	language,
-	theme,
-	setLanguage,
-	setTheme,
-	selectedDevice,
 	setSelectedDevice,
 }: UseOperatorSettingsOptions) {
 	const [interpreter, setInterpreter] = useState<InterpreterName>('echo');
@@ -61,7 +54,6 @@ export function useOperatorSettings({
 	const [openaiKeyMasked, setOpenaiKeyMasked] = useState('');
 	const [keyWarning, setKeyWarning] = useState('');
 	const [draftLanguage, setDraftLanguage] = useState<UiLanguage>(language);
-	const [draftTheme, setDraftTheme] = useState<UiTheme>(theme);
 	const [timerValues, setTimerValues] = useState<TimerDraftState>({
 		autoStopMinutes: '90',
 		warningMinutes: '5',
@@ -69,16 +61,23 @@ export function useOperatorSettings({
 		hardLimitMinutes: '120',
 	});
 	const [isSaving, setIsSaving] = useState(false);
-	const { info, warning, error } = useToast();
+	const { warning, error } = useToast();
+	const settingsLoadStartedRef = useRef(false);
+	const savedInterpreterRef = useRef<InterpreterName>('echo');
 	const setSelectedDeviceRef = useRef(setSelectedDevice);
 	setSelectedDeviceRef.current = setSelectedDevice;
 
-	const applySettingsResponse = (data: SettingsResponse) => {
+	const applyApiModelResponse = (data: SettingsResponse) => {
+		savedInterpreterRef.current = data.interpreter;
 		setInterpreter(data.interpreter);
-		setSelectedDeviceRef.current(data.audio_device ?? '');
 		setOpenaiKeyStatus(data.openai_key_status ?? 'missing');
 		setOpenaiKeyMasked(data.openai_key_masked ?? '');
 		setKeyWarning(getSelectedWarning(data));
+	};
+
+	const applySettingsResponse = (data: SettingsResponse) => {
+		applyApiModelResponse(data);
+		setSelectedDeviceRef.current(data.audio_device || 'default');
 		setTimerValues({
 			autoStopMinutes: String(data.translation_session_auto_stop_minutes ?? 90),
 			warningMinutes: String(data.translation_session_warning_minutes ?? 5),
@@ -88,6 +87,8 @@ export function useOperatorSettings({
 	};
 
 	useEffect(() => {
+		if (settingsLoadStartedRef.current) return;
+		settingsLoadStartedRef.current = true;
 		void (async () => {
 			try {
 				const response = await fetch('/api/v1/operator/settings');
@@ -111,50 +112,88 @@ export function useOperatorSettings({
 	};
 	const timerValidation = validateTimerDraft(timerValues, labels);
 
-	const handleSave = async () => {
-		if (isSaving) return;
-		if (timerValidation.hasErrors) {
-			error(timerValidation.message);
-			return;
-		}
+	const submitSettings = async (
+		body: Record<string, string | number | undefined>,
+		scope: SaveScope
+	) => {
+		if (isSaving) return { success: false as const, message: labels.applyFailed };
 		setIsSaving(true);
 		try {
-			const trimmedKey = apiKey.trim();
-			const body: Record<string, string | number | undefined> = {
-				interpreter,
-				audio_device: selectedDevice.trim() ? selectedDevice : undefined,
-				translation_session_auto_stop_minutes: Number(timerValues.autoStopMinutes),
-				translation_session_warning_minutes: Number(timerValues.warningMinutes),
-				translation_session_extension_minutes: Number(timerValues.extensionMinutes),
-				translation_session_hard_limit_minutes: Number(timerValues.hardLimitMinutes),
-			};
-			if (interpreter === 'openai' && trimmedKey) {
-				body.openai_api_key = trimmedKey;
-			}
 			const response = await fetch('/api/v1/operator/settings', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(body),
 			});
 			if (!response.ok) {
-				error(labels.applyFailed);
-				return;
+				const payload = (await response.json().catch(() => null)) as
+					| { detail?: unknown }
+					| null;
+				return {
+					success: false as const,
+					status: response.status,
+					message:
+						typeof payload?.detail === 'string'
+							? payload.detail
+							: labels.applyFailed,
+				};
 			}
 			const data = (await response.json()) as SettingsResponse;
-			applySettingsResponse(data);
-			setApiKey('');
-			setLanguage(draftLanguage);
-			setTheme(draftTheme);
-			const responseWarning = getSelectedWarning(data);
-			if (responseWarning && data.interpreter !== 'echo') {
-				warning(summarizeWarning(responseWarning));
+			if (scope === 'device') {
+				setSelectedDeviceRef.current(data.audio_device || 'default');
+			} else if (scope === 'safety') {
+				setTimerValues({
+					autoStopMinutes: String(data.translation_session_auto_stop_minutes ?? 90),
+					warningMinutes: String(data.translation_session_warning_minutes ?? 5),
+					extensionMinutes: String(data.translation_session_extension_minutes ?? 10),
+					hardLimitMinutes: String(data.translation_session_hard_limit_minutes ?? 120),
+				});
+			} else {
+				applyApiModelResponse(data);
+				setApiKey('');
+				const responseWarning = getSelectedWarning(data);
+				if (responseWarning && data.interpreter !== 'echo') {
+					warning(summarizeWarning(responseWarning));
+				}
 			}
-			info(labels.applySaved);
+			return { success: true as const };
 		} catch {
-			error(labels.applyFailed);
+			return { success: false as const, message: labels.applyFailed };
 		} finally {
 			setIsSaving(false);
 		}
+	};
+
+	const saveDevice = async (nextDevice: string) => {
+		const body: Record<string, string | number | undefined> = {
+			interpreter: savedInterpreterRef.current,
+			audio_device: nextDevice,
+		};
+		return submitSettings(body, 'device');
+	};
+
+	const saveSafety = async () => {
+		if (timerValidation.hasErrors) {
+			return { success: false as const, message: timerValidation.message };
+		}
+		const body: Record<string, string | number | undefined> = {
+			interpreter: savedInterpreterRef.current,
+			translation_session_auto_stop_minutes: Number(timerValues.autoStopMinutes),
+			translation_session_warning_minutes: Number(timerValues.warningMinutes),
+			translation_session_extension_minutes: Number(timerValues.extensionMinutes),
+			translation_session_hard_limit_minutes: Number(timerValues.hardLimitMinutes),
+		};
+		return submitSettings(body, 'safety');
+	};
+
+	const saveApiModel = async () => {
+		const trimmedKey = apiKey.trim();
+		const body: Record<string, string | number | undefined> = {
+			interpreter,
+		};
+		if (trimmedKey) {
+			body.openai_api_key = trimmedKey;
+		}
+		return submitSettings(body, 'api');
 	};
 
 	return {
@@ -167,13 +206,13 @@ export function useOperatorSettings({
 		keyWarning,
 		draftLanguage,
 		setDraftLanguage,
-		draftTheme,
-		setDraftTheme,
 		timerValues,
 		setTimerValue,
 		timerValidation,
 		isSaving,
-		handleSave,
+		saveDevice,
+		saveSafety,
+		saveApiModel,
 	};
 }
 

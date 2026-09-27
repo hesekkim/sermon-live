@@ -12,7 +12,8 @@ interface AudioDevicesState {
   deviceOptions: Array<{ value: string; label: string }>;
   selectedDevice: string;
   setSelectedDevice: (device: string) => void;
-  error: string | null;
+  isLoading: boolean;
+  error: boolean;
 }
 
 function Probe({ onRender }: { onRender: (state: AudioDevicesState) => void }) {
@@ -62,6 +63,7 @@ describe('useAudioDevices', () => {
       state = nextState;
     });
 
+    expect(state.isLoading).toBe(true);
     act(() => {
       state.setSelectedDevice('1');
     });
@@ -104,7 +106,8 @@ describe('useAudioDevices', () => {
 
     expect(state.devices).toHaveLength(2);
     expect(state.deviceOptions[1].value).toBe('1');
-    expect(state.error).toBeNull();
+    expect(state.error).toBe(false);
+    expect(state.isLoading).toBe(false);
 
     act(() => {
       state.setSelectedDevice('1');
@@ -127,12 +130,13 @@ describe('useAudioDevices', () => {
       await Promise.resolve();
     });
 
-    expect(state.error).toBe('기기를 불러오지 못했습니다');
+    expect(state.error).toBe(true);
+    expect(state.isLoading).toBe(false);
 
     cleanup();
   });
 
-  it('treats an empty device list as a load failure', async () => {
+  it('treats an empty device list separately from a load failure', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -152,7 +156,8 @@ describe('useAudioDevices', () => {
 
     expect(state.devices).toEqual([]);
     expect(state.deviceOptions).toEqual([]);
-    expect(state.error).toBe('기기를 불러오지 못했습니다');
+    expect(state.error).toBe(false);
+    expect(state.isLoading).toBe(false);
 
     cleanup();
   });
@@ -188,6 +193,34 @@ describe('useAudioDevices', () => {
     });
     expect(state.selectedDevice).toBe('');
 
+    cleanup();
+  });
+
+  it('preserves the system default selection when the device list loads', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => [
+          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+        ],
+      })
+    );
+
+    let state!: AudioDevicesState;
+    const cleanup = renderProbe((nextState) => {
+      state = nextState;
+    });
+
+    act(() => {
+      state.setSelectedDevice('default');
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(state.selectedDevice).toBe('default');
     cleanup();
   });
 });

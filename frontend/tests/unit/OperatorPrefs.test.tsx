@@ -2,6 +2,16 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Settings from '../../src/pages/Operator/settings/Settings';
+
+const mockNavigate = vi.fn();
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 import {
   OperatorPrefsProvider,
   useOperatorPrefs,
@@ -117,12 +127,25 @@ describe('Settings save flow', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ interpreter: 'openai', openai_key_set: false }),
+        json: async () => ({
+          interpreter: 'echo',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 90,
+          translation_session_warning_minutes: 5,
+          translation_session_extension_minutes: 10,
+          translation_session_hard_limit_minutes: 120,
+          openai_key_set: false,
+        }),
       })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           interpreter: 'openai',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 90,
+          translation_session_warning_minutes: 5,
+          translation_session_extension_minutes: 10,
+          translation_session_hard_limit_minutes: 120,
           openai_key_set: true,
           openai_key_masked: 'abc1...c123',
         }),
@@ -142,35 +165,41 @@ describe('Settings save flow', () => {
         </OperatorPrefsProvider>
       );
       await Promise.resolve();
-      await Promise.resolve();
+    });
+
+    const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('API Model') || button.textContent?.includes('API 모델')
+    );
+    await act(async () => {
+      apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const interpreterButton = Array.from(
+      container.querySelectorAll('button[aria-haspopup="listbox"]')
+    )[0] as HTMLButtonElement;
+    await act(async () => {
+      interpreterButton.click();
+    });
+    const openAiOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
+      (option) => option.getAttribute('aria-label') === 'OpenAI'
+    ) as HTMLButtonElement | undefined;
+    expect(openAiOption).not.toBeUndefined();
+    await act(async () => {
+      openAiOption?.click();
     });
 
     const passwordInput = container.querySelector('input[type="password"]') as HTMLInputElement;
     expect(passwordInput).not.toBeNull();
-    const showPasswordButton = container.querySelector(
-      'button[aria-label="API KEY 표시"]'
-    ) as HTMLButtonElement;
-    expect(showPasswordButton).not.toBeNull();
     await act(async () => {
-      showPasswordButton.click();
-    });
-    expect(container.querySelector('input[type="text"]')).not.toBeNull();
-    expect(container.querySelector('button[aria-label="API KEY 숨기기"]')).not.toBeNull();
-
-    await act(async () => {
-      const visibleInput = container.querySelector('input[type="text"]') as HTMLInputElement;
       Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        visibleInput,
+        passwordInput,
         'abc123'
       );
-      visibleInput.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    await act(async () => {
-      (container.querySelector('button[aria-label="API KEY 숨기기"]') as HTMLButtonElement).click();
+      passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.trim() === '적용'
+      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
     );
     expect(saveButton).not.toBeNull();
     await act(async () => {
@@ -184,15 +213,11 @@ describe('Settings save flow', () => {
     expect(JSON.parse((putCall?.[1] as RequestInit | undefined)?.body as string)).toMatchObject({
       interpreter: 'openai',
       openai_api_key: 'abc123',
-      translation_session_auto_stop_minutes: 90,
-      translation_session_warning_minutes: 5,
-      translation_session_extension_minutes: 10,
-      translation_session_hard_limit_minutes: 120,
     });
-    expect((container.querySelector('input[type="password"]') as HTMLInputElement).value).toBe('');
-    expect((container.querySelector('input[type="password"]') as HTMLInputElement).placeholder).toBe(
-      'abc1...c123'
-    );
+
+    const clearedInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    expect(clearedInput.value).toBe('');
+    expect(clearedInput.placeholder).toBe('abc1...c123');
 
     await act(async () => {
       root.unmount();
@@ -212,7 +237,15 @@ describe('Settings save flow', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ interpreter: 'openai', openai_key_set: false }),
+        json: async () => ({
+          interpreter: 'echo',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 90,
+          translation_session_warning_minutes: 5,
+          translation_session_extension_minutes: 10,
+          translation_session_hard_limit_minutes: 120,
+          openai_key_set: false,
+        }),
       })
       .mockResolvedValueOnce({ ok: false });
     vi.stubGlobal('fetch', fetchMock);
@@ -229,6 +262,14 @@ describe('Settings save flow', () => {
           </ToastProvider>
         </OperatorPrefsProvider>
       );
+      await Promise.resolve();
+    });
+
+    const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('API Model') || button.textContent?.includes('API 모델')
+    );
+    await act(async () => {
+      apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     const saveButton = Array.from(container.querySelectorAll('button')).find(
@@ -261,6 +302,11 @@ describe('Settings save flow', () => {
         ok: true,
         json: async () => ({
           interpreter: 'openai',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 90,
+          translation_session_warning_minutes: 5,
+          translation_session_extension_minutes: 10,
+          translation_session_hard_limit_minutes: 120,
           openai_key_set: true,
           openai_key_masked: 'abc1...c123',
           openai_key_status: 'invalid',
@@ -282,6 +328,13 @@ describe('Settings save flow', () => {
         </OperatorPrefsProvider>
       );
       await Promise.resolve();
+    });
+
+    const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('API Model') || button.textContent?.includes('API 모델')
+    );
+    await act(async () => {
+      apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     expect(container.textContent).toContain('유효하지 않음');
@@ -342,7 +395,13 @@ describe('Settings save flow', () => {
         </OperatorPrefsProvider>
       );
       await Promise.resolve();
-      await Promise.resolve();
+    });
+
+    const safetyTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('안전 설정') || button.textContent?.includes('Safety')
+    );
+    await act(async () => {
+      safetyTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     const autoStopInput = container.querySelector(
@@ -387,9 +446,8 @@ describe('Settings save flow', () => {
     });
 
     const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.trim() === '적용'
+      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
     );
-
     await act(async () => {
       saveButton?.click();
     });
@@ -403,7 +461,7 @@ describe('Settings save flow', () => {
         '45'
       );
       autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
-      saveButton?.click();
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     const putCall = fetchMock.mock.calls.find(
@@ -421,6 +479,486 @@ describe('Settings save flow', () => {
     );
     expect((putCall?.[1] as RequestInit | undefined)?.body).toContain(
       '"translation_session_hard_limit_minutes":90'
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('renders tabs, keeps only the active panel visible, and returns to broadcast', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        interpreter: 'echo',
+        audio_device: '0',
+        translation_session_auto_stop_minutes: 90,
+        translation_session_warning_minutes: 5,
+        translation_session_extension_minutes: 10,
+        translation_session_hard_limit_minutes: 120,
+        openai_key_set: false,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    mockNavigate.mockClear();
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>
+      );
+      await Promise.resolve();
+    });
+
+    const appearanceTab = container.querySelector('[role="tab"][aria-selected="true"]');
+    expect(appearanceTab).not.toBeNull();
+    expect(appearanceTab?.textContent).toContain('화면');
+    expect(container.textContent).toContain('언어');
+
+    const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('API Model') || button.textContent?.includes('API 모델')
+    );
+    expect(apiTab).not.toBeNull();
+
+    await act(async () => {
+      apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(container.textContent).toContain('API KEY');
+
+    const backButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('Back') || button.textContent?.includes('뒤로')
+    );
+    expect(backButton).not.toBeNull();
+    await act(async () => {
+      backButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('/operator/broadcast', { replace: true });
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('saves safety and API model payloads separately without mixing drafts', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          interpreter: 'echo',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 90,
+          translation_session_warning_minutes: 5,
+          translation_session_extension_minutes: 10,
+          translation_session_hard_limit_minutes: 120,
+          openai_key_set: false,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          interpreter: 'echo',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 45,
+          translation_session_warning_minutes: 3,
+          translation_session_extension_minutes: 15,
+          translation_session_hard_limit_minutes: 90,
+          openai_key_set: false,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          interpreter: 'openai',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 90,
+          translation_session_warning_minutes: 5,
+          translation_session_extension_minutes: 10,
+          translation_session_hard_limit_minutes: 120,
+          openai_key_set: true,
+          openai_key_masked: 'sk-...abcd',
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const safetyTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('안전 설정') || button.textContent?.includes('Safety')
+    );
+    await act(async () => {
+      safetyTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const autoStopInput = container.querySelector(
+      'input[name="translation_session_auto_stop_minutes"]'
+    ) as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        autoStopInput,
+        '45'
+      );
+      autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const safetySave = Array.from(container.querySelectorAll('button')).find(
+      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+    );
+    await act(async () => {
+      safetySave?.click();
+    });
+
+    const safetyPutCall = fetchMock.mock.calls.find(
+      ([url, init]) => url === '/api/v1/operator/settings' && (init as RequestInit | undefined)?.method === 'PUT'
+    );
+    expect(safetyPutCall).toBeDefined();
+    const safetyPayload = JSON.parse((safetyPutCall?.[1] as RequestInit | undefined)?.body as string);
+    expect(safetyPayload).toMatchObject({
+      interpreter: 'echo',
+      translation_session_auto_stop_minutes: 45,
+    });
+    expect(safetyPayload).not.toHaveProperty('openai_api_key');
+    expect(safetyPayload).not.toHaveProperty('audio_device');
+
+    const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('API Model') || button.textContent?.includes('API 모델')
+    );
+    await act(async () => {
+      apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const interpreterButton = Array.from(
+      container.querySelectorAll('button[aria-haspopup="listbox"]')
+    )[0] as HTMLButtonElement;
+    await act(async () => {
+      interpreterButton.click();
+    });
+    const openAiOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
+      (option) => option.getAttribute('aria-label') === 'OpenAI'
+    ) as HTMLButtonElement | undefined;
+    expect(openAiOption).not.toBeUndefined();
+    await act(async () => {
+      openAiOption?.click();
+    });
+
+    const apiInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        apiInput,
+        'sk-test-1234'
+      );
+      apiInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const apiSave = Array.from(container.querySelectorAll('button')).find(
+      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+    );
+    await act(async () => {
+      apiSave?.click();
+    });
+
+    const apiPutCall = fetchMock.mock.calls.filter(
+      ([url, init]) => url === '/api/v1/operator/settings' && (init as RequestInit | undefined)?.method === 'PUT'
+    )[1];
+    expect(apiPutCall).toBeDefined();
+    const apiPayload = JSON.parse((apiPutCall?.[1] as RequestInit | undefined)?.body as string);
+    expect(apiPayload).toMatchObject({
+      interpreter: 'openai',
+      openai_api_key: 'sk-test-1234',
+    });
+    expect(apiPayload).not.toHaveProperty('audio_device');
+    expect(apiPayload).not.toHaveProperty('translation_session_auto_stop_minutes');
+    expect(apiPayload).not.toHaveProperty('translation_session_warning_minutes');
+    expect(apiPayload).not.toHaveProperty('translation_session_extension_minutes');
+    expect(apiPayload).not.toHaveProperty('translation_session_hard_limit_minutes');
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('preserves unsaved API and safety drafts across unrelated saves', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    const savedSettings = {
+      interpreter: 'echo',
+      audio_device: '0',
+      translation_session_auto_stop_minutes: 90,
+      translation_session_warning_minutes: 5,
+      translation_session_extension_minutes: 10,
+      translation_session_hard_limit_minutes: 120,
+      openai_key_set: false,
+    };
+    const savePayloads: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/v1/audio/devices') {
+        return {
+          ok: true,
+          json: async () => [
+            { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+          ],
+        };
+      }
+      if (init?.method === 'PUT') {
+        const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
+        savePayloads.push(payload);
+        Object.assign(savedSettings, payload);
+        if (payload.openai_api_key) {
+          savedSettings.openai_key_set = true;
+        }
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          ...savedSettings,
+          openai_key_masked: savedSettings.openai_key_set ? 'test...1234' : '',
+        }),
+      };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const findTab = (name: string) =>
+      Array.from(container.querySelectorAll('[role="tab"]')).find((tab) =>
+        tab.textContent?.includes(name)
+      ) as HTMLButtonElement | undefined;
+    const apiTab = findTab('API 모델');
+    const safetyTab = findTab('안전 설정');
+
+    await act(async () => {
+      apiTab?.click();
+    });
+    await act(async () => {
+      (container.querySelector('button[aria-haspopup="listbox"]') as HTMLButtonElement).click();
+    });
+    const openAiOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
+      (option) => option.getAttribute('aria-label') === 'OpenAI'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      openAiOption.click();
+    });
+
+    const apiKeyInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        apiKeyInput,
+        'test-key-1234'
+      );
+      apiKeyInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      safetyTab?.click();
+    });
+    const autoStopInput = container.querySelector(
+      'input[name="translation_session_auto_stop_minutes"]'
+    ) as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        autoStopInput,
+        '45'
+      );
+      autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const applyButton = () =>
+      Array.from(container.querySelectorAll('button')).find(
+        (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+      );
+    await act(async () => {
+      applyButton()?.click();
+    });
+
+    expect(savePayloads[0]).toMatchObject({
+      interpreter: 'echo',
+      translation_session_auto_stop_minutes: 45,
+    });
+    expect(savePayloads[0]).not.toHaveProperty('openai_api_key');
+
+    const appearanceTab = findTab('화면');
+    await act(async () => {
+      appearanceTab?.click();
+    });
+    await act(async () => {
+      (container.querySelector('button[aria-haspopup="listbox"]') as HTMLButtonElement).click();
+    });
+    const englishOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
+      (option) => option.getAttribute('aria-label') === '영어'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      englishOption.click();
+    });
+
+    await act(async () => {
+      apiTab?.click();
+    });
+    expect((container.querySelector('input[type="password"]') as HTMLInputElement).value).toBe(
+      'test-key-1234'
+    );
+    expect(container.querySelector('button[aria-haspopup="listbox"]')?.textContent).toContain(
+      'OpenAI'
+    );
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, init]) => url === '/api/v1/operator/settings' && init?.method !== 'PUT'
+      )
+    ).toHaveLength(1);
+
+    await act(async () => {
+      safetyTab?.click();
+    });
+    const warningInput = container.querySelector(
+      'input[name="translation_session_warning_minutes"]'
+    ) as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        warningInput,
+        '4'
+      );
+      warningInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      apiTab?.click();
+    });
+    await act(async () => {
+      applyButton()?.click();
+    });
+    expect(savePayloads[1]).toMatchObject({
+      interpreter: 'openai',
+      openai_api_key: 'test-key-1234',
+    });
+    expect(savePayloads[1]).not.toHaveProperty('translation_session_warning_minutes');
+
+    await act(async () => {
+      safetyTab?.click();
+    });
+    expect(
+      (container.querySelector('input[name="translation_session_warning_minutes"]') as HTMLInputElement)
+        .value
+    ).toBe('4');
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('rolls back a rejected device selection and explains the live-session conflict', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/v1/audio/devices') {
+        return {
+          ok: true,
+          json: async () => [
+            { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+          ],
+        };
+      }
+      if (init?.method === 'PUT') {
+        return {
+          ok: false,
+          status: 409,
+          json: async () => ({ detail: 'Stop the translation session before changing the input device' }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          interpreter: 'echo',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 90,
+          translation_session_warning_minutes: 5,
+          translation_session_extension_minutes: 10,
+          translation_session_hard_limit_minutes: 120,
+          openai_key_set: false,
+        }),
+      };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const devicesTab = Array.from(container.querySelectorAll('[role="tab"]')).find((tab) =>
+      tab.textContent?.includes('입력 장치')
+    ) as HTMLButtonElement | undefined;
+    await act(async () => {
+      devicesTab?.click();
+    });
+    await act(async () => {
+      (container.querySelector('button[aria-haspopup="listbox"]') as HTMLButtonElement).click();
+    });
+    const defaultOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
+      (option) => option.getAttribute('aria-label') === '시스템 기본 장치'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      defaultOption.click();
+    });
+
+    const putCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT');
+    expect(JSON.parse(String(putCall?.[1]?.body))).toMatchObject({
+      interpreter: 'echo',
+      audio_device: 'default',
+    });
+    expect(container.textContent).toContain('통역 세션을 중지한 뒤 입력 장치를 변경하세요.');
+    expect(container.querySelector('button[aria-haspopup="listbox"]')?.getAttribute('aria-label')).toContain(
+      'Built-in microphone'
     );
 
     await act(async () => {

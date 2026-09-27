@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../../../shared/components/Button/Button';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
@@ -11,13 +12,25 @@ import { useAudioTest } from './hooks/useAudioTest';
 import { useOperatorSettings } from './hooks/useOperatorSettings';
 import styles from './Settings.module.css';
 
+type SettingsTab = 'appearance' | 'devices' | 'safety' | 'api';
+
 export default function Settings() {
-  const { labels, language, theme, setLanguage, setTheme } = useOperatorPrefs();
-  const { deviceOptions, selectedDevice, setSelectedDevice, error: deviceError } =
-    useAudioDevices();
+  const navigate = useNavigate();
+  const { labels, language, setLanguage } = useOperatorPrefs();
+  const {
+    devices,
+    deviceOptions,
+    selectedDevice,
+    setSelectedDevice,
+    isLoading: isLoadingDevices,
+    error: deviceLoadError,
+    refresh: refreshDevices,
+  } = useAudioDevices();
   const { result, liveInputLevel, error: audioTestError, isTesting, runTest } =
     useAudioTest(selectedDevice);
-  const { error } = useToast();
+  const { error, info } = useToast();
+  const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
+  const [deviceSaveError, setDeviceSaveError] = useState<string | null>(null);
   const {
     interpreter,
     setInterpreter,
@@ -28,28 +41,18 @@ export default function Settings() {
     keyWarning,
     draftLanguage,
     setDraftLanguage,
-    draftTheme,
-    setDraftTheme,
     timerValues,
     setTimerValue,
     timerValidation,
     isSaving,
-    handleSave,
+    saveDevice,
+    saveSafety,
+    saveApiModel,
   } = useOperatorSettings({
     labels,
     language,
-    theme,
-    setLanguage,
-    setTheme,
-    selectedDevice,
     setSelectedDevice,
   });
-
-  useEffect(() => {
-    if (deviceError) {
-      error(labels.audioDeviceLoadFailed);
-    }
-  }, [deviceError, error, labels.audioDeviceLoadFailed]);
 
   const languageOptions = useMemo(
     () => [
@@ -59,41 +62,104 @@ export default function Settings() {
     ],
     [labels]
   );
+  const allDeviceOptions = useMemo(
+    () => [{ value: 'default', label: labels.audioDeviceDefault }, ...deviceOptions],
+    [deviceOptions, labels.audioDeviceDefault]
+  );
 
   const currentKeyStatus =
     interpreter === 'openai' ? openaiKeyStatus : 'missing';
 
-  return (
-    <div className={styles.page}>
-      <h1>{labels.navSettings}</h1>
-      <div className={styles.stack}>
+  const tabs = [
+    { id: 'appearance' as const, label: labels.appearance },
+    { id: 'devices' as const, label: labels.audioDevice },
+    { id: 'safety' as const, label: labels.safety },
+    { id: 'api' as const, label: labels.interpreter },
+  ];
+
+  const handleDeviceChange = async (nextDevice: string) => {
+    const previousDevice = selectedDevice;
+    setDeviceSaveError(null);
+    setSelectedDevice(nextDevice);
+    const result = await saveDevice(nextDevice);
+    if (!result.success) {
+      setSelectedDevice(previousDevice);
+      setDeviceSaveError(
+        result.status === 409 ? labels.audioDeviceSessionConflict : result.message
+      );
+    }
+  };
+
+  const renderContent = () => {
+    if (activeTab === 'appearance') {
+      return (
         <AppearanceSection
           title={labels.appearance}
           languageLabel={labels.language}
           languageOptions={languageOptions}
           language={draftLanguage}
-          onLanguageChange={setDraftLanguage}
-          darkModeLabel={labels.darkMode}
-          theme={draftTheme}
-          onThemeChange={setDraftTheme}
+          onLanguageChange={(nextLanguage) => {
+            setDraftLanguage(nextLanguage);
+            setLanguage(nextLanguage);
+          }}
         />
+      );
+    }
+
+    if (activeTab === 'devices') {
+      return (
         <AudioDeviceSection
           labels={labels}
-          options={deviceOptions}
+          options={allDeviceOptions}
           selectedDevice={selectedDevice}
-          onDeviceChange={setSelectedDevice}
+          isLoading={isLoadingDevices}
+          isSaving={isSaving}
+          hasLoadError={deviceLoadError}
+          hasDevices={devices.length > 0}
+          deviceSaveError={deviceSaveError}
+          onDeviceChange={(value) => {
+            void handleDeviceChange(value);
+          }}
+          onRetry={() => void refreshDevices()}
           result={result}
           liveInputLevel={liveInputLevel}
           error={audioTestError}
           isTesting={isTesting}
           onRunTest={() => void runTest()}
         />
-        <SafetySection
-          labels={labels}
-          values={timerValues}
-          onChange={setTimerValue}
-          validation={timerValidation}
-        />
+      );
+    }
+
+    if (activeTab === 'safety') {
+      return (
+        <>
+          <SafetySection
+            labels={labels}
+            values={timerValues}
+            onChange={setTimerValue}
+            validation={timerValidation}
+          />
+          <div className={styles.applyActions}>
+            <Button
+              disabled={isSaving}
+              onClick={async () => {
+                const saved = await saveSafety();
+                if (saved.success) {
+                  info(labels.applySaved);
+                } else {
+                  error(saved.message);
+                }
+              }}
+            >
+              {labels.apply}
+            </Button>
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <>
         <InterpreterSection
           labels={labels}
           interpreter={interpreter}
@@ -108,10 +174,67 @@ export default function Settings() {
           keyWarning={keyWarning}
         />
         <div className={styles.applyActions}>
-          <Button disabled={isSaving} onClick={() => void handleSave()}>
+          <Button
+            disabled={isSaving}
+            onClick={async () => {
+              const saved = await saveApiModel();
+              if (saved.success) {
+                info(labels.applySaved);
+              } else {
+                error(saved.message);
+              }
+            }}
+          >
             {labels.apply}
           </Button>
         </div>
+      </>
+    );
+  };
+
+  return (
+    <div className={styles.page}>
+      <div className={styles.pageHeader}>
+        <Button
+          variant="ghost"
+          type="button"
+          aria-label={labels.back}
+          title={labels.back}
+          onClick={() => navigate('/operator/broadcast', { replace: true })}
+        >
+          {labels.back}
+        </Button>
+      </div>
+      <h1>{labels.navSettings}</h1>
+      <div role="tablist" className={styles.tabList} aria-label={labels.navSettings}>
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            id={`settings-tab-${tab.id}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls={`settings-panel-${tab.id}`}
+            className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <div className={styles.stack}>
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            id={`settings-panel-${tab.id}`}
+            role="tabpanel"
+            aria-labelledby={`settings-tab-${tab.id}`}
+            hidden={activeTab !== tab.id}
+            className={activeTab === tab.id ? styles.panelVisible : styles.panelHidden}
+          >
+            {activeTab === tab.id ? renderContent() : null}
+          </div>
+        ))}
       </div>
     </div>
   );

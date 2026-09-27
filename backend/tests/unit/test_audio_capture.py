@@ -45,6 +45,24 @@ async def test_audio_capture_prefers_configured_rate(monkeypatch):
     await capture.stop()
 
 
+@pytest.mark.asyncio
+async def test_audio_capture_uses_system_default_for_default_alias(monkeypatch):
+    audio = FakePyAudio(
+        {
+            "name": "Built-in microphone",
+            "maxInputChannels": 1,
+            "defaultSampleRate": 44100,
+        }
+    )
+    monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
+
+    capture = AudioCapture(Settings(audio_device="default"))
+    await capture.start()
+
+    assert "input_device_index" not in audio.open_kwargs
+    await capture.stop()
+
+
 class FakeStream:
     def is_active(self) -> bool:
         return False

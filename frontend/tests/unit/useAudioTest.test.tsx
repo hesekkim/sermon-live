@@ -1,5 +1,6 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Settings from '../../src/pages/Operator/settings/Settings';
 import { operatorCopy } from '../../src/pages/Operator/translations';
@@ -18,10 +19,13 @@ vi.mock('../../src/pages/Operator/OperatorPrefs', () => ({
 
 vi.mock('../../src/pages/Operator/settings/hooks/useAudioDevices', () => ({
   useAudioDevices: () => ({
+    devices: [],
     deviceOptions: [],
     selectedDevice: '',
     setSelectedDevice: vi.fn(),
-    error: null,
+    isLoading: false,
+    error: false,
+    refresh: vi.fn(),
   }),
 }));
 
@@ -39,7 +43,11 @@ vi.mock('../../src/pages/Operator/settings/hooks/useOperatorSettings', () => ({
     draftTheme: 'light',
     setDraftTheme: vi.fn(),
     isSaving: false,
-    handleSave: vi.fn(),
+    setTimerValue: vi.fn(),
+    timerValidation: { fieldErrors: {}, hasErrors: false, message: '' },
+    saveDevice: vi.fn(),
+    saveSafety: vi.fn(),
+    saveApiModel: vi.fn(),
   }),
 }));
 
@@ -181,11 +189,18 @@ describe('useAudioTest', () => {
 
     act(() => {
       root.render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
+        <MemoryRouter>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </MemoryRouter>
       );
     });
+
+    const devicesTab = Array.from(container.querySelectorAll('[role="tab"]')).find((element) =>
+      element.textContent?.includes('입력 장치')
+    ) as HTMLButtonElement | undefined;
+    act(() => devicesTab?.click());
 
     const button = Array.from(container.querySelectorAll('button')).find(
       (element) => element.textContent === '오디오 테스트'

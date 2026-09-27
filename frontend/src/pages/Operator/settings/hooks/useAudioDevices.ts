@@ -15,12 +15,16 @@ export interface AudioDeviceOption {
 export function useAudioDevices() {
 	const [devices, setDevices] = useState<AudioDevice[]>([]);
 	const [selectedDevice, setSelectedDeviceState] = useState('');
-	const [error, setError] = useState<string | null>(null);
-	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState(false);
+	const [isLoading, setIsLoading] = useState(true);
 
 	const setSelectedDevice = useCallback(
 		(nextValue: string) => {
 			const trimmed = nextValue.trim();
+			if (trimmed === 'default') {
+				setSelectedDeviceState('default');
+				return;
+			}
 			if (!trimmed) {
 				setSelectedDeviceState('');
 				return;
@@ -44,7 +48,7 @@ export function useAudioDevices() {
 	useEffect(() => {
 		setSelectedDeviceState((current) => {
 			const trimmed = current.trim();
-			if (!trimmed || devices.length === 0) {
+			if (!trimmed || trimmed === 'default' || devices.length === 0) {
 				return current;
 			}
 
@@ -60,7 +64,7 @@ export function useAudioDevices() {
 
 	const refresh = useCallback(async () => {
 		setIsLoading(true);
-		setError(null);
+		setError(false);
 
 		try {
 			const response = await fetch('/api/v1/audio/devices');
@@ -69,15 +73,16 @@ export function useAudioDevices() {
 			}
 
 			const payload = (await response.json()) as unknown;
-			if (!Array.isArray(payload) || payload.length === 0) {
+			if (!Array.isArray(payload)) {
 				setDevices([]);
-				setError('기기를 불러오지 못했습니다');
+				setError(true);
 				return;
 			}
 
 			setDevices(payload);
 		} catch {
-			setError('기기를 불러오지 못했습니다');
+			setDevices([]);
+			setError(true);
 		} finally {
 			setIsLoading(false);
 		}

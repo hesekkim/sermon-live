@@ -12,10 +12,6 @@
 
 개인 예배용 실시간 통역 운영 기능. Server는 계속 실행할 수 있고, 비용이 발생하는 Translation Session만 필요할 때 실행한다.
 
-### 우선 진행: Operator UX
-
-1. `037-frontend-settings-tabs-and-save-scope.md` — Settings 탭과 섹션별 저장
-
 ### 후속: 접근 제어와 오디오 안정성
 
 4. `038-backend-operator-authentication.md` — Operator API와 WebSocket 인증
@@ -68,6 +64,7 @@
 27. `033-frontend-listener-core-ux.md — Listener 핵심 UX`28. `034-e2e-core-live-flow.md` — 핵심 live broadcast 흐름 검증
 28. `035-frontend-broadcast-termination-state.md — Auto Stop 종료 상태와 reason 표시`
 29. `036-frontend-operator-control-sidebar.md — Broadcast 제어 사이드바와 상단 작업`
+30. `037-frontend-settings-tabs-and-save-scope.md — Settings 탭과 섹션별 저장`
 
 ## 결정 사항
 

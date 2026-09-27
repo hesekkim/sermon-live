@@ -43,7 +43,7 @@ class AudioCapture:
 
     def _resolve_device_index(self, audio: pyaudio.PyAudio) -> int | None:
         raw = self._settings.audio_device.strip()
-        if not raw:
+        if not raw or raw.lower() == "default":
             return None
         if raw.isdigit():
             return int(raw)

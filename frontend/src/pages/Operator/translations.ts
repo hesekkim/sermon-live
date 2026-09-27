@@ -5,6 +5,7 @@ export interface OperatorCopy {
   brand: string;
   navSettings: string;
   navBroadcast: string;
+  back: string;
   navSermonSession: string;
   sermonTitle: string;
   sermonSpeaker: string;
@@ -30,6 +31,12 @@ export interface OperatorCopy {
   interpreter: string;
   audioDevice: string;
   audioDevicePlaceholder: string;
+  audioDeviceDefault: string;
+  audioDeviceLoading: string;
+  audioDeviceEmpty: string;
+  audioDeviceSaving: string;
+  audioDeviceRetry: string;
+  audioDeviceSessionConflict: string;
   audioDeviceLoadFailed: string;
   audioTest: string;
   audioTestDevice: string;
@@ -143,6 +150,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     brand: 'Sermon Live',
     navSettings: '설정',
     navBroadcast: '방송',
+    back: '뒤로',
     navSermonSession: '설교',
     sermonTitle: '설교 제목',
     sermonSpeaker: '설교자',
@@ -168,6 +176,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     interpreter: 'API 모델',
     audioDevice: '입력 장치',
     audioDevicePlaceholder: '입력 장치를 선택하세요',
+    audioDeviceDefault: '시스템 기본 장치',
+    audioDeviceLoading: '입력 장치를 불러오는 중입니다',
+    audioDeviceEmpty: '사용 가능한 입력 장치가 없습니다. 시스템 기본 장치를 사용할 수 있습니다.',
+    audioDeviceSaving: '입력 장치를 저장하는 중입니다',
+    audioDeviceRetry: '다시 시도',
+    audioDeviceSessionConflict: '통역 세션을 중지한 뒤 입력 장치를 변경하세요.',
     audioDeviceLoadFailed: '입력 장치를 불러오지 못했습니다',
     audioTest: '오디오 테스트',
     audioTestDevice: '장치',
@@ -279,6 +293,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     brand: 'Sermon Live',
     navSettings: 'Settings',
     navBroadcast: 'Broadcast',
+    back: 'Back',
     navSermonSession: 'Sermon',
     sermonTitle: 'Sermon title',
     sermonSpeaker: 'Speaker',
@@ -304,6 +319,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     interpreter: 'API model',
     audioDevice: 'Input device',
     audioDevicePlaceholder: 'Select an input device',
+    audioDeviceDefault: 'System default',
+    audioDeviceLoading: 'Loading input devices',
+    audioDeviceEmpty: 'No input devices are available. The system default may still be used.',
+    audioDeviceSaving: 'Saving input device',
+    audioDeviceRetry: 'Retry',
+    audioDeviceSessionConflict: 'Stop the translation session before changing the input device.',
     audioDeviceLoadFailed: 'Could not load input devices',
     audioTest: 'Audio test',
     audioTestDevice: 'Device',
@@ -415,6 +436,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     brand: 'Sermon Live',
     navSettings: 'Einstellungen',
     navBroadcast: 'Sendung',
+    back: 'Zurück',
     navSermonSession: 'Predigt',
     sermonTitle: 'Predigttitel',
     sermonSpeaker: 'Prediger',
@@ -440,6 +462,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     interpreter: 'API-Modell',
     audioDevice: 'Eingabegerät',
     audioDevicePlaceholder: 'Eingabegerät auswählen',
+    audioDeviceDefault: 'Systemstandard',
+    audioDeviceLoading: 'Eingabegeräte werden geladen',
+    audioDeviceEmpty: 'Keine Eingabegeräte verfügbar. Der Systemstandard kann weiterhin verwendet werden.',
+    audioDeviceSaving: 'Eingabegerät wird gespeichert',
+    audioDeviceRetry: 'Erneut versuchen',
+    audioDeviceSessionConflict: 'Beenden Sie die Übersetzungssitzung, bevor Sie das Eingabegerät ändern.',
     audioDeviceLoadFailed: 'Eingabegeräte konnten nicht geladen werden',
     audioTest: 'Audio-Test',
     audioTestDevice: 'Gerät',

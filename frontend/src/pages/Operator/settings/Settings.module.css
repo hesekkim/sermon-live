@@ -1,6 +1,7 @@
 .page {
-  width: 100%;
-  max-width: none;
+  width: 50%;
+  min-width: 32rem;
+  max-width: 52rem;
 }
 
 .page h1 {
@@ -8,14 +9,62 @@
   font-size: 1.5rem;
 }
 
+.pageHeader {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: var(--cf-space-8);
+}
+
+.tabList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cf-space-20);
+  margin: 0 0 var(--cf-space-24);
+  border-bottom: 1px solid var(--cms-border);
+}
+
+.tab {
+  position: relative;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--cms-text-muted, var(--cms-text));
+  padding: 0.5rem 0 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.tab:hover {
+  color: var(--cms-text);
+}
+
+.tabActive {
+  border-color: var(--cms-primary);
+  color: var(--cms-primary);
+}
+
 .stack {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--cf-space-20);
   align-items: stretch;
 }
 
+.panelVisible {
+  display: block;
+}
+
+.panelHidden {
+  display: none;
+}
+
 @media (max-width: 900px) {
+  .page {
+    width: 100%;
+    min-width: 0;
+  }
+
   .stack {
     grid-template-columns: 1fr;
   }
@@ -26,10 +75,6 @@
   flex-direction: column;
   gap: var(--cf-space-16);
   height: 100%;
-  padding: var(--cf-space-20);
-  border: 1px solid var(--cms-border);
-  border-radius: var(--cf-radius-input);
-  background: var(--cms-surface);
 }
 
 .section h2 {
@@ -76,7 +121,7 @@
   padding: var(--cf-space-16);
   border: 1px solid var(--cms-border);
   border-radius: var(--cf-radius-input);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--cms-surface);
   transition: opacity 0.2s ease, filter 0.2s ease;
 }
 
