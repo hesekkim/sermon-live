@@ -418,7 +418,10 @@ describe('useBroadcastSession', () => {
       await latestSession.current?.extend();
     });
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/session/extend', { method: 'POST' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/session/extend',
+      expect.objectContaining({ method: 'POST', credentials: 'same-origin' })
+    );
     expect(latestSession.current?.timer?.extensionCount).toBe(1);
     expect(latestSession.current?.timer?.warning).toBe(false);
 

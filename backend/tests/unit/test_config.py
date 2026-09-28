@@ -43,6 +43,13 @@ def test_translation_timer_defaults():
     assert settings.translation_session_hard_limit_minutes == 120
 
 
+def test_operator_auth_secrets_have_no_development_defaults():
+    settings = Settings(_env_file=None)
+
+    assert settings.operator_password is None
+    assert settings.operator_session_secret is None
+
+
 @pytest.mark.parametrize(
     "overrides",
     [

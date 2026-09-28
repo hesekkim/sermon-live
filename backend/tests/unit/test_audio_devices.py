@@ -109,10 +109,9 @@ def test_list_input_devices_keeps_input_devices_even_when_name_mentions_output()
     ]
 
 
-def test_audio_devices_endpoint_returns_empty_list_when_pyaudio_fails():
+def test_audio_devices_endpoint_returns_empty_list_when_pyaudio_fails(operator_client):
     with patch("services.audio_devices.pyaudio.PyAudio", side_effect=RuntimeError):
-        with TestClient(app) as client:
-            response = client.get("/api/v1/audio/devices")
+        response = operator_client.get("/api/v1/audio/devices")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -127,7 +126,7 @@ def test_audio_devices_endpoint_returns_empty_list_when_pyaudio_fails():
     ],
 )
 def test_audio_test_endpoint_reports_input_status(
-    monkeypatch, raw_signal, expected_status, expected_detected_sample_rate
+    monkeypatch, operator_client, raw_signal, expected_status, expected_detected_sample_rate
 ):
     class FakeCapture:
         def __init__(self, _settings: object) -> None:
@@ -146,8 +145,7 @@ def test_audio_test_endpoint_reports_input_status(
     monkeypatch.setattr("api.v1.endpoints.audio.AudioCapture", FakeCapture)
     monkeypatch.setattr("api.v1.endpoints.audio.audio", SimpleNamespace(ready=False))
 
-    with TestClient(app) as client:
-        response = client.post("/api/v1/audio/test")
+    response = operator_client.post("/api/v1/audio/test")
 
     assert response.status_code == 200
     payload = response.json()
@@ -164,19 +162,18 @@ def test_audio_test_endpoint_reports_input_status(
         assert payload["processing_success"] is False
 
 
-def test_audio_test_endpoint_rejects_when_session_is_running(monkeypatch):
+def test_audio_test_endpoint_rejects_when_session_is_running(monkeypatch, operator_client):
     monkeypatch.setattr(
         "api.v1.endpoints.audio.session", SimpleNamespace(state="live")
     )
     monkeypatch.setattr("api.v1.endpoints.audio.audio", SimpleNamespace(ready=False))
-    with TestClient(app) as client:
-        response = client.post("/api/v1/audio/test")
+    response = operator_client.post("/api/v1/audio/test")
 
     assert response.status_code == 409
     assert response.json()["detail"] == "Audio test is unavailable while a session is running"
 
 
-def test_audio_test_endpoint_uses_requested_device(monkeypatch):
+def test_audio_test_endpoint_uses_requested_device(monkeypatch, operator_client):
     captured_devices: list[str] = []
 
     class FakeCapture:
@@ -197,14 +194,13 @@ def test_audio_test_endpoint_uses_requested_device(monkeypatch):
     monkeypatch.setattr("api.v1.endpoints.audio.AudioCapture", FakeCapture)
     monkeypatch.setattr("api.v1.endpoints.audio.audio", SimpleNamespace(ready=False))
 
-    with TestClient(app) as client:
-        response = client.post("/api/v1/audio/test", json={"audio_device": "3"})
+    response = operator_client.post("/api/v1/audio/test", json={"audio_device": "3"})
 
     assert response.status_code == 200
     assert captured_devices == ["3"]
 
 
-def test_stream_audio_test_reports_live_levels_and_final_result(monkeypatch):
+def test_stream_audio_test_reports_live_levels_and_final_result(monkeypatch, operator_client):
     class FakeCapture:
         input_format = (16000, 1, 2)
 
@@ -224,8 +220,7 @@ def test_stream_audio_test_reports_live_levels_and_final_result(monkeypatch):
     monkeypatch.setattr("api.v1.endpoints.audio.AudioCapture", FakeCapture)
     monkeypatch.setattr("api.v1.endpoints.audio.audio", SimpleNamespace(ready=False))
 
-    with TestClient(app) as client:
-        response = client.post("/api/v1/audio/test/stream")
+    response = operator_client.post("/api/v1/audio/test/stream")
 
     assert response.status_code == 200
     events = [json.loads(line) for line in response.text.splitlines()]

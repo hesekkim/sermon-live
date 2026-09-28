@@ -1,6 +1,6 @@
 # 038 Backend Operator 인증과 접근 제어
 
-상태: 대기
+상태: 완료
 우선순위: 높음
 
 ## Goal
@@ -68,3 +68,10 @@ Local PC에서 실행되는 FastAPI에 Operator 인증을 추가해 같은 Wi-Fi
 - HTTP를 계속 사용하는 한 같은 Wi-Fi에서 능동적 공격자가 cookie/password를 가로채는 위험은 제거되지 않는다. HTTPS를 이번 scope에서 제외한다는 사용자 결정을 존중하되 이를 인증만으로 완전히 보호한다고 표현하지 않는다.
 - Listen WebSocket은 공개이므로 같은 네트워크의 누구나 실제 방송 audio/text를 받을 수 있다. 이는 합의된 정책이다.
 - CORS 또는 React route guard만 적용하면 직접 HTTP/WebSocket 호출을 막을 수 없으므로 backend enforcement가 필수다.
+
+## Result
+
+- APP_OPERATOR_PASSWORD와 별도의 32자 이상 APP_OPERATOR_SESSION_SECRET을 추가했다. 인증 설정이 없거나 유효하지 않으면 Operator 기능은 fail-closed 한다.
+- 로그인/세션/로그아웃 API, 서명된 HttpOnly SameSite 쿠키, 명시적 Origin 및 CSRF 검증, 로그인 실패 제한을 구현했다.
+- operator settings/session, audio devices/test/stream 및 `/ws/operator`를 보호하고 Listen 및 health는 공개로 유지했다.
+- backend unit 107개 통과. HTTP 사용의 잔여 위험과 Windows LAN 운영 안내를 README에 기록했다.

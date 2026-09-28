@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { operatorFetch } from '../../auth/operatorAuthApi';
 
 export interface AudioDevice {
 	index: number;
@@ -67,7 +68,7 @@ export function useAudioDevices() {
 		setError(false);
 
 		try {
-			const response = await fetch('/api/v1/audio/devices');
+			const response = await operatorFetch('/api/v1/audio/devices');
 			if (!response.ok) {
 				throw new Error('device request failed');
 			}

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../../src/App';
+import { operatorFetch } from '../../src/pages/Operator/auth/operatorAuthApi';
 
 (globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -42,7 +43,7 @@ function installStorage(initial: Record<string, string> = {}) {
   return values;
 }
 
-function renderApp(initialEntry: string) {
+async function renderApp(initialEntry: string) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -61,6 +62,10 @@ function renderApp(initialEntry: string) {
       </MemoryRouter>
     );
   });
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 
   return {
     container,
@@ -75,25 +80,65 @@ function renderApp(initialEntry: string) {
   };
 }
 
+let isAuthenticated = true;
+let authUnavailable = false;
+let loginInvalid = false;
+let logoutUnavailable = false;
+let logoutForbidden = false;
+let protectedApiForbidden = false;
+
 beforeEach(() => {
   installStorage();
   window.innerWidth = 1920;
   MockWebSocket.instances = [];
+  isAuthenticated = true;
+  authUnavailable = false;
+  loginInvalid = false;
+  logoutUnavailable = false;
+  logoutForbidden = false;
+  protectedApiForbidden = false;
   vi.stubGlobal('WebSocket', MockWebSocket);
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      const payload = url.includes('/operator/settings')
-        ? {
-            interpreter: 'echo',
-            openai_key_set: false,
-            audio_device: '',
-          }
-        : url.includes('/audio/devices')
-          ? [{ index: 0, name: 'Test input', input_channels: 1, default_sample_rate: 16000 }]
-          : { running: false, listener_count: 0 };
-      return { ok: true, json: async () => payload } as Response;
+      let payload: unknown;
+      if (url.includes('/auth/session')) {
+        if (authUnavailable) {
+          return { ok: false, status: 503, json: async () => ({}) } as Response;
+        }
+        payload = { authenticated: isAuthenticated, csrf_token: 'test-csrf-token' };
+      } else if (url.includes('/auth/login')) {
+        if (loginInvalid) {
+          return { ok: false, status: 401, json: async () => ({}) } as Response;
+        }
+        isAuthenticated = true;
+        payload = { authenticated: true, csrf_token: 'test-csrf-token' };
+      } else if (url.includes('/auth/logout')) {
+        if (logoutUnavailable) throw new TypeError('Network request failed');
+        if (logoutForbidden) {
+          return { ok: false, status: 403, json: async () => ({}) } as Response;
+        }
+        isAuthenticated = false;
+        payload = { authenticated: false };
+      } else if (url.includes('/operator/settings')) {
+        payload = {
+          interpreter: 'echo',
+          openai_key_set: false,
+          audio_device: '',
+        };
+      } else if (url.includes('/api/v1/session') && protectedApiForbidden) {
+        return { ok: false, status: 403, json: async () => ({}) } as Response;
+      } else if (url.includes('/audio/devices')) {
+        payload = [{ index: 0, name: 'Test input', input_channels: 1, default_sample_rate: 16000 }];
+      } else {
+        payload = { running: false, listener_count: 0 };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => payload,
+      } as unknown as Response;
     }),
   );
 });
@@ -104,8 +149,8 @@ afterEach(() => {
 });
 
 describe('Operator navigation', () => {
-  it('keeps page navigation out of the sidebar and offers settings and immediate theme actions', () => {
-    const { cleanup, container } = renderApp('/operator');
+  it('keeps page navigation out of the sidebar and offers settings and immediate theme actions', async () => {
+    const { cleanup, container } = await renderApp('/operator');
 
     const sidebar = container.querySelector('aside');
     expect(sidebar?.querySelector('a, nav')).toBeNull();
@@ -127,8 +172,8 @@ describe('Operator navigation', () => {
     cleanup();
   });
 
-  it('keeps the session socket and transcript mounted across settings navigation', () => {
-    const rootRender = renderApp('/operator');
+  it('keeps the session socket and transcript mounted across settings navigation', async () => {
+    const rootRender = await renderApp('/operator');
     const socket = MockWebSocket.instances[0];
 
     expect(socket).toBeDefined();
@@ -151,12 +196,135 @@ describe('Operator navigation', () => {
 
     rootRender.cleanup();
 
-    const settingsRender = renderApp('/operator/settings');
+    const settingsRender = await renderApp('/operator/settings');
     expect(settingsRender.container).toHaveTextContent('설정');
     settingsRender.cleanup();
 
-    const broadcastRender = renderApp('/operator/broadcast');
+    const broadcastRender = await renderApp('/operator/broadcast');
     expect(broadcastRender.container).toHaveTextContent('입력 (한국어)');
     broadcastRender.cleanup();
+  });
+
+  it('gates Operator routes until login and returns to the requested route after logout', async () => {
+    isAuthenticated = false;
+    const page = await renderApp('/operator/settings');
+
+    expect(page.container).toHaveTextContent('Operator 로그인');
+    expect(page.container).not.toHaveTextContent('API 모델');
+
+    const password = page.container.querySelector('input[type="password"]') as HTMLInputElement;
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    act(() => {
+      valueSetter?.call(password, 'not-saved-password');
+      password.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const submitButton = Array.from(page.container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('로그인')) as HTMLButtonElement;
+    await act(async () => {
+      submitButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(page.container).toHaveTextContent('API 모델');
+    expect(page.container.querySelector('input[type="password"]')).toBeNull();
+
+    await act(async () => {
+      (page.container.querySelector('button[aria-label="로그아웃"]') as HTMLButtonElement).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(page.container).toHaveTextContent('Operator 로그인');
+    page.cleanup();
+  });
+
+  it('shows invalid password feedback inside the password InputField', async () => {
+    isAuthenticated = false;
+    loginInvalid = true;
+    const page = await renderApp('/operator');
+    const password = page.container.querySelector('input[type="password"]') as HTMLInputElement;
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    act(() => {
+      valueSetter?.call(password, 'incorrect-password');
+      password.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const submitButton = Array.from(page.container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('로그인')) as HTMLButtonElement;
+
+    await act(async () => {
+      submitButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(page.container.querySelector('input[type="password"]')).toHaveAttribute('aria-invalid', 'true');
+    expect(page.container.querySelector('.input-field__error-message')).toHaveTextContent('비밀번호가 올바르지 않습니다');
+    page.cleanup();
+  });
+
+  it('shows only a session retry action while authentication is unavailable', async () => {
+    authUnavailable = true;
+    const page = await renderApp('/operator');
+
+    expect(page.container).toHaveTextContent('인증 서버에 연결할 수 없습니다');
+    expect(page.container.querySelector('input[type="password"]')).toBeNull();
+    expect(page.container.querySelector('button')).toHaveTextContent('다시 시도');
+    const buttonLabels = Array.from(page.container.querySelectorAll('button'))
+      .map((button) => button.textContent?.trim());
+    expect(buttonLabels).not.toContain('로그인');
+
+    page.cleanup();
+  });
+
+  it('returns to the login gate when a protected request is forbidden', async () => {
+    const page = await renderApp('/operator');
+    protectedApiForbidden = true;
+
+    await act(async () => {
+      await operatorFetch('/api/v1/session');
+      await Promise.resolve();
+    });
+
+    expect(page.container).toHaveTextContent('Operator 로그인');
+    expect(page.container).not.toHaveTextContent('API 모델');
+    page.cleanup();
+  });
+
+  it('keeps the operator page open and reports logout network failures', async () => {
+    const page = await renderApp('/operator');
+    logoutUnavailable = true;
+
+    await act(async () => {
+      (page.container.querySelector('button[aria-label="로그아웃"]') as HTMLButtonElement).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.body).toHaveTextContent('로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.');
+    expect(page.container).toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('Operator 로그인');
+    page.cleanup();
+  });
+
+  it('keeps the operator page open when the server rejects logout', async () => {
+    const page = await renderApp('/operator');
+    logoutForbidden = true;
+
+    await act(async () => {
+      (page.container.querySelector('button[aria-label="로그아웃"]') as HTMLButtonElement).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.body).toHaveTextContent('로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.');
+    expect(page.container).toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('Operator 로그인');
+    page.cleanup();
   });
 });

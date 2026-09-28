@@ -1,6 +1,6 @@
 # 039 Frontend Operator 로그인 흐름
 
-상태: 대기
+상태: 완료
 우선순위: 높음
 
 ## Goal
@@ -57,3 +57,9 @@ Backend 인증 없이 route를 숨기는 것만으로는 보안이 되지 않지
 - Backend와 frontend가 서로 다른 cookie path/SameSite/Origin 가정을 하면 로그인은 성공해도 WebSocket 인증이 실패할 수 있다.
 - Operator UI가 세션 상태를 여러 layout hook에서 중복 fetch하면 redirect loop가 생길 수 있으므로 auth state owner를 하나로 둔다.
 - 이 ticket만으로 API가 보호되지는 않는다. 038 backend ticket이 배포 전에 반드시 완료되어야 한다.
+
+## Result
+
+- Operator route에서 server session을 먼저 확인하고, 미인증 상태에는 로그인 화면을 표시한다. 로그인 후 원래 route를 유지하고 로그아웃 시 gate로 돌아간다.
+- 비밀번호는 브라우저 저장소에 보관하지 않으며, CSRF 토큰은 메모리에서 관리한다. 인증 backend가 unavailable이면 Retry만 표시한다.
+- Listen route는 로그인 없이 유지된다. frontend unit 65개와 production build가 통과했다.

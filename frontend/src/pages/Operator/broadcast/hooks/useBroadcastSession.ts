@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { operatorFetch } from '../../auth/operatorAuthApi';
 import type { OperatorCopy } from '../../translations';
 import { appendTranscriptLine } from '../utils/transcriptFile';
 
@@ -150,7 +151,7 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
   const refreshStatus = useCallback(async () => {
     const requestGeneration = ++statusRequestGenerationRef.current;
     try {
-      const response = await fetch('/api/v1/session');
+      const response = await operatorFetch('/api/v1/session');
       if (!response.ok) throw new Error('Session status unavailable');
       const data = (await response.json()) as SessionStatus;
       if (
@@ -331,7 +332,7 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
     statusRequestGenerationRef.current += 1;
     startRequestPendingRef.current = true;
     try {
-      const response = await fetch('/api/v1/session/start', { method: 'POST' });
+      const response = await operatorFetch('/api/v1/session/start', { method: 'POST' });
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { detail?: string } | null;
         const detail = body?.detail ?? 'start failed';
@@ -353,12 +354,12 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
     }
   }, [applyStatus]);
   const stop = useCallback(async () => {
-    const response = await fetch('/api/v1/session/stop', { method: 'POST' });
+    const response = await operatorFetch('/api/v1/session/stop', { method: 'POST' });
     if (!response.ok) throw new Error('stop failed');
     applyStatus((await response.json()) as SessionStatus);
   }, [applyStatus]);
   const extend = useCallback(async () => {
-    const response = await fetch('/api/v1/session/extend', { method: 'POST' });
+    const response = await operatorFetch('/api/v1/session/extend', { method: 'POST' });
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as { detail?: string } | null;
       const detail = body?.detail ?? 'extend failed';

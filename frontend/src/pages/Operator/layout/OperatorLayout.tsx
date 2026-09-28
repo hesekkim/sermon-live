@@ -1,5 +1,5 @@
 import { Link, Outlet } from 'react-router-dom';
-import { LuMoon, LuPower, LuPowerOff, LuSettings, LuSun } from 'react-icons/lu';
+import { LuLogOut, LuMoon, LuPower, LuPowerOff, LuSettings, LuSun } from 'react-icons/lu';
 import { useRef } from 'react';
 import Button from '../../../shared/components/Button/Button';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
@@ -17,7 +17,7 @@ export interface OperatorOutletContext {
   outputLines: string[];
 }
 
-export default function OperatorLayout() {
+export default function OperatorLayout({ onLogout }: { onLogout: () => Promise<void> }) {
   const { labels, theme, setTheme } = useOperatorPrefs();
   const { error: toastError } = useToast();
   const sessionErrorDuringAttemptRef = useRef(false);
@@ -41,6 +41,13 @@ export default function OperatorLayout() {
   const powerTitle = startDisabled
     ? session.serverStatus !== 'online' ? labels.serverOffline : session.startBlockReason || powerLabel
     : powerLabel;
+  const handleLogout = async () => {
+    try {
+      await onLogout();
+    } catch {
+      toastError(labels.operatorAuthLogoutFailed);
+    }
+  };
 
   return (
     <div className={`cms-theme ${styles.shell}`}>
@@ -86,6 +93,15 @@ export default function OperatorLayout() {
       <main className={styles.content}>
         <header className={styles.topbar}>
           <div className={styles.topActions}>
+            <button
+              type="button"
+              className={styles.iconButton}
+              aria-label={labels.operatorAuthLogout}
+              title={labels.operatorAuthLogout}
+              onClick={() => void handleLogout()}
+            >
+              <LuLogOut size={20} aria-hidden />
+            </button>
             <Link
               to="/operator/settings"
               className={styles.iconButton}

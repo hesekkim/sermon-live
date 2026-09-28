@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { operatorFetch } from '../auth/operatorAuthApi';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import type { OperatorCopy } from '../translations';
 
@@ -51,7 +52,7 @@ export function useSermonSession(labels: OperatorCopy) {
 
     void (async () => {
       try {
-        const response = await fetch('/api/v1/sermon-session');
+        const response = await operatorFetch('/api/v1/sermon-session');
         if (!response.ok) throw new Error('load failed');
         const data = (await response.json()) as SermonSessionResponse;
         if (!isMounted) return;
@@ -70,7 +71,7 @@ export function useSermonSession(labels: OperatorCopy) {
       }
     })();
 
-    void fetch('/api/v1/session')
+    void operatorFetch('/api/v1/session')
       .then(async (response) => {
         if (!response.ok) return;
         const data = (await response.json()) as SessionStatusResponse;
@@ -99,7 +100,7 @@ export function useSermonSession(labels: OperatorCopy) {
       if (!isMounted || socketFailureHandled) return;
       socketFailureHandled = true;
       setIsBroadcastRunning(false);
-      void fetch('/api/v1/session')
+      void operatorFetch('/api/v1/session')
         .then(async (response) => {
           if (!response.ok) return;
           const data = (await response.json()) as SessionStatusResponse;
@@ -126,7 +127,7 @@ export function useSermonSession(labels: OperatorCopy) {
     if (isSaving) return;
     setIsSaving(true);
     try {
-      const response = await fetch('/api/v1/sermon-session', {
+      const response = await operatorFetch('/api/v1/sermon-session', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(details),

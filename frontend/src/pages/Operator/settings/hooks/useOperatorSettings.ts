@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { operatorFetch } from '../../auth/operatorAuthApi';
 import { useToast } from '../../../../shared/components/Toast/ToastProvider';
 import type { OperatorCopy, UiLanguage } from '../../translations';
 
@@ -91,7 +92,7 @@ export function useOperatorSettings({
 		settingsLoadStartedRef.current = true;
 		void (async () => {
 			try {
-				const response = await fetch('/api/v1/operator/settings');
+				const response = await operatorFetch('/api/v1/operator/settings');
 				if (!response.ok) {
 					error(labels.settingsLoadFailed);
 					return;
@@ -119,7 +120,7 @@ export function useOperatorSettings({
 		if (isSaving) return { success: false as const, message: labels.applyFailed };
 		setIsSaving(true);
 		try {
-			const response = await fetch('/api/v1/operator/settings', {
+			const response = await operatorFetch('/api/v1/operator/settings', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(body),

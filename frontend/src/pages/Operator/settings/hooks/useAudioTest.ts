@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { operatorFetch } from '../../auth/operatorAuthApi';
 
 export interface AudioTestResult {
 	status: 'disconnected' | 'silent' | 'signal';
@@ -38,7 +39,7 @@ export function useAudioTest(selectedDevice = '') {
 		setError(null);
 
 		try {
-			const response = await fetch('/api/v1/audio/test/stream', {
+			const response = await operatorFetch('/api/v1/audio/test/stream', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ audio_device: selectedDevice }),

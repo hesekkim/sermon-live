@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from services.operator_auth import require_http_operator
 from services.sermon_session import store
 
 router = APIRouter()
@@ -15,7 +16,9 @@ class SermonSessionBody(BaseModel):
     status: str | None = Field(default=None)
 
 
-@router.get("/api/v1/sermon-session")
+@router.get(
+    "/api/v1/sermon-session", dependencies=[Depends(require_http_operator)]
+)
 def get_sermon_session() -> dict[str, object]:
     record = store.load()
     return {
@@ -29,7 +32,9 @@ def get_sermon_session() -> dict[str, object]:
     }
 
 
-@router.put("/api/v1/sermon-session")
+@router.put(
+    "/api/v1/sermon-session", dependencies=[Depends(require_http_operator)]
+)
 def put_sermon_session(body: SermonSessionBody) -> dict[str, object]:
     try:
         record = store.save(

@@ -176,7 +176,10 @@ describe('useSermonSession', () => {
     });
 
     expect(state.lifecycle).toBe('ready');
-    expect(fetchMock).toHaveBeenLastCalledWith('/api/v1/session');
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      '/api/v1/session',
+      expect.objectContaining({ credentials: 'same-origin' })
+    );
     cleanup();
   });
 });

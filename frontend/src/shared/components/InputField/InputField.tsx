@@ -17,6 +17,7 @@ export interface InputFieldProps {
   error?: boolean;
   errorMessage?: string;
   disabled?: boolean;
+  autoComplete?: string;
   multiline?: boolean;
   clearable?: boolean;
   clearButtonLabel?: string;
@@ -58,6 +59,7 @@ const InputField = forwardRef<
     error = false,
     errorMessage = '',
     disabled = false,
+    autoComplete,
     multiline = false,
     clearable = false,
     clearButtonLabel = 'Clear input',
@@ -124,6 +126,7 @@ const InputField = forwardRef<
     onChange: handleChange,
     placeholder,
     disabled,
+    autoComplete,
     name,
     required,
     maxLength,
@@ -198,7 +201,7 @@ const InputField = forwardRef<
       </div>
 
       {error && errorMessage && (
-        <span className={styles['input-field__error-message']}>
+        <span className={styles['input-field__error-message']} role="alert">
           {errorMessage}
         </span>
       )}

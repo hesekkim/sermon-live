@@ -1,7 +1,7 @@
 import json
 from typing import AsyncIterator, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -10,6 +10,7 @@ from services.audio_capture import AudioCapture
 from services.audio_devices import list_input_devices
 from services.audio_processor import AudioProcessor
 from services.runtime import audio, session
+from services.operator_auth import require_http_operator
 
 router = APIRouter()
 AUDIO_TEST_DURATION_SECONDS = 3.0
@@ -74,12 +75,20 @@ def _audio_test_result(
     )
 
 
-@router.get("/api/v1/audio/devices", response_model=list[AudioDeviceResponse])
+@router.get(
+    "/api/v1/audio/devices",
+    response_model=list[AudioDeviceResponse],
+    dependencies=[Depends(require_http_operator)],
+)
 def get_audio_devices() -> list[dict[str, object]]:
     return list_input_devices()
 
 
-@router.post("/api/v1/audio/test", response_model=AudioTestResponse)
+@router.post(
+    "/api/v1/audio/test",
+    response_model=AudioTestResponse,
+    dependencies=[Depends(require_http_operator)],
+)
 async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTestResponse:
     if session.state in ("starting", "live", "stopping"):
         raise HTTPException(
@@ -149,7 +158,9 @@ async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTest
             await capture.stop()
 
 
-@router.post("/api/v1/audio/test/stream")
+@router.post(
+    "/api/v1/audio/test/stream", dependencies=[Depends(require_http_operator)]
+)
 async def stream_audio_test(request: AudioTestRequest | None = None) -> StreamingResponse:
     if session.state in ("starting", "live", "stopping"):
         raise HTTPException(

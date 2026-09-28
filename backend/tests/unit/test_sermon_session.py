@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
 
-from main import app
 from services.sermon_session import SermonSessionStore
 
 
@@ -59,31 +57,46 @@ def test_sermon_session_allows_new_sermon_after_ending(tmp_path):
     assert second.status == "prepare"
 
 
-def test_sermon_session_api_round_trip(tmp_path, monkeypatch):
+def test_sermon_session_api_requires_auth_and_round_trips(tmp_path, monkeypatch, operator_client):
     from services.sermon_session import store
 
     monkeypatch.setattr(store, "_path", tmp_path / "sermon_session.json")
 
-    with TestClient(app) as client:
-        get_response = client.get("/api/v1/sermon-session")
-        assert get_response.status_code == 200
-        assert get_response.json()["status"] == "prepare"
+    operator_client.cookies.clear()
+    assert operator_client.get("/api/v1/sermon-session").status_code == 401
+    assert operator_client.put(
+        "/api/v1/sermon-session", json={"title": "Unauthorized"}
+    ).status_code == 401
 
-        put_response = client.put(
-            "/api/v1/sermon-session",
-            json={
-                "title": "Sunday Sermon",
-                "speaker": "Pastor Kim",
-                "bible_reference": "John 1:1-5",
-                "bible_text": "In the beginning was the Word.",
-                "notes": "Prepare a short introduction.",
-                "status": "ready",
-            },
-        )
+    login_response = operator_client.post(
+        "/api/v1/auth/login",
+        json={"password": "test-only-password"},
+        headers={"Origin": "http://testserver"},
+    )
+    assert login_response.status_code == 200
+    operator_client.headers.update(
+        {"X-CSRF-Token": login_response.json()["csrf_token"]}
+    )
 
-        assert put_response.status_code == 200
-        payload = put_response.json()
-        assert payload["title"] == "Sunday Sermon"
-        assert payload["speaker"] == "Pastor Kim"
-        assert payload["status"] == "ready"
-        assert payload["sermon_id"]
+    get_response = operator_client.get("/api/v1/sermon-session")
+    assert get_response.status_code == 200
+    assert get_response.json()["status"] == "prepare"
+
+    put_response = operator_client.put(
+        "/api/v1/sermon-session",
+        json={
+            "title": "Sunday Sermon",
+            "speaker": "Pastor Kim",
+            "bible_reference": "John 1:1-5",
+            "bible_text": "In the beginning was the Word.",
+            "notes": "Prepare a short introduction.",
+            "status": "ready",
+        },
+    )
+
+    assert put_response.status_code == 200
+    payload = put_response.json()
+    assert payload["title"] == "Sunday Sermon"
+    assert payload["speaker"] == "Pastor Kim"
+    assert payload["status"] == "ready"
+    assert payload["sermon_id"]

@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Broadcast from './pages/Operator/broadcast/Broadcast.tsx';
-import OperatorLayout from './pages/Operator/layout/OperatorLayout.tsx';
+import OperatorAuthGate from './pages/Operator/auth/OperatorAuthGate.tsx';
 import { OperatorPrefsProvider } from './pages/Operator/OperatorPrefs.tsx';
 import Settings from './pages/Operator/settings/Settings.tsx';
 import SermonSession from './pages/Operator/sermon-session/SermonSession.tsx';
@@ -24,7 +24,7 @@ export default function App() {
         element={
           <OperatorPrefsProvider>
             <OperatorProviders>
-              <OperatorLayout />
+              <OperatorAuthGate />
             </OperatorProviders>
           </OperatorPrefsProvider>
         }

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from core.config import InterpreterName, get_settings
@@ -7,6 +7,7 @@ from services.key_validation import validate_operator_key
 from services.operator_store import store
 from services.runtime import audio, session
 from services.session_service import SessionTransitionError
+from services.operator_auth import require_http_operator, require_websocket_operator
 
 router = APIRouter()
 
@@ -25,13 +26,17 @@ class StartSessionBody(BaseModel):
     sermon_session_id: str | None = Field(default=None)
 
 
-@router.get("/api/v1/operator/settings")
+@router.get(
+    "/api/v1/operator/settings", dependencies=[Depends(require_http_operator)]
+)
 async def get_operator_settings() -> dict[str, object]:
     await validate_operator_key(get_settings(), store)
     return store.public_view(get_settings())
 
 
-@router.put("/api/v1/operator/settings")
+@router.put(
+    "/api/v1/operator/settings", dependencies=[Depends(require_http_operator)]
+)
 async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]:
     current_settings = get_settings()
     previous_device = store.public_view(current_settings)["audio_device"]
@@ -73,12 +78,14 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
     return store.public_view(get_settings())
 
 
-@router.get("/api/v1/session")
+@router.get("/api/v1/session", dependencies=[Depends(require_http_operator)])
 def get_session() -> dict[str, object]:
     return session.status()
 
 
-@router.post("/api/v1/session/start")
+@router.post(
+    "/api/v1/session/start", dependencies=[Depends(require_http_operator)]
+)
 async def start_session(body: StartSessionBody | None = None) -> dict[str, object]:
     try:
         await session.start(body.sermon_session_id if body else None)
@@ -93,7 +100,9 @@ async def start_session(body: StartSessionBody | None = None) -> dict[str, objec
     return session.status()
 
 
-@router.post("/api/v1/session/stop")
+@router.post(
+    "/api/v1/session/stop", dependencies=[Depends(require_http_operator)]
+)
 async def stop_session() -> dict[str, object]:
     try:
         await session.stop()
@@ -102,7 +111,9 @@ async def stop_session() -> dict[str, object]:
     return session.status()
 
 
-@router.post("/api/v1/session/extend")
+@router.post(
+    "/api/v1/session/extend", dependencies=[Depends(require_http_operator)]
+)
 async def extend_session() -> dict[str, object]:
     try:
         await session.extend_session()
@@ -115,6 +126,8 @@ async def extend_session() -> dict[str, object]:
 
 @router.websocket("/ws/operator")
 async def operator_socket(websocket: WebSocket) -> None:
+    if not await require_websocket_operator(websocket):
+        return
     await hub.register(websocket, kind="operator")
     await websocket.send_json(session.session_event())
     try:

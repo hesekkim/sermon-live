@@ -147,11 +147,13 @@ describe('useAudioTest', () => {
       '/api/v1/audio/test/stream',
       expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ audio_device: '1' }),
         signal: expect.any(AbortSignal),
       })
     );
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(new Headers(request.headers).get('Content-Type')).toBe('application/json');
     expect(state.result?.status).toBe('signal');
     expect(state.result?.detected_sample_rate).toBe(48000);
     expect(state.result?.input_level_dbfs).toBe(-12.5);

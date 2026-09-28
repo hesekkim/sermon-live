@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import field_validator, model_validator
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 InterpreterName = Literal["echo", "openai"]
@@ -26,6 +27,8 @@ class Settings(BaseSettings):
     ]
     interpreter: InterpreterName = "echo"
     openai_api_key: str = ""
+    operator_password: SecretStr | None = None
+    operator_session_secret: SecretStr | None = None
     # Verify the model name against the official API when the OpenAI adapter is implemented.
     openai_model: str = "gpt-realtime-translate"
     translation_target_language: str = "de"

@@ -143,6 +143,15 @@ export interface OperatorCopy {
   sessionError: string;
   sessionErrorLabel: string;
   toastClose: string;
+  operatorAuthTitle: string;
+  operatorAuthPassword: string;
+  operatorAuthSubmit: string;
+  operatorAuthChecking: string;
+  operatorAuthUnavailable: string;
+  operatorAuthInvalid: string;
+  operatorAuthRetry: string;
+  operatorAuthLogout: string;
+  operatorAuthLogoutFailed: string;
 }
 
 export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
@@ -288,6 +297,15 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionError: '방송 처리 중 오류가 발생했습니다',
     sessionErrorLabel: '세션 오류',
     toastClose: '닫기',
+    operatorAuthTitle: 'Operator 로그인',
+    operatorAuthPassword: '비밀번호',
+    operatorAuthSubmit: '로그인',
+    operatorAuthChecking: '인증 상태를 확인하고 있습니다',
+    operatorAuthUnavailable: '인증 서버에 연결할 수 없습니다. 설정과 서버 상태를 확인하세요.',
+    operatorAuthInvalid: '비밀번호가 올바르지 않습니다',
+    operatorAuthRetry: '다시 시도',
+    operatorAuthLogout: '로그아웃',
+    operatorAuthLogoutFailed: '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.',
   },
   en: {
     brand: 'Sermon Live',
@@ -431,6 +449,15 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionError: 'A broadcast error occurred',
     sessionErrorLabel: 'Session error',
     toastClose: 'Close',
+    operatorAuthTitle: 'Operator sign in',
+    operatorAuthPassword: 'Password',
+    operatorAuthSubmit: 'Sign in',
+    operatorAuthChecking: 'Checking authentication',
+    operatorAuthUnavailable: 'Authentication is unavailable. Check the server and its configuration.',
+    operatorAuthInvalid: 'The password is incorrect',
+    operatorAuthRetry: 'Retry',
+    operatorAuthLogout: 'Sign out',
+    operatorAuthLogoutFailed: 'Sign out failed. Check your connection and try again.',
   },
   de: {
     brand: 'Sermon Live',
@@ -574,5 +601,14 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionError: 'Während der Sendung ist ein Fehler aufgetreten',
     sessionErrorLabel: 'Sitzungsfehler',
     toastClose: 'Schließen',
+    operatorAuthTitle: 'Operator-Anmeldung',
+    operatorAuthPassword: 'Passwort',
+    operatorAuthSubmit: 'Anmelden',
+    operatorAuthChecking: 'Authentifizierung wird geprüft',
+    operatorAuthUnavailable: 'Authentifizierung nicht verfügbar. Server und Konfiguration prüfen.',
+    operatorAuthInvalid: 'Das Passwort ist falsch',
+    operatorAuthRetry: 'Erneut versuchen',
+    operatorAuthLogout: 'Abmelden',
+    operatorAuthLogoutFailed: 'Abmelden fehlgeschlagen. Verbindung prüfen und erneut versuchen.',
   },
 };
