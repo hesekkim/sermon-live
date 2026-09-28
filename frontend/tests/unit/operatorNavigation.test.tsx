@@ -172,6 +172,16 @@ describe('Operator navigation', () => {
     cleanup();
   });
 
+  it('redirects the disabled sermon session route to Broadcast', async () => {
+    const page = await renderApp('/operator/sermon-session');
+
+    expect(page.container).toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('설교 제목');
+    expect(page.container.querySelector('a[aria-label="설정"]')).not.toBeNull();
+
+    page.cleanup();
+  });
+
   it('keeps the session socket and transcript mounted across settings navigation', async () => {
     const rootRender = await renderApp('/operator');
     const socket = MockWebSocket.instances[0];

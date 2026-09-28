@@ -1,6 +1,6 @@
 # 042 Sermon Session API와 Operator 진입 경로 비활성화
 
-상태: 대기
+상태: 완료
 우선순위: 중간
 
 ## Goal

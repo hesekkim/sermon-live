@@ -22,10 +22,6 @@ class OperatorSettingsBody(BaseModel):
     translation_session_hard_limit_minutes: int | None = Field(default=None, gt=0)
 
 
-class StartSessionBody(BaseModel):
-    sermon_session_id: str | None = Field(default=None)
-
-
 @router.get(
     "/api/v1/operator/settings", dependencies=[Depends(require_http_operator)]
 )
@@ -86,9 +82,9 @@ def get_session() -> dict[str, object]:
 @router.post(
     "/api/v1/session/start", dependencies=[Depends(require_http_operator)]
 )
-async def start_session(body: StartSessionBody | None = None) -> dict[str, object]:
+async def start_session() -> dict[str, object]:
     try:
-        await session.start(body.sermon_session_id if body else None)
+        await session.start()
     except SessionTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except NotImplementedError as exc:

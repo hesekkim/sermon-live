@@ -11,7 +11,6 @@ from services.broadcast import BroadcastHub
 from services.interpreters.factory import create_interpreter
 from services.interpreters.protocol import KeyValidationError, LiveInterpreter
 from services.operator_store import OperatorSettingsStore, store as default_store
-from services.sermon_session import SermonSessionStore, store as default_sermon_store
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +36,13 @@ class _TranslationSessionService:
         hub: BroadcastHub,
         audio: AudioRuntime,
         operator_store: OperatorSettingsStore | None = None,
-        sermon_store: SermonSessionStore | None = None,
     ) -> None:
         self._settings = settings
         self._hub = hub
         self._audio = audio
         self._store = operator_store or default_store
-        self._sermon_store = sermon_store or default_sermon_store
         self._state: SessionState = "off"
         self._error: str | None = None
-        self._sermon_session_id: str | None = None
         self._last_termination_reason: str | None = None
         self._interpreter: LiveInterpreter | None = None
         self._audio_task: asyncio.Task[None] | None = None
@@ -79,7 +75,6 @@ class _TranslationSessionService:
             "audio_ready": self._audio.ready,
             "audio_error": self._audio.error,
             "error": self._error,
-            "sermon_session_id": self._sermon_session_id,
             "last_termination_reason": self._last_termination_reason,
             "start_available": start_block_reason is None,
             "start_block_reason": start_block_reason,
@@ -185,7 +180,7 @@ class _TranslationSessionService:
             await asyncio.sleep(1.0)
             await self._refresh_timer_state()
 
-    async def start(self, sermon_session_id: str | None = None) -> None:
+    async def start(self) -> None:
         async with self._transition_lock:
             if self._state not in ("off", "error"):
                 raise SessionTransitionError(
@@ -201,9 +196,6 @@ class _TranslationSessionService:
             self._state = "starting"
             self._error = None
             self._last_termination_reason = None
-            self._sermon_session_id = (
-                sermon_session_id or self._sermon_store.load().sermon_id or None
-            )
             self._timer_started_at = None
             self._timer_deadline_at = None
             self._timer_warning_sent = False
@@ -261,7 +253,6 @@ class _TranslationSessionService:
             async with self._transition_lock:
                 self._state = "error"
                 self._error = message
-                self._sermon_session_id = None
                 await self._publish_error(message)
                 await self._publish_status()
             raise
@@ -336,7 +327,6 @@ class _TranslationSessionService:
             self._audio_task = None
             self._event_task = None
             self._active_settings = None
-            self._sermon_session_id = None
             self._state = "off"
             await self._publish_status()
 
@@ -771,9 +761,8 @@ class SessionService(_TranslationSessionService):
         hub: BroadcastHub,
         audio: AudioRuntime,
         operator_store: OperatorSettingsStore | None = None,
-        sermon_store: SermonSessionStore | None = None,
     ) -> None:
-        super().__init__(settings, hub, audio, operator_store, sermon_store)
+        super().__init__(settings, hub, audio, operator_store)
         self._first_audio_chunk_since_text_sent_at: float | None = None
 
     async def _pump_audio(self, queue: asyncio.Queue[bytes | None]) -> None:

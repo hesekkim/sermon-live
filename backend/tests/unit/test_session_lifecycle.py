@@ -7,7 +7,6 @@ from services import session_service as session_service_module
 from services.broadcast import BroadcastHub
 from services.interpreters.protocol import InterpreterEvent
 from services.operator_store import OperatorSettingsStore
-from services.sermon_session import SermonSessionStore
 from services.session_service import SessionService, SessionTransitionError
 
 
@@ -99,7 +98,6 @@ def make_service(tmp_path, *, audio=None, settings=None, operator_store=None):
         hub,
         audio or FakeAudioRuntime(),
         operator_store=operator_store or OperatorSettingsStore(tmp_path / "operator.json"),
-        sermon_store=SermonSessionStore(tmp_path / "sermon.json"),
     )
     return service, hub
 
@@ -109,9 +107,9 @@ async def test_start_stop_keeps_server_audio_ready_and_rejects_duplicate_transit
     audio = FakeAudioRuntime()
     service, hub = make_service(tmp_path, audio=audio)
 
-    await service.start("sermon-current")
+    await service.start()
     assert service.state == "live"
-    assert service.status()["sermon_session_id"] == "sermon-current"
+    assert "sermon_session_id" not in service.status()
     await audio.queue.put(b"\x01\x00\x02\x00")
     await asyncio.wait_for(hub.audio_received.wait(), timeout=1)
     with pytest.raises(SessionTransitionError):
@@ -493,25 +491,6 @@ async def test_device_error_ends_live_session_with_reason(tmp_path):
     assert service.status()["last_termination_reason"] == "device_error"
     assert hub.operator_events[-1]["reason"] == "device_error"
     assert hub.listener_events[-1] == hub.operator_events[-1]
-
-
-@pytest.mark.asyncio
-async def test_current_sermon_session_is_linked_by_default(tmp_path):
-    sermon_store = SermonSessionStore(tmp_path / "sermon.json")
-    record = sermon_store.save(title="Sunday", status="ready")
-    hub = FakeHub()
-    service = SessionService(
-        Settings(interpreter="echo"),
-        hub,
-        FakeAudioRuntime(),
-        operator_store=OperatorSettingsStore(tmp_path / "operator.json"),
-        sermon_store=sermon_store,
-    )
-
-    await service.start()
-
-    assert service.status()["sermon_session_id"] == record.sermon_id
-    await service.stop()
 
 
 def test_broadcast_hub_sends_identical_lifecycle_event_to_both_client_groups():

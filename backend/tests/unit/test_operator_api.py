@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+from fastapi.routing import APIRoute
+
 from main import app
 from services.operator_store import store
 
@@ -8,6 +10,18 @@ def test_session_is_idle_until_started(operator_client):
     response = operator_client.get("/api/v1/session")
     assert response.status_code == 200
     assert response.json()["running"] is False
+    assert "sermon_session_id" not in response.json()
+
+
+def test_sermon_session_routes_are_not_registered(operator_client):
+    registered_routes = {
+        (route.path, method)
+        for route in app.routes
+        if isinstance(route, APIRoute)
+        for method in route.methods or ()
+    }
+    assert ("/api/v1/sermon-session", "GET") not in registered_routes
+    assert ("/api/v1/sermon-session", "PUT") not in registered_routes
 
 
 def test_operator_settings_roundtrip(operator_client, tmp_path):

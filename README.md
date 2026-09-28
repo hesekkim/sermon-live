@@ -57,3 +57,7 @@ Phones must use the laptop LAN IP, not `localhost`.
 `APP_INTERPRETER=echo|openai`
 
 Pipeline code must not branch on vendor names. Add a new provider by implementing `LiveInterpreter` and registering it in the factory.
+
+## Sermon Session
+
+Sermon Session is intentionally inactive in the application: its API router and Operator page route are not registered, and translation sessions do not load or expose sermon data. The endpoint, store, UI source, and JSON data are retained for possible future work; reactivation requires explicitly registering the routes again.
