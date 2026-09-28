@@ -14,14 +14,14 @@
 
 ### 운영 UX와 환경설정 정합성
 
-7. `044-frontend-listen-settings-ux-polish.md` — Listener 듣기/다운로드와 Settings Apply/focus 동작 보정
-8. `045-backend-env-example-config-parity.md` — 환경변수 예제와 Settings config 정합성
+1. `044-frontend-listen-settings-ux-polish.md` — Listener 듣기/다운로드와 Settings Apply/focus 동작 보정
+2. `045-backend-env-example-config-parity.md` — 환경변수 예제와 Settings config 정합성
 
 ### 기존 후속 기능
 
-10. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
-11. `019-backend-glossary-model.md` — Global + Today's Sermon Glossary 최소 모델
-12. `021-frontend-glossary-ui.md` — Settings의 Global Glossary와 Sermon의 Today's Glossary UI
+3. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
+4. `019-backend-glossary-model.md` — Global + Today's Sermon Glossary 최소 모델
+5. `021-frontend-glossary-ui.md` — Settings의 Global Glossary와 Sermon의 Today's Glossary UI
 
 ## 보류 (`hold/`)
 
