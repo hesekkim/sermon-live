@@ -12,10 +12,6 @@
 
 개인 예배용 실시간 통역 운영 기능. Server는 계속 실행할 수 있고, 비용이 발생하는 Translation Session만 필요할 때 실행한다.
 
-### 후속: 접근 제어와 오디오 안정성
-
-6. `043-backend-session-service-test-alignment.md` — 활성 SessionService 기준 테스트 정렬
-
 ### 운영 UX와 환경설정 정합성
 
 7. `044-frontend-listen-settings-ux-polish.md` — Listener 듣기/다운로드와 Settings Apply/focus 동작 보정
@@ -68,8 +64,9 @@
 31. `038-backend-operator-authentication.md — Operator API, audio API와 WebSocket 인증`
 32. `039-frontend-operator-login.md — Operator 로그인 gate와 로그아웃 흐름`
 33. `040-backend-audio-format-negotiation.md` — 장치 입력 포맷 협상과 변환 target
-36. `041-backend-audio-queue-overflow-observability.md` — duration 기준 큐 포화, 손실 계측과 bounded drain
-37. `042-disable-sermon-session-routes.md` — Sermon Session API/Operator route 비활성화, 소스와 데이터 보존
+34. `041-backend-audio-queue-overflow-observability.md` — duration 기준 큐 포화, 손실 계측과 bounded drain
+35. `042-disable-sermon-session-routes.md` — Sermon Session API/Operator route 비활성화, 소스와 데이터 보존
+36. `043-backend-session-service-test-alignment.md — 활성 SessionService 기준 테스트 정렬`
 
 ## 결정 사항
 

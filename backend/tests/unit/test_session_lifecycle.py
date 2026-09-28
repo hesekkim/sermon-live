@@ -102,6 +102,14 @@ def make_service(tmp_path, *, audio=None, settings=None, operator_store=None):
     return service, hub
 
 
+def assert_session_released(service):
+    assert service._interpreter is None
+    assert service._audio_task is None
+    assert service._event_task is None
+    assert service._timer_task is None
+    assert service._audio.queue is None
+
+
 @pytest.mark.asyncio
 async def test_start_stop_keeps_server_audio_ready_and_rejects_duplicate_transitions(tmp_path):
     audio = FakeAudioRuntime()
@@ -121,6 +129,7 @@ async def test_start_stop_keeps_server_audio_ready_and_rejects_duplicate_transit
     assert hub.audio_events == [(b"\x01\x00\x02\x00", 16000)]
     assert audio.ready is True
     assert service.status()["last_termination_reason"] == "manual"
+    assert_session_released(service)
     with pytest.raises(SessionTransitionError):
         await service.stop()
     assert hub.operator_events[-1]["type"] == "session_ended"
@@ -169,6 +178,7 @@ async def test_normal_stop_bounds_audio_drain_and_reports_discarded_chunks(
     assert ended["reason"] == reason
     assert audio.dropped_chunks == 2
     assert ended["audio_dropped_chunks"] == 2
+    assert_session_released(service)
 
 
 @pytest.mark.asyncio
@@ -223,6 +233,7 @@ async def test_translation_timer_warns_and_auto_stops_using_monotonic_time(tmp_p
     assert service.status()["last_termination_reason"] == "auto_stop"
     assert hub.operator_events[-1]["reason"] == "auto_stop"
     assert hub.listener_events[-1] == hub.operator_events[-1]
+    assert_session_released(service)
 
 
 @pytest.mark.asyncio
@@ -277,6 +288,7 @@ async def test_translation_timer_extension_clamps_to_hard_limit(tmp_path):
     assert service.state == "off"
     assert service.status()["last_termination_reason"] == "hard_limit"
     assert "timer" not in service.status()
+    assert_session_released(service)
 
     with pytest.raises(RuntimeError, match="Hard limit"):
         await service.extend_session()
@@ -478,6 +490,7 @@ async def test_interpreter_error_ends_session_for_operator_and_listener(tmp_path
     error_event = next(event for event in hub.operator_events if event.get("type") == "error")
     assert error_event["text"] == "Interpreter disconnected"
     assert hub.listener_events == hub.operator_events
+    assert_session_released(service)
 
 
 @pytest.mark.asyncio
@@ -491,6 +504,7 @@ async def test_device_error_ends_live_session_with_reason(tmp_path):
     assert service.status()["last_termination_reason"] == "device_error"
     assert hub.operator_events[-1]["reason"] == "device_error"
     assert hub.listener_events[-1] == hub.operator_events[-1]
+    assert_session_released(service)
 
 
 def test_broadcast_hub_sends_identical_lifecycle_event_to_both_client_groups():
