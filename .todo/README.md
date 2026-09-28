@@ -16,6 +16,11 @@
 
 6. `043-backend-session-service-test-alignment.md` — 활성 SessionService 기준 테스트 정렬
 
+### 운영 UX와 환경설정 정합성
+
+7. `044-frontend-listen-settings-ux-polish.md` — Listener 듣기/다운로드와 Settings Apply/focus 동작 보정
+8. `045-backend-env-example-config-parity.md` — 환경변수 예제와 Settings config 정합성
+
 ### 기존 후속 기능
 
 10. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
