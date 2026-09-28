@@ -5,10 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from core.config import get_settings
+from core.config import Settings, get_settings
 from services.audio_capture import AudioCapture
 from services.audio_devices import list_input_devices
 from services.audio_processor import AudioProcessor
+from services.interpreters.factory import create_interpreter
+from services.operator_store import store as operator_store
 from services.runtime import audio, session
 from services.operator_auth import require_http_operator
 
@@ -29,19 +31,28 @@ class AudioTestRequest(BaseModel):
 
 class AudioTestResponse(BaseModel):
     status: Literal["disconnected", "silent", "signal"]
-    detected_sample_rate: int | None = None
-    detected_channels: int | None = None
-    detected_sample_width: int | None = None
+    capture_sample_rate: int | None = None
+    capture_channels: int | None = None
+    capture_sample_width: int | None = None
     input_level_dbfs: float | None = None
-    processing_sample_rate: int = 24000
-    processing_channels: int = 1
-    processing_sample_width: int = 2
+    processing_sample_rate: int = 0
+    processing_channels: int = 0
+    processing_sample_width: int = 0
     processing_success: bool = False
     message: str = ""
 
 
-def _audio_test_settings(request: AudioTestRequest):
-    settings = get_settings()
+def _processing_target(settings: Settings) -> tuple[int, int, int]:
+    interpreter = create_interpreter(settings)
+    return (
+        interpreter.required_sample_rate,
+        interpreter.required_channels,
+        interpreter.required_sample_width,
+    )
+
+
+def _audio_test_settings(request: AudioTestRequest) -> Settings:
+    settings = operator_store.overlay_settings(get_settings())
     if request.audio_device is not None:
         settings = settings.model_copy(update={"audio_device": request.audio_device})
     return settings
@@ -51,6 +62,8 @@ def _audio_test_result(
     processor: AudioProcessor,
     raw: bytes,
     native_format: tuple[int, int, int],
+    target_format: tuple[int, int, int],
+    processing_success: bool,
 ) -> AudioTestResponse:
     rate, channels, width = native_format
     level = processor.input_level_dbfs
@@ -59,14 +72,14 @@ def _audio_test_result(
     )
     return AudioTestResponse(
         status=status,
-        detected_sample_rate=rate,
-        detected_channels=channels,
-        detected_sample_width=width,
+        capture_sample_rate=rate,
+        capture_channels=channels,
+        capture_sample_width=width,
         input_level_dbfs=level,
-        processing_sample_rate=24000,
-        processing_channels=1,
-        processing_sample_width=2,
-        processing_success=True,
+        processing_sample_rate=target_format[0],
+        processing_channels=target_format[1],
+        processing_sample_width=target_format[2],
+        processing_success=processing_success,
         message=(
             "Audio device is accessible and ready for processing"
             if status != "silent"
@@ -96,6 +109,8 @@ async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTest
             detail="Audio test is unavailable while a session is running",
         )
 
+    settings = _audio_test_settings(request or AudioTestRequest())
+    target_format = _processing_target(settings)
     if audio.ready:
         try:
             async with audio.using_device(request.audio_device if request else None):
@@ -104,17 +119,22 @@ async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTest
                     raise RuntimeError("Audio input device is not available")
                 raw = await audio.collect(AUDIO_TEST_DURATION_SECONDS)
                 rate, channels, width = native_format
-                processor = AudioProcessor(rate, channels, width, 24000, 1, 2)
+                processor = AudioProcessor(rate, channels, width, *target_format)
                 processor.process(raw)
-                return _audio_test_result(processor, raw, native_format)
+                processor.flush()
+                return _audio_test_result(
+                    processor, raw, native_format, target_format, True
+                )
         except Exception as exc:
             return AudioTestResponse(
                 status="disconnected",
+                processing_sample_rate=target_format[0],
+                processing_channels=target_format[1],
+                processing_sample_width=target_format[2],
                 processing_success=False,
                 message=str(exc) or "Audio input is not available",
             )
 
-    settings = _audio_test_settings(request or AudioTestRequest())
     capture = AudioCapture(settings)
     started = False
     try:
@@ -125,31 +145,33 @@ async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTest
         if native_format is None:
             return AudioTestResponse(
                 status="disconnected",
-                detected_sample_rate=None,
-                detected_channels=None,
-                detected_sample_width=None,
+                capture_sample_rate=None,
+                capture_channels=None,
+                capture_sample_width=None,
                 input_level_dbfs=None,
+                processing_sample_rate=target_format[0],
+                processing_channels=target_format[1],
+                processing_sample_width=target_format[2],
                 processing_success=False,
                 message="No audio input device is available",
             )
 
         raw = await capture.collect(AUDIO_TEST_DURATION_SECONDS)
         rate, channels, width = native_format
-        processor = AudioProcessor(rate, channels, width, 24000, 1, 2)
-        processed = processor.process(raw)
-        result = _audio_test_result(processor, raw, native_format)
-        result.processing_success = bool(processed or raw == b"")
-        return result
+        processor = AudioProcessor(rate, channels, width, *target_format)
+        processor.process(raw)
+        processor.flush()
+        return _audio_test_result(processor, raw, native_format, target_format, True)
     except Exception as exc:
         return AudioTestResponse(
             status="disconnected",
-            detected_sample_rate=None,
-            detected_channels=None,
-            detected_sample_width=None,
+            capture_sample_rate=None,
+            capture_channels=None,
+            capture_sample_width=None,
             input_level_dbfs=None,
-            processing_sample_rate=24000,
-            processing_channels=1,
-            processing_sample_width=2,
+            processing_sample_rate=target_format[0],
+            processing_channels=target_format[1],
+            processing_sample_width=target_format[2],
             processing_success=False,
             message=str(exc) or "Audio input is not available",
         )
@@ -168,6 +190,9 @@ async def stream_audio_test(request: AudioTestRequest | None = None) -> Streamin
             detail="Audio test is unavailable while a session is running",
         )
 
+    settings = _audio_test_settings(request or AudioTestRequest())
+    target_format = _processing_target(settings)
+
     async def events() -> AsyncIterator[str]:
         if audio.ready:
             try:
@@ -176,7 +201,7 @@ async def stream_audio_test(request: AudioTestRequest | None = None) -> Streamin
                     if native_format is None:
                         raise RuntimeError("Audio input device is not available")
                     rate, channels, width = native_format
-                    processor = AudioProcessor(rate, channels, width, 24000, 1, 2)
+                    processor = AudioProcessor(rate, channels, width, *target_format)
                     raw_chunks: list[bytes] = []
                     async for chunk in audio.chunks_for(AUDIO_TEST_DURATION_SECONDS):
                         raw_chunks.append(chunk)
@@ -189,10 +214,15 @@ async def stream_audio_test(request: AudioTestRequest | None = None) -> Streamin
                                 }
                             ) + "\n"
                     raw = b"".join(raw_chunks)
-                    final_processor = AudioProcessor(rate, channels, width, 24000, 1, 2)
-                    processed = final_processor.process(raw)
-                    result = _audio_test_result(final_processor, raw, native_format)
-                    result.processing_success = bool(processed or not raw_chunks)
+                    processor.flush()
+                    final_processor = AudioProcessor(
+                        rate, channels, width, *target_format
+                    )
+                    final_processor.process(raw)
+                    final_processor.flush()
+                    result = _audio_test_result(
+                        final_processor, raw, native_format, target_format, True
+                    )
                     yield json.dumps({"type": "result", **result.model_dump()}) + "\n"
             except Exception as exc:
                 yield json.dumps(
@@ -200,6 +230,9 @@ async def stream_audio_test(request: AudioTestRequest | None = None) -> Streamin
                         "type": "result",
                         **AudioTestResponse(
                             status="disconnected",
+                            processing_sample_rate=target_format[0],
+                            processing_channels=target_format[1],
+                            processing_sample_width=target_format[2],
                             processing_success=False,
                             message=str(exc) or "Audio input is not available",
                         ).model_dump(),
@@ -207,7 +240,6 @@ async def stream_audio_test(request: AudioTestRequest | None = None) -> Streamin
                 ) + "\n"
             return
 
-        settings = _audio_test_settings(request or AudioTestRequest())
         capture = AudioCapture(settings)
         started = False
         try:
@@ -220,6 +252,9 @@ async def stream_audio_test(request: AudioTestRequest | None = None) -> Streamin
                         "type": "result",
                         **AudioTestResponse(
                             status="disconnected",
+                            processing_sample_rate=target_format[0],
+                            processing_channels=target_format[1],
+                            processing_sample_width=target_format[2],
                             message="No audio input device is available",
                         ).model_dump(),
                     }
@@ -227,7 +262,8 @@ async def stream_audio_test(request: AudioTestRequest | None = None) -> Streamin
                 return
 
             rate, channels, width = native_format
-            processor = AudioProcessor(rate, channels, width, 24000, 1, 2)
+            target_format = _processing_target(settings)
+            processor = AudioProcessor(rate, channels, width, *target_format)
             raw_chunks: list[bytes] = []
             async for chunk in capture.chunks_for(AUDIO_TEST_DURATION_SECONDS):
                 raw_chunks.append(chunk)
@@ -241,11 +277,12 @@ async def stream_audio_test(request: AudioTestRequest | None = None) -> Streamin
                     ) + "\n"
 
             raw = b"".join(raw_chunks)
-            final_processor = AudioProcessor(rate, channels, width, 24000, 1, 2)
-            processed = final_processor.process(raw)
-            result = _audio_test_result(final_processor, raw, native_format)
-            result.processing_success = bool(
-                processed or not raw_chunks
+            processor.flush()
+            final_processor = AudioProcessor(rate, channels, width, *target_format)
+            final_processor.process(raw)
+            final_processor.flush()
+            result = _audio_test_result(
+                final_processor, raw, native_format, target_format, True
             )
             yield json.dumps({"type": "result", **result.model_dump()}) + "\n"
         except Exception as exc:
@@ -254,6 +291,9 @@ async def stream_audio_test(request: AudioTestRequest | None = None) -> Streamin
                     "type": "result",
                     **AudioTestResponse(
                         status="disconnected",
+                        processing_sample_rate=target_format[0],
+                        processing_channels=target_format[1],
+                        processing_sample_width=target_format[2],
                         processing_success=False,
                         message=str(exc) or "Audio input is not available",
                     ).model_dump(),

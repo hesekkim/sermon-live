@@ -41,7 +41,9 @@ export default function AudioDeviceSection({
   isTesting,
   onRunTest,
 }: AudioDeviceSectionProps) {
-  const canRun = Boolean(selectedDevice) && options.some((option) => option.value === selectedDevice);
+  const canRun = selectedDevice
+    ? options.some((option) => option.value === selectedDevice)
+    : options.some((option) => option.value === 'default');
 
   return (
     <section className={styles.section}>

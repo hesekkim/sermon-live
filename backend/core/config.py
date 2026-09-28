@@ -40,9 +40,6 @@ class Settings(BaseSettings):
     audio_device: str = ""
     audio_chunk_frames: int = 1024
     input_sample_rate: int | None = 16000
-    translation_target_sample_rate: int = 24000
-    translation_target_channels: int = 1
-    translation_target_sample_width: int = 2
     frontend_dist: str = ""
 
     @field_validator("allowed_origins", mode="before")

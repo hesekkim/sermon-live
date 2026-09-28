@@ -7,5 +7,5 @@ export function formatAudioFormat(
     return '—';
   }
 
-  return `${sampleRate} Hz / ${channels} ch / ${sampleWidth} bytes`;
+  return `${sampleRate} Hz / ${channels} ch / ${sampleWidth * 8}-bit PCM`;
 }

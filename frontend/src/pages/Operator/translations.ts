@@ -42,7 +42,7 @@ export interface OperatorCopy {
   audioTestDevice: string;
   audioTestStatus: string;
   audioTestInputLevel: string;
-  audioTestDetectedFormat: string;
+  audioTestCaptureFormat: string;
   audioTestProcessingFormat: string;
   audioTestRunning: string;
   audioTestNotRun: string;
@@ -196,8 +196,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioTestDevice: '장치',
     audioTestStatus: '상태',
     audioTestInputLevel: '입력 레벨',
-    audioTestDetectedFormat: '감지 포맷',
-    audioTestProcessingFormat: 'OpenAI 처리 포맷',
+    audioTestCaptureFormat: '캡처 스트림 포맷',
+    audioTestProcessingFormat: '처리 포맷',
     audioTestRunning: '테스트 중...',
     audioTestNotRun: '아직 테스트하지 않았습니다',
     audioTestNoDevice: '장치 미선택',
@@ -348,8 +348,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioTestDevice: 'Device',
     audioTestStatus: 'Status',
     audioTestInputLevel: 'Input level',
-    audioTestDetectedFormat: 'Detected format',
-    audioTestProcessingFormat: 'OpenAI processing format',
+    audioTestCaptureFormat: 'Capture stream format',
+    audioTestProcessingFormat: 'Processing format',
     audioTestRunning: 'Testing...',
     audioTestNotRun: 'Not tested yet',
     audioTestNoDevice: 'No device selected',
@@ -500,8 +500,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioTestDevice: 'Gerät',
     audioTestStatus: 'Status',
     audioTestInputLevel: 'Eingangspegel',
-    audioTestDetectedFormat: 'Erkannte Format',
-    audioTestProcessingFormat: 'OpenAI-Verarbeitungsformat',
+    audioTestCaptureFormat: 'Aufnahme-Streamformat',
+    audioTestProcessingFormat: 'Verarbeitungsformat',
     audioTestRunning: 'Wird getestet...',
     audioTestNotRun: 'Noch nicht getestet',
     audioTestNoDevice: 'Kein Gerät ausgewählt',

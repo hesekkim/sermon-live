@@ -53,8 +53,91 @@ class AudioCapture:
             if lowered in name.lower():
                 logger.info("Using input device %s (%s)", device["index"], name)
                 return int(device["index"])
-        logger.warning("Audio device %r not found, using default", raw)
-        return None
+        raise RuntimeError(f"Audio input device {raw!r} was not found")
+
+    @staticmethod
+    def _sample_width_format(sample_width: int) -> int:
+        if sample_width == 1:
+            return pyaudio.paUInt8
+        if sample_width == 2:
+            return pyaudio.paInt16
+        if sample_width == 3:
+            return pyaudio.paInt24
+        if sample_width == 4:
+            return pyaudio.paInt32
+        raise ValueError(f"Unsupported sample width: {sample_width}")
+
+    @staticmethod
+    def _candidate_sample_rates(device_info: dict[str, object], configured_rate: int | None) -> list[int]:
+        candidates: list[int] = []
+        for value in (
+            configured_rate,
+            int(float(device_info.get("defaultSampleRate") or 0)),
+            44100,
+            48000,
+            22050,
+            32000,
+            16000,
+            8000,
+        ):
+            if value and value not in candidates:
+                candidates.append(value)
+        return candidates
+
+    @staticmethod
+    def _candidate_channels(device_info: dict[str, object]) -> list[int]:
+        maximum = int(device_info.get("maxInputChannels") or 0)
+        candidates: list[int] = []
+        for value in (1, 2, 4, 6, 8):
+            if value > 0 and value <= maximum:
+                candidates.append(value)
+        return candidates or [1]
+
+    @staticmethod
+    def _candidate_sample_widths() -> list[int]:
+        return [2, 3, 4, 1]
+
+    def _open_compatible_stream(
+        self,
+        audio: pyaudio.PyAudio,
+        device_index: int | None,
+        device_info: dict[str, object],
+    ) -> tuple[int, int, int]:
+        device_name = str(device_info.get("name") or "default input device")
+        configured_rate = self._settings.input_sample_rate
+        last_error: Exception | None = None
+        for channels in self._candidate_channels(device_info):
+            for rate in self._candidate_sample_rates(device_info, configured_rate):
+                for sample_width in self._candidate_sample_widths():
+                    kwargs: dict[str, object] = {
+                        "format": self._sample_width_format(sample_width),
+                        "channels": channels,
+                        "rate": rate,
+                        "input": True,
+                        "frames_per_buffer": self._settings.audio_chunk_frames,
+                        "stream_callback": self._on_chunk,
+                    }
+                    if device_index is not None:
+                        kwargs["input_device_index"] = device_index
+                    try:
+                        self._stream = audio.open(**kwargs)
+                        sample_size = audio.get_sample_size(kwargs["format"])
+                        logger.info(
+                            "Opened input stream on %s using %s Hz / %s channels / %s-bit PCM",
+                            device_name,
+                            rate,
+                            channels,
+                            sample_width * 8,
+                        )
+                        return (rate, channels, sample_size)
+                    except Exception as exc:  # pragma: no cover - exercised via fake stream failures
+                        last_error = exc
+                        continue
+        if last_error is not None:
+            raise RuntimeError(
+                f"Unable to open audio input on device {device_name!r}: {last_error}"
+            )
+        raise RuntimeError(f"Unable to open audio input on device {device_name!r}")
 
     def _on_chunk(
         self,
@@ -71,31 +154,27 @@ class AudioCapture:
         self._loop = asyncio.get_running_loop()
         audio = pyaudio.PyAudio()
         self._pyaudio = audio
-        device_index = self._resolve_device_index(audio)
-        device_info = (
-            audio.get_device_info_by_index(device_index)
-            if device_index is not None
-            else audio.get_default_input_device_info()
-        )
-        sample_rate = self._settings.input_sample_rate
-        if sample_rate is None:
-            sample_rate = int(float(device_info["defaultSampleRate"]))
-        kwargs: dict[str, object] = {
-            "format": pyaudio.paInt16,
-            "channels": 1,
-            "rate": sample_rate,
-            "input": True,
-            "frames_per_buffer": self._settings.audio_chunk_frames,
-            "stream_callback": self._on_chunk,
-        }
-        if device_index is not None:
-            kwargs["input_device_index"] = device_index
         try:
-            self._stream = audio.open(**kwargs)
+            device_index = self._resolve_device_index(audio)
+            try:
+                device_info = (
+                    audio.get_device_info_by_index(device_index)
+                    if device_index is not None
+                    else audio.get_default_input_device_info()
+                )
+            except Exception as exc:
+                requested_device = self._settings.audio_device.strip() or "system default"
+                raise RuntimeError(
+                    f"Unable to access audio input device {requested_device!r}: {exc}"
+                ) from exc
+            self._input_format = self._open_compatible_stream(audio, device_index, device_info)
         except Exception:
-            logger.exception("Failed to open audio input at %s Hz", sample_rate)
+            logger.exception(
+                "Failed to start audio input for device %s",
+                self._settings.audio_device.strip() or "system default",
+            )
+            await self.stop()
             raise
-        self._input_format = (sample_rate, 1, audio.get_sample_size(pyaudio.paInt16))
         logger.info("Microphone capture started")
 
     async def collect(self, duration_seconds: float) -> bytes:

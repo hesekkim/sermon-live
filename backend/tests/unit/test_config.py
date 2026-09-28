@@ -29,9 +29,6 @@ def test_translation_defaults_match_openai_target_format():
     assert settings.openai_model == "gpt-realtime-translate"
     assert settings.translation_target_language == "de"
     assert settings.translation_source_transcription_model == "gpt-realtime-whisper"
-    assert settings.translation_target_sample_rate == 24000
-    assert settings.translation_target_channels == 1
-    assert settings.translation_target_sample_width == 2
 
 
 def test_translation_timer_defaults():

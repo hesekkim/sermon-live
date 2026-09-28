@@ -110,13 +110,7 @@ async def test_translation_audio_format_matches_api_requirements():
         ]
     )
     adapter = OpenAIRealtimeInterpreter(
-        Settings(
-            interpreter="openai",
-            openai_api_key="test-key",
-            translation_target_sample_rate=16000,
-            translation_target_channels=2,
-            translation_target_sample_width=4,
-        ),
+        Settings(interpreter="openai", openai_api_key="test-key"),
         websocket_factory=factory_for(websocket),
     )
 

@@ -3,9 +3,9 @@ import { operatorFetch } from '../../auth/operatorAuthApi';
 
 export interface AudioTestResult {
 	status: 'disconnected' | 'silent' | 'signal';
-	detected_sample_rate: number | null;
-	detected_channels: number | null;
-	detected_sample_width: number | null;
+	capture_sample_rate: number | null;
+	capture_channels: number | null;
+	capture_sample_width: number | null;
 	input_level_dbfs: number | null;
 	processing_sample_rate: number;
 	processing_channels: number;

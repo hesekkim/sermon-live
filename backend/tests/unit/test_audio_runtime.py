@@ -71,6 +71,27 @@ async def test_capture_and_processor_remain_ready_when_translation_detaches(monk
 
 
 @pytest.mark.asyncio
+async def test_translation_processor_uses_interpreter_required_sample_rate(monkeypatch):
+    runtime, capture, _hub = make_runtime(monkeypatch)
+
+    class HigherRateInterpreter(FakeInterpreter):
+        required_sample_rate = 24000
+
+    await runtime.start()
+    queue = runtime.attach_translation(HigherRateInterpreter())
+    await capture.chunks_queue.put(b"\x00\x00\xe8\x03\xd0\x07\xb8\x0b")
+
+    first_chunk = await asyncio.wait_for(queue.get(), timeout=1)
+    final_queue = await runtime.finish_translation()
+    final_chunk = await queue.get()
+
+    assert final_queue is queue
+    assert len(first_chunk + final_chunk) == 12
+    assert await queue.get() is None
+    await runtime.stop()
+
+
+@pytest.mark.asyncio
 async def test_failed_translation_can_discard_full_queue_without_blocking(monkeypatch):
     runtime, _capture, _hub = make_runtime(monkeypatch)
     await runtime.start()

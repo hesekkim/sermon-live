@@ -112,7 +112,7 @@ afterEach(() => {
 });
 
 describe('useAudioTest', () => {
-  it('posts the audio test request and stores the detected input metadata', async () => {
+  it('posts the audio test request and stores the capture stream format', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ...streamResponse([
         { type: 'level', input_level_dbfs: -36.25 },
@@ -120,9 +120,9 @@ describe('useAudioTest', () => {
         {
           type: 'result',
           status: 'signal',
-          detected_sample_rate: 48000,
-          detected_channels: 2,
-          detected_sample_width: 2,
+          capture_sample_rate: 48000,
+          capture_channels: 2,
+          capture_sample_width: 2,
           input_level_dbfs: -12.5,
           processing_sample_rate: 24000,
           processing_channels: 1,
@@ -155,7 +155,7 @@ describe('useAudioTest', () => {
     const request = fetchMock.mock.calls[0][1] as RequestInit;
     expect(new Headers(request.headers).get('Content-Type')).toBe('application/json');
     expect(state.result?.status).toBe('signal');
-    expect(state.result?.detected_sample_rate).toBe(48000);
+    expect(state.result?.capture_sample_rate).toBe(48000);
     expect(state.result?.input_level_dbfs).toBe(-12.5);
     expect(state.liveInputLevel).toBe(-12.5);
     expect(state.error).toBeNull();
@@ -184,7 +184,7 @@ describe('useAudioTest', () => {
     cleanup();
   });
 
-  it('disables the audio test button until a device is selected', () => {
+  it('allows the system default input when no device is selected', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -209,7 +209,7 @@ describe('useAudioTest', () => {
     );
 
     expect(button).not.toBeUndefined();
-    expect(button).toBeDisabled();
+    expect(button).toBeEnabled();
 
     act(() => root.unmount());
     container.remove();

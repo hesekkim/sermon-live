@@ -31,18 +31,20 @@ export default function AudioTestPanel({
         ? labels.audioTestSilent
         : labels.audioTestDisconnected
     : labels.audioTestNotRun;
-  const detectedFormat = result
+  const captureFormat = result
     ? formatAudioFormat(
-        result.detected_sample_rate,
-        result.detected_channels,
-        result.detected_sample_width
+        result.capture_sample_rate,
+        result.capture_channels,
+        result.capture_sample_width
       )
     : labels.audioTestNotRun;
-  const processingFormat = formatAudioFormat(
-    result?.processing_sample_rate ?? 24000,
-    result?.processing_channels ?? 1,
-    result?.processing_sample_width ?? 2
-  );
+  const processingFormat = result
+    ? formatAudioFormat(
+        result.processing_sample_rate,
+        result.processing_channels,
+        result.processing_sample_width
+      )
+    : labels.audioTestNotRun;
 
   return (
     <div
@@ -78,8 +80,8 @@ export default function AudioTestPanel({
           </div>
         </div>
         <div className={styles.audioTestRow}>
-          <span>{labels.audioTestDetectedFormat}</span>
-          <strong>{canRun ? detectedFormat : '—'}</strong>
+          <span>{labels.audioTestCaptureFormat}</span>
+          <strong>{canRun ? captureFormat : '—'}</strong>
         </div>
         <div className={styles.audioTestRow}>
           <span>{labels.audioTestProcessingFormat}</span>

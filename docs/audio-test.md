@@ -8,24 +8,19 @@
 1. 선택한 입력 장치를 실제로 열 수 있는가
 2. PCM 오디오 데이터가 들어오는가
 3. 입력 포맷이 무엇인가
-4. OpenAI 처리용 포맷으로 변환 가능한가
+4. 선택된 interpreter의 처리 포맷으로 변환 가능한가
 
-관련 구현은 `audio.py`와 `audio_processor.py`에 있습니다.
+관련 구현은 `backend/api/v1/endpoints/audio.py`와 `backend/services/audio_processor.py`에 있습니다.
 
-**현재 오디오 입력 기준**
+**Capture stream format**
 
-현재 capture 설정은 다음과 같습니다.
+AudioCapture는 설정 sample rate, 장치 default rate 및 정해진 fallback rate를 순서대로 시도하고, mono부터 장치 metadata의 `maxInputChannels` 범위 안에서 채널 수를 시도한다. 각 조합은 PCM16, PCM24, PCM32, PCM8 순서로 실제 stream을 열어 선택한다. 성공한 PyAudio stream의 tuple `(sample_rate, channels, sample_width)`이 AudioProcessor의 source format이다.
 
-* Encoding: signed PCM 16-bit little-endian
-* Sample rate: 기본 `16,000 Hz`
-* Channels: `1 channel`, mono
-* Sample width: `2 bytes`
-* Chunk size: `1024 frames`
-* 테스트 시간: `3초`
+이 값은 장치 ADC의 물리 format이 아니라 앱이 PyAudio에 요청해 열린 capture stream format이다. OS driver나 PortAudio가 변환할 수 있으므로 Mixer 사양으로 앱 입력 bit depth를 추정하지 않는다. Device 목록의 `input_channels`와 `default_sample_rate`는 capability metadata이며 선택된 stream tuple과 동일하다고 보장되지 않는다.
 
-설정값은 `config.py`에 있습니다.
+API는 `capture_sample_rate`, `capture_channels`, `capture_sample_width`로 실제 열린 tuple을 반환한다. Operator UI는 “Capture stream format”으로 표시한다. Sample width API 값의 단위는 bytes이며, UI에는 bits로 환산해 표시한다.
 
-중요한 점은 `detected_sample_rate`가 장치가 실제로 자동 감지한 값이라기보다, 현재 capture를 열 때 사용한 설정값이라는 점입니다. 현재는 기본적으로 16 kHz로 열도록 되어 있습니다.
+명시한 장치 이름이나 index를 사용할 수 없으면 해당 장치와 실패 이유를 포함해 오류를 반환하며 시스템 기본 장치로 대체하지 않는다. 빈 값 또는 `default`를 선택한 경우에만 시스템 기본 입력을 사용한다.
 
 **Input Level 계산 방식**
 
@@ -42,7 +37,7 @@
 * `-60 dBFS`: 현재 noise floor 하한
 * 무음 또는 너무 작은 값: `-60 dBFS`로 고정
 
-구현은 `audio_processor.py:6-15`에 있습니다.
+구현은 `backend/services/audio_processor.py`에 있습니다.
 
 프론트 meter는 다음처럼 표시합니다.
 
@@ -60,7 +55,7 @@
 
 **그 외에는 silent**
 
-구현은 `audio.py:40-65`에 있습니다.
+구현은 `backend/api/v1/endpoints/audio.py`에 있습니다.
 
 따라서 현재 `signal`은 “사람 목소리가 명확하게 감지됐다”는 뜻이 아닙니다.
 
@@ -101,24 +96,15 @@
 
 > Input device availability and PCM signal sanity check
 
-**처리 포맷**
+**Processing format**
 
-입력은 다음 출력 포맷으로 변환됩니다.
+AudioProcessor target은 `LiveInterpreter.required_sample_rate`, `required_channels`, `required_sample_width`에서 가져온다. OpenAI adapter의 계약은 `24,000 Hz / mono / 2 bytes (16-bit) / signed little-endian PCM`이다. Echo adapter는 자체 required format을 선언하므로 Audio Test의 target은 선택된 interpreter에 따라 달라져야 한다.
 
-* Sample rate: `24,000 Hz`
-* Channels: `1`, mono
-* Sample width: `2 bytes`
-* Encoding: signed PCM 16-bit
+040에서 `translation_target_*` 설정 필드는 제거됐다. 기존 배포의 `.env`에서 `APP_TRANSLATION_TARGET_SAMPLE_RATE`, `APP_TRANSLATION_TARGET_CHANNELS`, `APP_TRANSLATION_TARGET_SAMPLE_WIDTH` 항목을 삭제한다. 처리 target은 선택된 interpreter가 선언하며 자세한 migration 안내는 `backend/.env.example`에 있다.
 
-OpenAI 처리 포맷 표시값은 `audio.py`에서 생성됩니다.
+**처리 성공 기준**
 
-오디오 담당자에게는 특히 다음을 확인하면 됩니다.
-
-* OpenAI 입력에 24 kHz mono가 맞는가
-* 16 kHz에서 24 kHz로 올리는 resampling이 필요한가
-* 실제 서비스는 16 kHz 입력으로 충분한가
-* mono downmix 시 채널 정보 손실이 문제가 없는가
-* target encoding이 little-endian PCM인지
+Audio Test는 환경 설정에 Operator store 설정을 overlay해 현재 interpreter의 required tuple을 사용한다. normal과 stream 경로는 `AudioProcessor.process()`와 `flush()`가 모두 예외 없이 완료된 경우에만 `processing_success=true`를 반환한다. 변환 오류는 `disconnected` 및 `processing_success=false`로 반환하며 processing format은 실패 시에도 동일한 target을 보고한다.
 
 **권장 운영 판정**
 
