@@ -40,6 +40,17 @@ def test_translation_timer_defaults():
     assert settings.translation_session_hard_limit_minutes == 120
 
 
+def test_translation_audio_queue_defaults_and_rejects_non_positive_limits():
+    settings = Settings()
+
+    assert settings.translation_queue_max_seconds == 2.0
+    assert settings.translation_drain_timeout_seconds == 2.0
+    with pytest.raises(ValidationError):
+        Settings(translation_queue_max_seconds=0)
+    with pytest.raises(ValidationError):
+        Settings(translation_drain_timeout_seconds=0)
+
+
 def test_operator_auth_secrets_have_no_development_defaults():
     settings = Settings(_env_file=None)
 

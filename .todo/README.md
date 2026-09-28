@@ -14,9 +14,8 @@
 
 ### 후속: 접근 제어와 오디오 안정성
 
-5. `041-backend-audio-queue-overflow-observability.md` — 큐 손실 정책과 Operator 경고
-6. `042-disable-sermon-session-routes.md` — Sermon Session route 비활성화, 소스 보존
-7. `043-backend-session-service-test-alignment.md` — 활성 SessionService 기준 테스트 정렬
+5. `042-disable-sermon-session-routes.md` — Sermon Session route 비활성화, 소스 보존
+6. `043-backend-session-service-test-alignment.md` — 활성 SessionService 기준 테스트 정렬
 
 ### 기존 후속 기능
 
@@ -65,6 +64,7 @@
 31. `038-backend-operator-authentication.md — Operator API, audio API와 WebSocket 인증`
 32. `039-frontend-operator-login.md — Operator 로그인 gate와 로그아웃 흐름`
 33. `040-backend-audio-format-negotiation.md` — 장치 입력 포맷 협상과 변환 target
+36. `041-backend-audio-queue-overflow-observability.md` — duration 기준 큐 포화, 손실 계측과 bounded drain
 
 ## 결정 사항
 

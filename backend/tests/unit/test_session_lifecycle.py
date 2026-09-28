@@ -17,6 +17,9 @@ class FakeAudioRuntime:
         self.error = error
         self.on_device_error = None
         self.queue = None
+        self.dropped_chunks = 0
+        self.dropped_duration_seconds = 0.0
+        self.queued_duration_seconds = 0.0
 
     def attach_translation(self, _interpreter):
         self.queue = asyncio.Queue()
@@ -27,10 +30,18 @@ class FakeAudioRuntime:
         self.queue = None
         if queue is not None:
             if discard_pending:
-                while not queue.empty():
-                    queue.get_nowait()
-            await queue.put(None)
+                await self.discard_translation_pending(queue)
+            queue.put_nowait(None)
         return queue
+
+    async def discard_translation_pending(self, queue):
+        while not queue.empty():
+            chunk = queue.get_nowait()
+            if chunk is not None:
+                self.dropped_chunks += 1
+
+    async def record_translation_drop(self, _chunk):
+        self.dropped_chunks += 1
 
 
 class FakeHub:
@@ -114,8 +125,52 @@ async def test_start_stop_keeps_server_audio_ready_and_rejects_duplicate_transit
     assert service.status()["last_termination_reason"] == "manual"
     with pytest.raises(SessionTransitionError):
         await service.stop()
-    assert hub.operator_events[-1] == {"type": "session_ended", "reason": "manual"}
+    assert hub.operator_events[-1]["type"] == "session_ended"
+    assert hub.operator_events[-1]["reason"] == "manual"
     assert hub.listener_events[-1] == hub.operator_events[-1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reason", ["manual", "auto_stop"])
+async def test_normal_stop_bounds_audio_drain_and_reports_discarded_chunks(
+    tmp_path, monkeypatch, reason
+):
+    send_started = asyncio.Event()
+    interpreter_closed = asyncio.Event()
+
+    class BlockingInterpreter(ErrorInterpreter):
+        async def send_pcm(self, _chunk):
+            send_started.set()
+            await asyncio.Future()
+
+        async def events(self):
+            await interpreter_closed.wait()
+            if False:
+                yield InterpreterEvent(kind="error")
+
+        async def close(self):
+            interpreter_closed.set()
+
+    interpreter = BlockingInterpreter()
+    monkeypatch.setattr(
+        session_service_module, "create_interpreter", lambda _settings: interpreter
+    )
+    settings = Settings(interpreter="echo", translation_drain_timeout_seconds=0.01)
+    audio = FakeAudioRuntime()
+    service, hub = make_service(tmp_path, audio=audio, settings=settings)
+    await service.start()
+    await audio.queue.put(b"in-flight")
+    await asyncio.wait_for(send_started.wait(), timeout=1)
+    assert service._audio_in_flight == b"in-flight"
+    await audio.queue.put(b"pending")
+
+    await asyncio.wait_for(service.stop(reason), timeout=1)
+
+    ended = hub.operator_events[-1]
+    assert ended["type"] == "session_ended"
+    assert ended["reason"] == reason
+    assert audio.dropped_chunks == 2
+    assert ended["audio_dropped_chunks"] == 2
 
 
 @pytest.mark.asyncio
@@ -193,7 +248,8 @@ async def test_timer_task_can_finish_session_without_awaiting_itself(tmp_path):
 
     assert service.state == "off"
     assert service.status()["last_termination_reason"] == "auto_stop"
-    assert hub.operator_events[-1] == {"type": "session_ended", "reason": "auto_stop"}
+    assert hub.operator_events[-1]["type"] == "session_ended"
+    assert hub.operator_events[-1]["reason"] == "auto_stop"
 
 
 @pytest.mark.asyncio

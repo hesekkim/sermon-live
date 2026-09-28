@@ -98,6 +98,8 @@ export interface OperatorCopy {
   translationError: string;
   latency: string;
   latencyUnavailable: string;
+  audioQueueWarning: string;
+  audioQueueLoss: string;
   audioStatus: string;
   audioSignal: string;
   audioSilent: string;
@@ -252,6 +254,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     translationError: '오류',
     latency: '청크 → 자막 지연',
     latencyUnavailable: '측정 대기',
+    audioQueueWarning: '전송 지연으로 오디오 일부를 건너뛰었습니다',
+    audioQueueLoss: '누적 손실: {chunks}개 청크, {seconds}초',
     audioStatus: '오디오 신호',
     audioSignal: '신호 감지',
     audioSilent: '무음',
@@ -404,6 +408,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     translationError: 'Error',
     latency: 'Chunk to caption',
     latencyUnavailable: 'Waiting for data',
+    audioQueueWarning: 'Audio was skipped because translation fell behind',
+    audioQueueLoss: 'Cumulative loss: {chunks} chunks, {seconds}s',
     audioStatus: 'Audio signal',
     audioSignal: 'Signal detected',
     audioSilent: 'Silent',
@@ -556,6 +562,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     translationError: 'Fehler',
     latency: 'Chunk bis Untertitel',
     latencyUnavailable: 'Warte auf Daten',
+    audioQueueWarning: 'Audio wurde wegen eines Übersetzungsrückstands übersprungen',
+    audioQueueLoss: 'Kumulativer Verlust: {chunks} Audioblöcke, {seconds}s',
     audioStatus: 'Audiosignal',
     audioSignal: 'Signal erkannt',
     audioSilent: 'Stumm',

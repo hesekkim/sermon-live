@@ -26,6 +26,8 @@ interface BroadcastHeaderProps {
   interpreterStatus: InterpreterStatus;
   timer: SessionTimerState | null;
   lastTerminationReason: string | null;
+  audioDroppedChunks: number;
+  audioDroppedDurationSeconds: number;
   actionPending: boolean;
   onExtend: () => void;
   onStopNow: () => void;
@@ -57,6 +59,8 @@ export default function BroadcastHeader({
   interpreterStatus,
   timer,
   lastTerminationReason,
+  audioDroppedChunks,
+  audioDroppedDurationSeconds,
   actionPending,
   onExtend,
   onStopNow,
@@ -179,6 +183,24 @@ export default function BroadcastHeader({
               <dt>{labels.lastTerminationReason}</dt>
               <dd title={lastTerminationReason}>{lastTerminationReason}</dd>
             </div>
+          ) : null}
+          {audioDroppedChunks > 0 ? (
+            <>
+              <div className={styles.statusItem} role="status">
+                <dt>{labels.audioQueueWarning}</dt>
+                <dd data-state="warning" title={labels.audioQueueWarning}>
+                  {labels.audioQueueWarning}
+                </dd>
+              </div>
+              <div className={styles.statusItem}>
+                <dt>{labels.audioQueueLoss}</dt>
+                <dd title={`${audioDroppedChunks} / ${audioDroppedDurationSeconds.toFixed(1)}`}>
+                  {labels.audioQueueLoss
+                    .replace('{chunks}', String(audioDroppedChunks))
+                    .replace('{seconds}', audioDroppedDurationSeconds.toFixed(1))}
+                </dd>
+              </div>
+            </>
           ) : null}
           {sessionError ? (
             <div className={styles.statusItem}>

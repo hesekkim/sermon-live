@@ -85,6 +85,8 @@ export default function OperatorLayout({ onLogout }: { onLogout: () => Promise<v
           interpreterStatus={session.interpreterStatus}
           timer={session.timer}
           lastTerminationReason={session.lastTerminationReason}
+          audioDroppedChunks={session.audioDroppedChunks}
+          audioDroppedDurationSeconds={session.audioDroppedDurationSeconds}
           actionPending={actions.actionPending}
           onExtend={() => void actions.extendSession()}
           onStopNow={() => void actions.stopNow()}

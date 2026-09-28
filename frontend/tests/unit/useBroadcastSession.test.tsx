@@ -126,6 +126,44 @@ describe('useBroadcastSession', () => {
     act(() => root.unmount());
   });
 
+  it('tracks cumulative audio loss from overflow and session status events', async () => {
+    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+      current: null,
+    };
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    function StateProbe() {
+      latestSession.current = useBroadcastSession(operatorCopy.ko);
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<StateProbe />);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      FakeWebSocket.latest?.emit('message', JSON.stringify({
+        type: 'audio_queue_overflow',
+        audio_dropped_chunks: 3,
+        audio_dropped_duration_seconds: 0.3,
+      }));
+      FakeWebSocket.latest?.emit('message', JSON.stringify({
+        type: 'translation_status',
+        running: true,
+        listener_count: 1,
+        audio_dropped_chunks: 4,
+        audio_dropped_duration_seconds: 0.4,
+      }));
+    });
+
+    expect(latestSession.current?.audioDroppedChunks).toBe(4);
+    expect(latestSession.current?.audioDroppedDurationSeconds).toBe(0.4);
+    act(() => root.unmount());
+  });
+
   it('updates operational status from operator messages and recovers the connection', async () => {
     const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
       current: null,

@@ -96,8 +96,7 @@ async def test_failed_translation_can_discard_full_queue_without_blocking(monkey
     runtime, _capture, _hub = make_runtime(monkeypatch)
     await runtime.start()
     queue = runtime.attach_translation(FakeInterpreter())
-    for _ in range(runtime._TRANSLATION_QUEUE_SIZE):
-        queue.put_nowait(b"audio")
+    queue.put_nowait(b"audio")
 
     finished_queue = await asyncio.wait_for(
         runtime.finish_translation(discard_pending=True), timeout=1
@@ -106,6 +105,55 @@ async def test_failed_translation_can_discard_full_queue_without_blocking(monkey
     assert finished_queue is queue
     assert queue.qsize() == 1
     assert queue.get_nowait() is None
+    assert runtime.dropped_chunks == 0
+    assert runtime.dropped_duration_seconds == 0
+    await runtime.stop()
+
+
+@pytest.mark.asyncio
+async def test_translation_queue_caps_audio_duration_and_keeps_latest_chunks(monkeypatch):
+    settings = Settings(translation_queue_max_seconds=0.2)
+    capture = FakeCapture(settings)
+    monkeypatch.setattr(audio_runtime_module, "AudioCapture", lambda _settings: capture)
+    hub = FakeHub()
+    runtime = AudioRuntime(settings, hub)
+    clock = {"value": 0.0}
+    runtime._clock = lambda: clock["value"]
+    await runtime.start()
+    queue = runtime.attach_translation(FakeInterpreter())
+    first = b"\x01\x00" * 1600
+    second = b"\x02\x00" * 1600
+    third = b"\x03\x00" * 1600
+
+    await capture.chunks_queue.put(first + second + third)
+    for _ in range(20):
+        if runtime.queued_duration_seconds >= 0.19:
+            break
+        await asyncio.sleep(0)
+
+    retained = [queue.get_nowait(), queue.get_nowait()]
+    assert runtime.queued_duration_seconds == 0
+    assert retained == [second, third]
+    assert runtime.dropped_chunks == 1
+    assert runtime.dropped_duration_seconds == pytest.approx(0.1)
+    assert [event["type"] for event in hub.session_events].count("audio_queue_overflow") == 1
+
+    await capture.chunks_queue.put(first + second + third)
+    for _ in range(20):
+        if runtime.dropped_chunks >= 2:
+            break
+        await asyncio.sleep(0)
+    assert [event["type"] for event in hub.session_events].count("audio_queue_overflow") == 1
+
+    while not queue.empty():
+        queue.get_nowait()
+    clock["value"] = runtime._OVERFLOW_WARNING_INTERVAL
+    await capture.chunks_queue.put(first + second + third)
+    for _ in range(20):
+        if runtime.dropped_chunks >= 3:
+            break
+        await asyncio.sleep(0)
+    assert [event["type"] for event in hub.session_events].count("audio_queue_overflow") == 2
     await runtime.stop()
 
 

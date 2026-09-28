@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     translation_session_warning_minutes: int = 5
     translation_session_extension_minutes: int = 10
     translation_session_hard_limit_minutes: int = 120
+    translation_queue_max_seconds: float = 2.0
+    translation_drain_timeout_seconds: float = 2.0
     audio_device: str = ""
     audio_chunk_frames: int = 1024
     input_sample_rate: int | None = 16000
@@ -72,6 +74,10 @@ class Settings(BaseSettings):
             raise ValueError(
                 "translation_session_hard_limit_minutes must be greater than or equal to translation_session_auto_stop_minutes"
             )
+        if self.translation_queue_max_seconds <= 0:
+            raise ValueError("translation_queue_max_seconds must be greater than 0")
+        if self.translation_drain_timeout_seconds <= 0:
+            raise ValueError("translation_drain_timeout_seconds must be greater than 0")
         return self
 
     @property

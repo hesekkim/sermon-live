@@ -34,6 +34,8 @@ interface SessionStatus {
   start_block_reason?: string | null;
   error?: string | null;
   last_termination_reason?: TerminationReason | null;
+  audio_dropped_chunks?: number;
+  audio_dropped_duration_seconds?: number;
   timer?: SessionTimerState;
 }
 
@@ -61,6 +63,8 @@ interface OperatorMessage {
   timer?: SessionTimerState;
   reason?: TerminationReason;
   last_termination_reason?: TerminationReason | null;
+  audio_dropped_chunks?: number;
+  audio_dropped_duration_seconds?: number;
 }
 
 const AUDIO_LEVEL_MIN_DBFS = -60;
@@ -100,6 +104,8 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
   const [interpreterStatus, setInterpreterStatus] = useState<InterpreterStatus>('disconnected');
   const [timer, setTimer] = useState<SessionTimerState | null>(null);
   const [lastTerminationReason, setLastTerminationReason] = useState<string | null>(null);
+  const [audioDroppedChunks, setAudioDroppedChunks] = useState(0);
+  const [audioDroppedDurationSeconds, setAudioDroppedDurationSeconds] = useState(0);
   const [inputLines, setInputLines] = useState<string[]>([]);
   const [outputLines, setOutputLines] = useState<string[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
@@ -136,6 +142,12 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
     if ('error' in data) setSessionError(data.error ?? null);
     if (data.last_termination_reason) {
       setLastTerminationReason(getTerminationLabel(labels, data.last_termination_reason));
+    }
+    if (typeof data.audio_dropped_chunks === 'number') {
+      setAudioDroppedChunks(data.audio_dropped_chunks);
+    }
+    if (typeof data.audio_dropped_duration_seconds === 'number') {
+      setAudioDroppedDurationSeconds(data.audio_dropped_duration_seconds);
     }
     setListenerCount(data.listener_count);
     if ('timer' in data) {
@@ -225,6 +237,12 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
               );
             }
             if (typeof listenerCount === 'number') setListenerCount(listenerCount);
+            if (typeof payload.audio_dropped_chunks === 'number') {
+              setAudioDroppedChunks(payload.audio_dropped_chunks);
+            }
+            if (typeof payload.audio_dropped_duration_seconds === 'number') {
+              setAudioDroppedDurationSeconds(payload.audio_dropped_duration_seconds);
+            }
             if ('timer' in payload) {
               setTimer(payload.timer ?? null);
             } else if (!payload.running) {
@@ -254,6 +272,15 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
             }
             return;
           }
+          if (payload.type === 'audio_queue_overflow') {
+            if (typeof payload.audio_dropped_chunks === 'number') {
+              setAudioDroppedChunks(payload.audio_dropped_chunks);
+            }
+            if (typeof payload.audio_dropped_duration_seconds === 'number') {
+              setAudioDroppedDurationSeconds(payload.audio_dropped_duration_seconds);
+            }
+            return;
+          }
           if (payload.type === 'timer' && payload.timer) {
             setTimer(payload.timer);
             return;
@@ -267,6 +294,12 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
             setAudioLevel(null);
             setTimer(null);
             if (reason) setLastTerminationReason(getTerminationLabel(labels, reason));
+            if (typeof payload.audio_dropped_chunks === 'number') {
+              setAudioDroppedChunks(payload.audio_dropped_chunks);
+            }
+            if (typeof payload.audio_dropped_duration_seconds === 'number') {
+              setAudioDroppedDurationSeconds(payload.audio_dropped_duration_seconds);
+            }
             return;
           }
           if (payload.type === 'audio_status') {
@@ -386,6 +419,8 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
     interpreterStatus,
     timer,
     lastTerminationReason,
+    audioDroppedChunks,
+    audioDroppedDurationSeconds,
     inputLines,
     outputLines,
     start,

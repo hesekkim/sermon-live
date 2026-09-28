@@ -50,6 +50,7 @@ class _TranslationSessionService:
         self._last_termination_reason: str | None = None
         self._interpreter: LiveInterpreter | None = None
         self._audio_task: asyncio.Task[None] | None = None
+        self._audio_in_flight: bytes | None = None
         self._event_task: asyncio.Task[None] | None = None
         self._timer_task: asyncio.Task[None] | None = None
         self._timer_started_at: float | None = None
@@ -82,6 +83,13 @@ class _TranslationSessionService:
             "last_termination_reason": self._last_termination_reason,
             "start_available": start_block_reason is None,
             "start_block_reason": start_block_reason,
+            "audio_dropped_chunks": getattr(self._audio, "dropped_chunks", 0),
+            "audio_dropped_duration_seconds": getattr(
+                self._audio, "dropped_duration_seconds", 0.0
+            ),
+            "audio_queued_duration_seconds": getattr(
+                self._audio, "queued_duration_seconds", 0.0
+            ),
         }
         timer = self._timer_status()
         if timer is not None:
@@ -338,12 +346,41 @@ class _TranslationSessionService:
         error: str | None = None,
         current_task: asyncio.Task[object] | None = None,
     ) -> None:
+        discard_pending = current_task is self._audio_task or reason in (
+            "interpreter_error",
+            "device_error",
+        )
         queue = await self._audio.finish_translation(
-            discard_pending=current_task is self._audio_task
+            discard_pending=discard_pending
         )
         audio_task = self._audio_task
         if queue is not None and audio_task is not None and audio_task is not current_task:
-            await asyncio.gather(audio_task, return_exceptions=True)
+            if discard_pending:
+                audio_task.cancel()
+                await asyncio.gather(audio_task, return_exceptions=True)
+            else:
+                timeout = self._active_settings or self._settings
+                try:
+                    await asyncio.wait_for(
+                        asyncio.shield(audio_task),
+                        timeout=timeout.translation_drain_timeout_seconds,
+                    )
+                except asyncio.TimeoutError:
+                    in_flight = self._audio_in_flight
+                    audio_task.cancel()
+                    try:
+                        await asyncio.wait_for(
+                            asyncio.gather(audio_task, return_exceptions=True),
+                            timeout=min(timeout.translation_drain_timeout_seconds, 0.25),
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning("Translation audio task did not stop after cancellation")
+                    discard = getattr(self._audio, "discard_translation_pending", None)
+                    if discard is not None:
+                        await discard(queue)
+                    record_drop = getattr(self._audio, "record_translation_drop", None)
+                    if in_flight is not None and record_drop is not None:
+                        await record_drop(in_flight)
 
         interpreter = self._interpreter
         if interpreter is not None:
@@ -391,7 +428,11 @@ class _TranslationSessionService:
             chunk = await queue.get()
             if chunk is None:
                 return
-            await interpreter.send_pcm(chunk)
+            self._audio_in_flight = chunk
+            try:
+                await interpreter.send_pcm(chunk)
+            finally:
+                self._audio_in_flight = None
 
     async def _pump_events(self, interpreter: LiveInterpreter) -> None:
         try:
@@ -476,7 +517,14 @@ class _TranslationSessionService:
             await broadcaster(payload)
 
     async def _publish_ended(self, reason: TerminationReason) -> None:
-        payload = {"type": "session_ended", "reason": reason}
+        payload = {
+            "type": "session_ended",
+            "reason": reason,
+            "audio_dropped_chunks": getattr(self._audio, "dropped_chunks", 0),
+            "audio_dropped_duration_seconds": getattr(
+                self._audio, "dropped_duration_seconds", 0.0
+            ),
+        }
         broadcaster = getattr(self._hub, "broadcast_session", None)
         if broadcaster is None:
             await self._hub.broadcast_operator(payload)
@@ -739,7 +787,11 @@ class SessionService(_TranslationSessionService):
                 chunk = await queue.get()
                 if chunk is None:
                     return
-                await interpreter.send_pcm(chunk)
+                self._audio_in_flight = chunk
+                try:
+                    await interpreter.send_pcm(chunk)
+                finally:
+                    self._audio_in_flight = None
                 if self._first_audio_chunk_since_text_sent_at is None:
                     self._first_audio_chunk_since_text_sent_at = loop.time()
         except asyncio.CancelledError:
