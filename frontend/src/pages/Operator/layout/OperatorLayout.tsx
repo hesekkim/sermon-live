@@ -116,15 +116,6 @@ export default function OperatorLayout({
         <header className={styles.topbar}>
           <div className={styles.topActions}>
             <ListenQrShare labels={labels} />
-            <button
-              type="button"
-              className={styles.iconButton}
-              aria-label={labels.operatorAuthLogout}
-              title={labels.operatorAuthLogout}
-              onClick={() => void handleLogout()}
-            >
-              <LuLogOut size={20} aria-hidden />
-            </button>
             <Link
               to="/operator/settings"
               className={styles.iconButton}
@@ -146,6 +137,15 @@ export default function OperatorLayout({
               ) : (
                 <LuMoon size={20} aria-hidden />
               )}
+            </button>
+            <button
+              type="button"
+              className={styles.iconButton}
+              aria-label={labels.operatorAuthLogout}
+              title={labels.operatorAuthLogout}
+              onClick={() => void handleLogout()}
+            >
+              <LuLogOut size={20} aria-hidden />
             </button>
           </div>
         </header>
