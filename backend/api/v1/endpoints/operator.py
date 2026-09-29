@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from core.config import InterpreterName, get_settings
 from services.broadcast import hub
 from services.key_validation import validate_operator_key
+from services import network
 from services.operator_store import store
 from services.runtime import audio, session
 from services.session_service import SessionTransitionError
@@ -20,6 +21,19 @@ class OperatorSettingsBody(BaseModel):
     translation_session_warning_minutes: int | None = Field(default=None, gt=0)
     translation_session_extension_minutes: int | None = Field(default=None, gt=0)
     translation_session_hard_limit_minutes: int | None = Field(default=None, gt=0)
+
+
+class OperatorNetworkResponse(BaseModel):
+    lan_ip: str | None
+
+
+@router.get(
+    "/api/v1/operator/network",
+    response_model=OperatorNetworkResponse,
+    dependencies=[Depends(require_http_operator)],
+)
+def get_operator_network() -> OperatorNetworkResponse:
+    return OperatorNetworkResponse(lan_ip=network.detect_lan_ip())
 
 
 @router.get(

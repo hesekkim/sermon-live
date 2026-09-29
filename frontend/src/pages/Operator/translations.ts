@@ -156,6 +156,15 @@ export interface OperatorCopy {
   operatorAuthRetry: string;
   operatorAuthLogout: string;
   operatorAuthLogoutFailed: string;
+  listenQrOpen: string;
+  listenQrTitle: string;
+  listenQrLoading: string;
+  listenQrUnavailable: string;
+  listenQrAddress: string;
+  listenQrCopy: string;
+  listenQrCopied: string;
+  listenQrCopyFailed: string;
+  listenQrRefresh: string;
 }
 
 export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
@@ -323,6 +332,16 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     operatorAuthLogout: '로그아웃',
     operatorAuthLogoutFailed:
       '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.',
+    listenQrOpen: '청취 QR',
+    listenQrTitle: '청취 페이지 QR',
+    listenQrLoading: '접속 주소를 확인하는 중입니다',
+    listenQrUnavailable:
+      '접속 가능한 LAN 주소를 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.',
+    listenQrAddress: '청취 주소',
+    listenQrCopy: '주소 복사',
+    listenQrCopied: '주소를 복사했습니다',
+    listenQrCopyFailed: '주소를 복사하지 못했습니다',
+    listenQrRefresh: '다시 확인',
   },
   en: {
     brand: 'Sermon Live',
@@ -490,6 +509,16 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     operatorAuthLogout: 'Sign out',
     operatorAuthLogoutFailed:
       'Sign out failed. Check your connection and try again.',
+    listenQrOpen: 'Listener QR',
+    listenQrTitle: 'Listener page QR',
+    listenQrLoading: 'Checking the listener address',
+    listenQrUnavailable:
+      'A reachable LAN address could not be found. Check the network and try again.',
+    listenQrAddress: 'Listener address',
+    listenQrCopy: 'Copy address',
+    listenQrCopied: 'Address copied',
+    listenQrCopyFailed: 'Could not copy the address',
+    listenQrRefresh: 'Check again',
   },
   de: {
     brand: 'Sermon Live',
@@ -658,5 +687,15 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     operatorAuthLogout: 'Abmelden',
     operatorAuthLogoutFailed:
       'Abmelden fehlgeschlagen. Verbindung prüfen und erneut versuchen.',
+    listenQrOpen: 'QR für Zuhörer',
+    listenQrTitle: 'QR für die Hörerseite',
+    listenQrLoading: 'Höreradresse wird geprüft',
+    listenQrUnavailable:
+      'Es wurde keine erreichbare LAN-Adresse gefunden. Netzwerk prüfen und erneut versuchen.',
+    listenQrAddress: 'Höreradresse',
+    listenQrCopy: 'Adresse kopieren',
+    listenQrCopied: 'Adresse kopiert',
+    listenQrCopyFailed: 'Adresse konnte nicht kopiert werden',
+    listenQrRefresh: 'Erneut prüfen',
   },
 };

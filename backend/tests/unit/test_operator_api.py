@@ -13,6 +13,28 @@ def test_session_is_idle_until_started(operator_client):
     assert "sermon_session_id" not in response.json()
 
 
+def test_operator_network_returns_detected_lan_address(operator_client, monkeypatch):
+    from services import network
+
+    monkeypatch.setattr(network, "detect_lan_ip", lambda: "192.168.1.12")
+
+    response = operator_client.get("/api/v1/operator/network")
+
+    assert response.status_code == 200
+    assert response.json() == {"lan_ip": "192.168.1.12"}
+
+
+def test_operator_network_reports_unavailable_address(operator_client, monkeypatch):
+    from services import network
+
+    monkeypatch.setattr(network, "detect_lan_ip", lambda: None)
+
+    response = operator_client.get("/api/v1/operator/network")
+
+    assert response.status_code == 200
+    assert response.json() == {"lan_ip": None}
+
+
 def test_sermon_session_routes_are_not_registered(operator_client):
     registered_routes = {
         (route.path, method)

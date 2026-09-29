@@ -4,10 +4,13 @@ import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../../src/App';
 import { operatorFetch } from '../../src/pages/Operator/auth/operatorAuthApi';
+import { buildListenQrUrl } from '../../src/pages/Operator/layout/listenQrUrl';
 
-(globalThis as typeof globalThis & {
-  IS_REACT_ACT_ENVIRONMENT: boolean;
-}).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 class MockWebSocket extends EventTarget {
   static readonly OPEN = 1;
@@ -25,7 +28,9 @@ class MockWebSocket extends EventTarget {
   }
 
   message(payload: object) {
-    this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(payload) }));
+    this.dispatchEvent(
+      new MessageEvent('message', { data: JSON.stringify(payload) }),
+    );
   }
 }
 
@@ -47,7 +52,9 @@ async function renderApp(initialEntry: string) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
-  const navigateRef: { current: ((path: string) => void) | null } = { current: null };
+  const navigateRef: { current: ((path: string) => void) | null } = {
+    current: null,
+  };
 
   function NavigationController() {
     navigateRef.current = useNavigate();
@@ -59,7 +66,7 @@ async function renderApp(initialEntry: string) {
       <MemoryRouter initialEntries={[initialEntry]}>
         <NavigationController />
         <App />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
   });
   await act(async () => {
@@ -86,6 +93,7 @@ let loginInvalid = false;
 let logoutUnavailable = false;
 let logoutForbidden = false;
 let protectedApiForbidden = false;
+let detectedLanIp: string | null = '192.168.1.12';
 
 beforeEach(() => {
   installStorage();
@@ -97,6 +105,7 @@ beforeEach(() => {
   logoutUnavailable = false;
   logoutForbidden = false;
   protectedApiForbidden = false;
+  detectedLanIp = '192.168.1.12';
   vi.stubGlobal('WebSocket', MockWebSocket);
   vi.stubGlobal(
     'fetch',
@@ -107,7 +116,10 @@ beforeEach(() => {
         if (authUnavailable) {
           return { ok: false, status: 503, json: async () => ({}) } as Response;
         }
-        payload = { authenticated: isAuthenticated, csrf_token: 'test-csrf-token' };
+        payload = {
+          authenticated: isAuthenticated,
+          csrf_token: 'test-csrf-token',
+        };
       } else if (url.includes('/auth/login')) {
         if (loginInvalid) {
           return { ok: false, status: 401, json: async () => ({}) } as Response;
@@ -127,10 +139,19 @@ beforeEach(() => {
           openai_key_set: false,
           audio_device: '',
         };
+      } else if (url.includes('/operator/network')) {
+        payload = { lan_ip: detectedLanIp };
       } else if (url.includes('/api/v1/session') && protectedApiForbidden) {
         return { ok: false, status: 403, json: async () => ({}) } as Response;
       } else if (url.includes('/audio/devices')) {
-        payload = [{ index: 0, name: 'Test input', input_channels: 1, default_sample_rate: 16000 }];
+        payload = [
+          {
+            index: 0,
+            name: 'Test input',
+            input_channels: 1,
+            default_sample_rate: 16000,
+          },
+        ];
       } else {
         payload = { running: false, listener_count: 0 };
       }
@@ -149,22 +170,83 @@ afterEach(() => {
 });
 
 describe('Operator navigation', () => {
+  it('shows a scannable Listen QR and lets the operator copy or refresh its URL', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const page = await renderApp('/operator');
+
+    await act(async () => {
+      (
+        page.container.querySelector(
+          'button[aria-label="청취 QR"]',
+        ) as HTMLButtonElement
+      ).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    let dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;
+    const firstUrl = buildListenQrUrl(window.location.origin, detectedLanIp);
+    expect((dialog.querySelector('input') as HTMLInputElement).value).toBe(
+      firstUrl,
+    );
+    expect(dialog.querySelector('svg')).not.toBeNull();
+
+    const copyButton = Array.from(dialog.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('주소 복사'),
+    );
+    await act(async () => {
+      copyButton?.click();
+      await Promise.resolve();
+    });
+    expect(writeText).toHaveBeenCalledWith(firstUrl);
+    expect(dialog).toHaveTextContent('주소를 복사했습니다');
+
+    detectedLanIp = '192.168.1.13';
+    const refreshButton = Array.from(dialog.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('다시 확인'),
+    );
+    await act(async () => {
+      refreshButton?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;
+    expect((dialog.querySelector('input') as HTMLInputElement).value).toBe(
+      buildListenQrUrl(window.location.origin, detectedLanIp),
+    );
+
+    page.cleanup();
+  });
+
   it('keeps page navigation out of the sidebar and offers settings and immediate theme actions', async () => {
     const { cleanup, container } = await renderApp('/operator');
 
     const sidebar = container.querySelector('aside');
     expect(sidebar?.querySelector('a, nav')).toBeNull();
     expect(sidebar).not.toHaveTextContent('설교');
-    const sidebarPowerButton = Array.from(sidebar?.querySelectorAll('button') ?? [])
-      .find((button) => button.textContent?.includes('방송 시작'));
+    const sidebarPowerButton = Array.from(
+      sidebar?.querySelectorAll('button') ?? [],
+    ).find((button) => button.textContent?.includes('방송 시작'));
     expect(sidebarPowerButton).toBeDefined();
-    expect(container.querySelector('main button[aria-label="방송 시작"]')).toBeNull();
+    expect(
+      container.querySelector('main button[aria-label="방송 시작"]'),
+    ).toBeNull();
     expect(container.querySelector('a[aria-label="설정"]')).not.toBeNull();
-    expect(container.querySelector('button[aria-label="다크 모드"]')).not.toBeNull();
+    expect(
+      container.querySelector('button[aria-label="다크 모드"]'),
+    ).not.toBeNull();
     expect(container).toHaveTextContent('입력 (한국어)');
 
     act(() => {
-      (container.querySelector('button[aria-label="다크 모드"]') as HTMLButtonElement).click();
+      (
+        container.querySelector(
+          'button[aria-label="다크 모드"]',
+        ) as HTMLButtonElement
+      ).click();
     });
     expect(document.body.dataset.cmsTheme).toBe('dark');
     expect(localStorage.getItem('operatorUiTheme')).toBe('dark');
@@ -189,12 +271,20 @@ describe('Operator navigation', () => {
     expect(socket).toBeDefined();
     act(() => {
       socket?.dispatchEvent(new Event('open'));
-      socket?.message({ type: 'transcript', role: 'input', text: '오늘의 설교입니다.' });
+      socket?.message({
+        type: 'transcript',
+        role: 'input',
+        text: '오늘의 설교입니다.',
+      });
     });
     expect(rootRender.container).toHaveTextContent('오늘의 설교입니다.');
 
     act(() => {
-      (rootRender.container.querySelector('a[aria-label="설정"]') as HTMLAnchorElement).click();
+      (
+        rootRender.container.querySelector(
+          'a[aria-label="설정"]',
+        ) as HTMLAnchorElement
+      ).click();
     });
     expect(rootRender.container).toHaveTextContent('설정');
     expect(MockWebSocket.instances).toHaveLength(1);
@@ -222,7 +312,9 @@ describe('Operator navigation', () => {
     expect(page.container).toHaveTextContent('Operator 로그인');
     expect(page.container).not.toHaveTextContent('API 모델');
 
-    const password = page.container.querySelector('input[type="password"]') as HTMLInputElement;
+    const password = page.container.querySelector(
+      'input[type="password"]',
+    ) as HTMLInputElement;
     const valueSetter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
@@ -231,8 +323,11 @@ describe('Operator navigation', () => {
       valueSetter?.call(password, 'not-saved-password');
       password.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    const submitButton = Array.from(page.container.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('로그인')) as HTMLButtonElement;
+    const submitButton = Array.from(
+      page.container.querySelectorAll('button'),
+    ).find((button) =>
+      button.textContent?.includes('로그인'),
+    ) as HTMLButtonElement;
     await act(async () => {
       submitButton.click();
       await Promise.resolve();
@@ -243,7 +338,11 @@ describe('Operator navigation', () => {
     expect(page.container.querySelector('input[type="password"]')).toBeNull();
 
     await act(async () => {
-      (page.container.querySelector('button[aria-label="로그아웃"]') as HTMLButtonElement).click();
+      (
+        page.container.querySelector(
+          'button[aria-label="로그아웃"]',
+        ) as HTMLButtonElement
+      ).click();
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -255,7 +354,9 @@ describe('Operator navigation', () => {
     isAuthenticated = false;
     loginInvalid = true;
     const page = await renderApp('/operator');
-    const password = page.container.querySelector('input[type="password"]') as HTMLInputElement;
+    const password = page.container.querySelector(
+      'input[type="password"]',
+    ) as HTMLInputElement;
     const valueSetter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
@@ -264,8 +365,11 @@ describe('Operator navigation', () => {
       valueSetter?.call(password, 'incorrect-password');
       password.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    const submitButton = Array.from(page.container.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('로그인')) as HTMLButtonElement;
+    const submitButton = Array.from(
+      page.container.querySelectorAll('button'),
+    ).find((button) =>
+      button.textContent?.includes('로그인'),
+    ) as HTMLButtonElement;
 
     await act(async () => {
       submitButton.click();
@@ -273,8 +377,12 @@ describe('Operator navigation', () => {
       await Promise.resolve();
     });
 
-    expect(page.container.querySelector('input[type="password"]')).toHaveAttribute('aria-invalid', 'true');
-    expect(page.container.querySelector('.input-field__error-message')).toHaveTextContent('비밀번호가 올바르지 않습니다');
+    expect(
+      page.container.querySelector('input[type="password"]'),
+    ).toHaveAttribute('aria-invalid', 'true');
+    expect(
+      page.container.querySelector('.input-field__error-message'),
+    ).toHaveTextContent('비밀번호가 올바르지 않습니다');
     page.cleanup();
   });
 
@@ -284,9 +392,12 @@ describe('Operator navigation', () => {
 
     expect(page.container).toHaveTextContent('인증 서버에 연결할 수 없습니다');
     expect(page.container.querySelector('input[type="password"]')).toBeNull();
-    expect(page.container.querySelector('button')).toHaveTextContent('다시 시도');
-    const buttonLabels = Array.from(page.container.querySelectorAll('button'))
-      .map((button) => button.textContent?.trim());
+    expect(page.container.querySelector('button')).toHaveTextContent(
+      '다시 시도',
+    );
+    const buttonLabels = Array.from(
+      page.container.querySelectorAll('button'),
+    ).map((button) => button.textContent?.trim());
     expect(buttonLabels).not.toContain('로그인');
 
     page.cleanup();
@@ -311,12 +422,18 @@ describe('Operator navigation', () => {
     logoutUnavailable = true;
 
     await act(async () => {
-      (page.container.querySelector('button[aria-label="로그아웃"]') as HTMLButtonElement).click();
+      (
+        page.container.querySelector(
+          'button[aria-label="로그아웃"]',
+        ) as HTMLButtonElement
+      ).click();
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(document.body).toHaveTextContent('로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.');
+    expect(document.body).toHaveTextContent(
+      '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.',
+    );
     expect(page.container).toHaveTextContent('입력 (한국어)');
     expect(page.container).not.toHaveTextContent('Operator 로그인');
     page.cleanup();
@@ -327,12 +444,18 @@ describe('Operator navigation', () => {
     logoutForbidden = true;
 
     await act(async () => {
-      (page.container.querySelector('button[aria-label="로그아웃"]') as HTMLButtonElement).click();
+      (
+        page.container.querySelector(
+          'button[aria-label="로그아웃"]',
+        ) as HTMLButtonElement
+      ).click();
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(document.body).toHaveTextContent('로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.');
+    expect(document.body).toHaveTextContent(
+      '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.',
+    );
     expect(page.container).toHaveTextContent('입력 (한국어)');
     expect(page.container).not.toHaveTextContent('Operator 로그인');
     page.cleanup();

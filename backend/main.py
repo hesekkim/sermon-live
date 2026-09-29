@@ -1,5 +1,4 @@
 import logging
-import socket
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.v1.api import api_router
 from services.broadcast import hub
+from services.network import detect_lan_ip
 from services.runtime import audio, session, settings
 
 logging.basicConfig(
@@ -26,14 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def lan_ip() -> str:
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.connect(("8.8.8.8", 80))
-        ip = sock.getsockname()[0]
-        sock.close()
-        return ip
-    except OSError:
-        return "127.0.0.1"
+    return detect_lan_ip() or "127.0.0.1"
 
 
 @asynccontextmanager

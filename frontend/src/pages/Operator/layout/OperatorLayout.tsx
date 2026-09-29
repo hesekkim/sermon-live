@@ -16,6 +16,7 @@ import { useBroadcastSession } from '../broadcast/hooks/useBroadcastSession';
 import { useBroadcastToggle } from '../broadcast/hooks/useBroadcastToggle';
 import { useOperatorPrefs } from '../OperatorPrefs';
 import { useOperatorLayout } from './useOperatorLayout';
+import ListenQrShare from './ListenQrShare';
 import styles from './OperatorLayout.module.css';
 
 export interface OperatorOutletContext {
@@ -114,6 +115,7 @@ export default function OperatorLayout({
       <main className={styles.content}>
         <header className={styles.topbar}>
           <div className={styles.topActions}>
+            <ListenQrShare labels={labels} />
             <button
               type="button"
               className={styles.iconButton}

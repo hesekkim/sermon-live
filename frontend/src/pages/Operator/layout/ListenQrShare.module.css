@@ -1,0 +1,70 @@
+.content {
+  display: grid;
+  justify-items: center;
+  gap: var(--cf-space-16);
+  width: 100%;
+}
+
+:global(.cms-theme).dialogOverlay {
+  background-color: rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(2px);
+}
+
+:global(body[data-cms-theme='dark']) :global(.cms-theme).dialogOverlay {
+  background-color: rgba(0, 0, 0, 0.24);
+}
+
+.qrFrame {
+  display: grid;
+  place-items: center;
+  max-width: 100%;
+  padding: var(--cf-space-12);
+  background: #fff;
+}
+
+.qrFrame svg {
+  display: block;
+  width: min(100%, 256px);
+  height: auto;
+}
+
+.address {
+  display: grid;
+  gap: var(--cf-space-4);
+  width: 100%;
+  color: var(--cms-text);
+  font-size: 0.875rem;
+}
+
+.address input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: var(--cf-space-8) var(--cf-space-12);
+  border: 1px solid var(--cms-border);
+  border-radius: var(--cf-radius-input);
+  background: var(--cms-bg);
+  color: var(--cms-text);
+  font: inherit;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--cf-space-8);
+  margin-left: auto;
+}
+
+.error {
+  display: grid;
+  justify-items: center;
+  gap: var(--cf-space-12);
+  text-align: center;
+}
+
+.copyStatus {
+  margin: 0;
+  color: var(--cms-text-muted, var(--cms-text));
+  font-size: 0.875rem;
+}

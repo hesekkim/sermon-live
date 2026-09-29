@@ -125,6 +125,7 @@ def test_every_operator_and_audio_endpoint_requires_authentication(monkeypatch):
     configure_auth(monkeypatch)
     protected_requests = [
         ("GET", "/api/v1/operator/settings", None),
+        ("GET", "/api/v1/operator/network", None),
         ("PUT", "/api/v1/operator/settings", {"interpreter": "echo"}),
         ("GET", "/api/v1/session", None),
         ("POST", "/api/v1/session/start", None),

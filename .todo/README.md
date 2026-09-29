@@ -66,6 +66,7 @@
 38. `045-backend-env-example-config-parity.md` — 환경변수 예제와 Settings config 정합성
 39. `046-backend-audio-device-name-encoding.md` — 입력 장치 필터 보정과 Unicode 이름 표시
 40. `047-frontend-audio-device-test-controls.md` — 입력 장치 새로고침, 테스트 중단, 미터 색상 경계 개선
+41. `048-frontend-listen-qr-sharing.md` — Operator에서 동적 Listen QR 공유
 
 ## 결정 사항
 
@@ -90,4 +91,4 @@
 - OpenAI API key는 브라우저에 보내지 않는다. 현재 Local PC JSON store의 key-at-rest 암호화는 별도 범위로 남긴다.
 - Queue overflow 시 가장 오래된 audio chunk를 폐기해 최신 음성을 유지하고, 누적 손실과 경고를 Operator에 표시한다.
 - AudioCapture는 장치가 지원하는 입력 stream format을 확인한다. 실제 app capture format과 물리 장치의 ADC format을 구분하고, OpenAI 변환 target은 `LiveInterpreter.required_*`의 24 kHz/mono/PCM16을 사용한다.
-- QR code, join link, 다중 언어, transcript history, RAG/vector DB는 이번 범위에 포함하지 않는다
+- 다중 언어, transcript history, RAG/vector DB는 이번 범위에 포함하지 않는다
