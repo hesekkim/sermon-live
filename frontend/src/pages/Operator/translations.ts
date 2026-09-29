@@ -112,7 +112,6 @@ export interface OperatorCopy {
   connectionConnected: string;
   connectionDisconnected: string;
   connectionError: string;
-  elapsedTime: string;
   remainingTime: string;
   timerStatus: string;
   timerWarning: string;
@@ -189,7 +188,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDevicePlaceholder: '입력 장치를 선택하세요',
     audioDeviceDefault: '시스템 기본 장치',
     audioDeviceLoading: '입력 장치를 불러오는 중입니다',
-    audioDeviceEmpty: '사용 가능한 입력 장치가 없습니다. 시스템 기본 장치를 사용할 수 있습니다.',
+    audioDeviceEmpty:
+      '사용 가능한 입력 장치가 없습니다. 시스템 기본 장치를 사용할 수 있습니다.',
     audioDeviceSaving: '입력 장치를 저장하는 중입니다',
     audioDeviceRetry: '다시 시도',
     audioDeviceSessionConflict: '통역 세션을 중지한 뒤 입력 장치를 변경하세요.',
@@ -222,11 +222,14 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     warningMinutes: '경고 (분)',
     extensionMinutes: '연장 (분)',
     hardLimitMinutes: '하드 제한 (분)',
-    timerRangeHint: '경고 시간은 자동 종료보다 작아야 하며, 하드 제한은 자동 종료 이상이어야 합니다.',
+    timerRangeHint:
+      '경고 시간은 자동 종료보다 작아야 하며, 하드 제한은 자동 종료 이상이어야 합니다.',
     timerAutoStopRequired: '자동 종료 시간은 1분 이상의 정수여야 합니다.',
-    timerWarningMustBeLess: '경고 시간은 1분 이상의 정수이며 자동 종료 시간보다 작아야 합니다.',
+    timerWarningMustBeLess:
+      '경고 시간은 1분 이상의 정수이며 자동 종료 시간보다 작아야 합니다.',
     timerExtensionRequired: '연장 시간은 1분 이상의 정수여야 합니다.',
-    timerHardLimitMinimum: '하드 제한 시간은 자동 종료 시간 이상의 정수여야 합니다.',
+    timerHardLimitMinimum:
+      '하드 제한 시간은 자동 종료 시간 이상의 정수여야 합니다.',
     echo: 'Echo (로컬)',
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI는 아직 사용할 수 없습니다',
@@ -268,14 +271,14 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     connectionConnected: '연결됨',
     connectionDisconnected: '연결 안 됨',
     connectionError: '오류',
-    elapsedTime: '경과 시간',
     remainingTime: '남은 시간',
     timerStatus: '타이머 상태',
     timerWarning: '종료 임박 경고',
     timerHardLimit: '최대 시간 도달',
     extensionCount: '연장 횟수',
     timerWarningTitle: '세션 종료 임박',
-    timerWarningBody: '남은 시간이 {remainingMinutes}분 남았습니다. {extensionMinutes}분 연장하거나 지금 종료할 수 있습니다.',
+    timerWarningBody:
+      '남은 시간이 {remainingMinutes}분 남았습니다. {extensionMinutes}분 연장하거나 지금 종료할 수 있습니다.',
     extendSession: '연장',
     extendFailed: '세션을 연장하지 못했습니다',
     stopNow: '지금 종료',
@@ -305,11 +308,13 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     operatorAuthPassword: '비밀번호',
     operatorAuthSubmit: '로그인',
     operatorAuthChecking: '인증 상태를 확인하고 있습니다',
-    operatorAuthUnavailable: '인증 서버에 연결할 수 없습니다. 설정과 서버 상태를 확인하세요.',
+    operatorAuthUnavailable:
+      '인증 서버에 연결할 수 없습니다. 설정과 서버 상태를 확인하세요.',
     operatorAuthInvalid: '비밀번호가 올바르지 않습니다',
     operatorAuthRetry: '다시 시도',
     operatorAuthLogout: '로그아웃',
-    operatorAuthLogoutFailed: '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.',
+    operatorAuthLogoutFailed:
+      '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.',
   },
   en: {
     brand: 'Sermon Live',
@@ -343,10 +348,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDevicePlaceholder: 'Select an input device',
     audioDeviceDefault: 'System default',
     audioDeviceLoading: 'Loading input devices',
-    audioDeviceEmpty: 'No input devices are available. The system default may still be used.',
+    audioDeviceEmpty:
+      'No input devices are available. The system default may still be used.',
     audioDeviceSaving: 'Saving input device',
     audioDeviceRetry: 'Retry',
-    audioDeviceSessionConflict: 'Stop the translation session before changing the input device.',
+    audioDeviceSessionConflict:
+      'Stop the translation session before changing the input device.',
     audioDeviceLoadFailed: 'Could not load input devices',
     audioTest: 'Audio test',
     audioTestDevice: 'Device',
@@ -376,11 +383,16 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     warningMinutes: 'Warning (minutes)',
     extensionMinutes: 'Extension (minutes)',
     hardLimitMinutes: 'Hard limit (minutes)',
-    timerRangeHint: 'The warning must be shorter than auto stop, and the hard limit must be at or above auto stop.',
-    timerAutoStopRequired: 'Auto stop must be a whole number of at least 1 minute.',
-    timerWarningMustBeLess: 'Warning must be a positive whole number shorter than auto stop.',
-    timerExtensionRequired: 'Extension must be a whole number of at least 1 minute.',
-    timerHardLimitMinimum: 'Hard limit must be a whole number at least the auto-stop time.',
+    timerRangeHint:
+      'The warning must be shorter than auto stop, and the hard limit must be at or above auto stop.',
+    timerAutoStopRequired:
+      'Auto stop must be a whole number of at least 1 minute.',
+    timerWarningMustBeLess:
+      'Warning must be a positive whole number shorter than auto stop.',
+    timerExtensionRequired:
+      'Extension must be a whole number of at least 1 minute.',
+    timerHardLimitMinimum:
+      'Hard limit must be a whole number at least the auto-stop time.',
     echo: 'Echo (local)',
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI is not available yet',
@@ -422,14 +434,14 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     connectionConnected: 'Connected',
     connectionDisconnected: 'Disconnected',
     connectionError: 'Error',
-    elapsedTime: 'Elapsed',
     remainingTime: 'Remaining',
     timerStatus: 'Timer status',
     timerWarning: 'Ending soon',
     timerHardLimit: 'Hard limit reached',
     extensionCount: 'Extensions',
     timerWarningTitle: 'Session ending soon',
-    timerWarningBody: 'You have {remainingMinutes} minutes remaining. You can extend by {extensionMinutes} minutes or stop now.',
+    timerWarningBody:
+      'You have {remainingMinutes} minutes remaining. You can extend by {extensionMinutes} minutes or stop now.',
     extendSession: 'Extend',
     extendFailed: 'Could not extend the session',
     stopNow: 'Stop now',
@@ -459,11 +471,13 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     operatorAuthPassword: 'Password',
     operatorAuthSubmit: 'Sign in',
     operatorAuthChecking: 'Checking authentication',
-    operatorAuthUnavailable: 'Authentication is unavailable. Check the server and its configuration.',
+    operatorAuthUnavailable:
+      'Authentication is unavailable. Check the server and its configuration.',
     operatorAuthInvalid: 'The password is incorrect',
     operatorAuthRetry: 'Retry',
     operatorAuthLogout: 'Sign out',
-    operatorAuthLogoutFailed: 'Sign out failed. Check your connection and try again.',
+    operatorAuthLogoutFailed:
+      'Sign out failed. Check your connection and try again.',
   },
   de: {
     brand: 'Sermon Live',
@@ -497,10 +511,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDevicePlaceholder: 'Eingabegerät auswählen',
     audioDeviceDefault: 'Systemstandard',
     audioDeviceLoading: 'Eingabegeräte werden geladen',
-    audioDeviceEmpty: 'Keine Eingabegeräte verfügbar. Der Systemstandard kann weiterhin verwendet werden.',
+    audioDeviceEmpty:
+      'Keine Eingabegeräte verfügbar. Der Systemstandard kann weiterhin verwendet werden.',
     audioDeviceSaving: 'Eingabegerät wird gespeichert',
     audioDeviceRetry: 'Erneut versuchen',
-    audioDeviceSessionConflict: 'Beenden Sie die Übersetzungssitzung, bevor Sie das Eingabegerät ändern.',
+    audioDeviceSessionConflict:
+      'Beenden Sie die Übersetzungssitzung, bevor Sie das Eingabegerät ändern.',
     audioDeviceLoadFailed: 'Eingabegeräte konnten nicht geladen werden',
     audioTest: 'Audio-Test',
     audioTestDevice: 'Gerät',
@@ -530,11 +546,16 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     warningMinutes: 'Warnung (Minuten)',
     extensionMinutes: 'Verlängerung (Minuten)',
     hardLimitMinutes: 'Hartes Limit (Minuten)',
-    timerRangeHint: 'Die Warnung muss kürzer als das automatische Stoppen sein und das harte Limit muss mindestens so groß wie das automatische Stoppen sein.',
-    timerAutoStopRequired: 'Die automatische Stoppzeit muss eine ganze Zahl von mindestens 1 Minute sein.',
-    timerWarningMustBeLess: 'Die Warnzeit muss eine positive ganze Zahl und kürzer als die automatische Stoppzeit sein.',
-    timerExtensionRequired: 'Die Verlängerung muss eine ganze Zahl von mindestens 1 Minute sein.',
-    timerHardLimitMinimum: 'Das harte Limit muss eine ganze Zahl und mindestens so groß wie die automatische Stoppzeit sein.',
+    timerRangeHint:
+      'Die Warnung muss kürzer als das automatische Stoppen sein und das harte Limit muss mindestens so groß wie das automatische Stoppen sein.',
+    timerAutoStopRequired:
+      'Die automatische Stoppzeit muss eine ganze Zahl von mindestens 1 Minute sein.',
+    timerWarningMustBeLess:
+      'Die Warnzeit muss eine positive ganze Zahl und kürzer als die automatische Stoppzeit sein.',
+    timerExtensionRequired:
+      'Die Verlängerung muss eine ganze Zahl von mindestens 1 Minute sein.',
+    timerHardLimitMinimum:
+      'Das harte Limit muss eine ganze Zahl und mindestens so groß wie die automatische Stoppzeit sein.',
     echo: 'Echo (lokal)',
     openai: 'OpenAI',
     openaiUnavailable: 'OpenAI ist noch nicht verfügbar',
@@ -562,7 +583,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     translationError: 'Fehler',
     latency: 'Chunk bis Untertitel',
     latencyUnavailable: 'Warte auf Daten',
-    audioQueueWarning: 'Audio wurde wegen eines Übersetzungsrückstands übersprungen',
+    audioQueueWarning:
+      'Audio wurde wegen eines Übersetzungsrückstands übersprungen',
     audioQueueLoss: 'Kumulativer Verlust: {chunks} Audioblöcke, {seconds}s',
     audioStatus: 'Audiosignal',
     audioSignal: 'Signal erkannt',
@@ -576,14 +598,14 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     connectionConnected: 'Verbunden',
     connectionDisconnected: 'Getrennt',
     connectionError: 'Fehler',
-    elapsedTime: 'Vergangen',
     remainingTime: 'Verbleibend',
     timerStatus: 'Timerstatus',
     timerWarning: 'Ende steht bevor',
     timerHardLimit: 'Maximale Dauer erreicht',
     extensionCount: 'Verlängerungen',
     timerWarningTitle: 'Sitzung endet bald',
-    timerWarningBody: 'Es bleiben noch {remainingMinutes} Minuten. Sie können um {extensionMinutes} Minuten verlängern oder sofort beenden.',
+    timerWarningBody:
+      'Es bleiben noch {remainingMinutes} Minuten. Sie können um {extensionMinutes} Minuten verlängern oder sofort beenden.',
     extendSession: 'Verlängern',
     extendFailed: 'Die Sitzung konnte nicht verlängert werden',
     stopNow: 'Jetzt beenden',
@@ -613,10 +635,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     operatorAuthPassword: 'Passwort',
     operatorAuthSubmit: 'Anmelden',
     operatorAuthChecking: 'Authentifizierung wird geprüft',
-    operatorAuthUnavailable: 'Authentifizierung nicht verfügbar. Server und Konfiguration prüfen.',
+    operatorAuthUnavailable:
+      'Authentifizierung nicht verfügbar. Server und Konfiguration prüfen.',
     operatorAuthInvalid: 'Das Passwort ist falsch',
     operatorAuthRetry: 'Erneut versuchen',
     operatorAuthLogout: 'Abmelden',
-    operatorAuthLogoutFailed: 'Abmelden fehlgeschlagen. Verbindung prüfen und erneut versuchen.',
+    operatorAuthLogoutFailed:
+      'Abmelden fehlgeschlagen. Verbindung prüfen und erneut versuchen.',
   },
 };
