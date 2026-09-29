@@ -3,12 +3,19 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useAudioDevices } from '../../src/pages/Operator/settings/hooks/useAudioDevices';
 
-(globalThis as typeof globalThis & {
-  IS_REACT_ACT_ENVIRONMENT: boolean;
-}).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 interface AudioDevicesState {
-  devices: Array<{ index: number; name: string; input_channels: number; default_sample_rate: number }>;
+  devices: Array<{
+    index: number;
+    name: string;
+    input_channels: number;
+    default_sample_rate: number;
+  }>;
   deviceOptions: Array<{ value: string; label: string }>;
   selectedDevice: string;
   setSelectedDevice: (device: string) => void;
@@ -54,8 +61,8 @@ describe('useAudioDevices', () => {
         () =>
           new Promise((resolve) => {
             resolveFetch = resolve;
-          })
-      )
+          }),
+      ),
     );
 
     let state!: AudioDevicesState;
@@ -73,8 +80,18 @@ describe('useAudioDevices', () => {
       resolveFetch({
         ok: true,
         json: async () => [
-          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
-          { index: 1, name: 'USB Audio', input_channels: 2, default_sample_rate: 48000 },
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
+          {
+            index: 1,
+            name: 'USB Audio',
+            input_channels: 2,
+            default_sample_rate: 48000,
+          },
         ],
       });
     });
@@ -89,10 +106,20 @@ describe('useAudioDevices', () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => [
-          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
-          { index: 1, name: 'USB Audio', input_channels: 2, default_sample_rate: 48000 },
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
+          {
+            index: 1,
+            name: 'USB Audio',
+            input_channels: 2,
+            default_sample_rate: 48000,
+          },
         ],
-      })
+      }),
     );
 
     let state!: AudioDevicesState;
@@ -115,6 +142,35 @@ describe('useAudioDevices', () => {
 
     expect(state.selectedDevice).toBe('1');
 
+    cleanup();
+  });
+
+  it('preserves Unicode device names in option labels', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => [
+          {
+            index: 0,
+            name: 'Kopfhörer',
+            input_channels: 1,
+            default_sample_rate: 48000,
+          },
+        ],
+      }),
+    );
+
+    let state!: AudioDevicesState;
+    const cleanup = renderProbe((nextState) => {
+      state = nextState;
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(state.deviceOptions[0].label).toBe('Kopfhörer (48000 Hz)');
     cleanup();
   });
 
@@ -142,7 +198,7 @@ describe('useAudioDevices', () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => [],
-      })
+      }),
     );
 
     let state!: AudioDevicesState;
@@ -168,10 +224,20 @@ describe('useAudioDevices', () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => [
-          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
-          { index: 1, name: 'USB Audio', input_channels: 2, default_sample_rate: 48000 },
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
+          {
+            index: 1,
+            name: 'USB Audio',
+            input_channels: 2,
+            default_sample_rate: 48000,
+          },
         ],
-      })
+      }),
     );
 
     let state!: AudioDevicesState;
@@ -202,9 +268,14 @@ describe('useAudioDevices', () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => [
-          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
         ],
-      })
+      }),
     );
 
     let state!: AudioDevicesState;

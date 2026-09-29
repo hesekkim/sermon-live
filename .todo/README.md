@@ -64,6 +64,7 @@
 36. `043-backend-session-service-test-alignment.md — 활성 SessionService 기준 테스트 정렬`
 37. `044-frontend-listen-settings-ux-polish.md` — Listener 듣기/다운로드와 Settings Apply/focus 동작 보정
 38. `045-backend-env-example-config-parity.md` — 환경변수 예제와 Settings config 정합성
+39. `046-backend-audio-device-name-encoding.md` — 입력 장치 필터 보정과 Unicode 이름 표시
 
 ## 결정 사항
 

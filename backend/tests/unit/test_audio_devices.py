@@ -38,7 +38,12 @@ def test_list_input_devices_filters_output_only_devices():
         ]
     )
 
-    with patch("services.audio_devices.pyaudio.PyAudio", return_value=audio):
+    with patch("services.audio_devices.pyaudio.PyAudio", return_value=audio), patch(
+        "services.audio_devices.pyaudio.pa.get_device_info",
+        side_effect=lambda index: SimpleNamespace(
+            name=audio.devices[index]["name"].encode("utf-8")
+        ),
+    ):
         devices = list_input_devices()
 
     assert devices == [
@@ -70,7 +75,12 @@ def test_list_input_devices_keeps_mixed_input_output_devices_even_when_name_ment
         ]
     )
 
-    with patch("services.audio_devices.pyaudio.PyAudio", return_value=audio):
+    with patch("services.audio_devices.pyaudio.PyAudio", return_value=audio), patch(
+        "services.audio_devices.pyaudio.pa.get_device_info",
+        side_effect=lambda index: SimpleNamespace(
+            name=audio.devices[index]["name"].encode("utf-8")
+        ),
+    ):
         devices = list_input_devices()
 
     assert devices == [
@@ -107,7 +117,12 @@ def test_list_input_devices_keeps_input_devices_even_when_name_mentions_output()
         ]
     )
 
-    with patch("services.audio_devices.pyaudio.PyAudio", return_value=audio):
+    with patch("services.audio_devices.pyaudio.PyAudio", return_value=audio), patch(
+        "services.audio_devices.pyaudio.pa.get_device_info",
+        side_effect=lambda index: SimpleNamespace(
+            name=audio.devices[index]["name"].encode("utf-8")
+        ),
+    ):
         devices = list_input_devices()
 
     assert devices == [
@@ -118,6 +133,89 @@ def test_list_input_devices_keeps_input_devices_even_when_name_mentions_output()
             "default_sample_rate": 48000.0,
         }
     ]
+
+
+def test_list_input_devices_filters_wdmks_output_endpoint_reported_as_input():
+    audio = FakePyAudio(
+        [
+            {
+                "name": "PC-Lautsprecher (Realtek HD Audio output with HAP)",
+                "maxInputChannels": 2,
+                "maxOutputChannels": 0,
+                "defaultSampleRate": 44100,
+            },
+            {
+                "name": "USB Microphone",
+                "maxInputChannels": 2,
+                "maxOutputChannels": 0,
+                "defaultSampleRate": 48000,
+            },
+        ]
+    )
+
+    with patch("services.audio_devices.pyaudio.PyAudio", return_value=audio), patch(
+        "services.audio_devices.pyaudio.pa.get_device_info",
+        side_effect=lambda index: SimpleNamespace(
+            name=audio.devices[index]["name"].encode("utf-8")
+        ),
+    ):
+        devices = list_input_devices()
+
+    assert [device["name"] for device in devices] == ["USB Microphone"]
+
+
+@pytest.mark.parametrize("device_name", ["Kopfhörer", "マイク"])
+def test_list_input_devices_decodes_utf8_names_before_system_encoding(
+    monkeypatch, device_name
+):
+    audio = FakePyAudio(
+        [
+            {
+                "name": device_name,
+                "maxInputChannels": 1,
+                "defaultSampleRate": 48000,
+            }
+        ]
+    )
+    raw_name = device_name.encode("utf-8")
+    monkeypatch.setattr("services.audio_devices.pyaudio.PyAudio", lambda: audio)
+    monkeypatch.setattr(
+        "services.audio_devices.pyaudio.pa.get_device_info",
+        lambda _index: SimpleNamespace(name=raw_name),
+    )
+    monkeypatch.setattr(
+        "services.audio_devices.locale.getpreferredencoding",
+        lambda do_setlocale=False: "cp1252",
+    )
+
+    devices = list_input_devices()
+
+    assert devices[0]["name"] == device_name
+
+
+def test_list_input_devices_falls_back_to_system_encoding(monkeypatch):
+    audio = FakePyAudio(
+        [
+            {
+                "name": "Kopfhörer",
+                "maxInputChannels": 1,
+                "defaultSampleRate": 48000,
+            }
+        ]
+    )
+    monkeypatch.setattr("services.audio_devices.pyaudio.PyAudio", lambda: audio)
+    monkeypatch.setattr(
+        "services.audio_devices.pyaudio.pa.get_device_info",
+        lambda _index: SimpleNamespace(name=b"Kopfh\xf6rer"),
+    )
+    monkeypatch.setattr(
+        "services.audio_devices.locale.getpreferredencoding",
+        lambda do_setlocale=False: "cp1252",
+    )
+
+    devices = list_input_devices()
+
+    assert devices[0]["name"] == "Kopfhörer"
 
 
 def test_audio_devices_endpoint_returns_empty_list_when_pyaudio_fails(operator_client):
