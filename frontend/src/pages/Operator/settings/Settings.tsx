@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import Button from '../../../shared/components/Button/Button';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
@@ -10,12 +10,15 @@ import SafetySection from './components/SafetySection';
 import { useAudioDevices } from './hooks/useAudioDevices';
 import { useAudioTest } from './hooks/useAudioTest';
 import { useOperatorSettings } from './hooks/useOperatorSettings';
+import type { OperatorOutletContext } from '../layout/OperatorLayout';
 import styles from './Settings.module.css';
 
 type SettingsTab = 'appearance' | 'devices' | 'safety' | 'api';
 
 export default function Settings() {
   const navigate = useNavigate();
+  const outletContext = useOutletContext<OperatorOutletContext | null>();
+  const isSessionBusy = outletContext?.isSessionBusy ?? false;
   const { labels, language, setLanguage } = useOperatorPrefs();
   const {
     devices,
@@ -32,7 +35,8 @@ export default function Settings() {
     error: audioTestError,
     isTesting,
     runTest,
-  } = useAudioTest(selectedDevice);
+    stopTest,
+  } = useAudioTest(selectedDevice, labels.audioTestTimeout);
   const { error, info } = useToast();
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [deviceSaveError, setDeviceSaveError] = useState<string | null>(null);
@@ -126,18 +130,22 @@ export default function Settings() {
           selectedDevice={selectedDevice}
           isLoading={isLoadingDevices}
           isSaving={isSaving}
+          isSessionBusy={isSessionBusy}
           hasLoadError={deviceLoadError}
           hasDevices={devices.length > 0}
           deviceSaveError={deviceSaveError}
           onDeviceChange={(value) => {
             void handleDeviceChange(value);
           }}
+          onRefresh={() => void refreshDevices()}
           onRetry={() => void refreshDevices()}
           result={result}
           liveInputLevel={liveInputLevel}
+          runtimeInputLevel={outletContext?.audioLevel ?? null}
           error={audioTestError}
           isTesting={isTesting}
           onRunTest={() => void runTest()}
+          onStopTest={stopTest}
         />
       );
     }

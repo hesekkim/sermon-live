@@ -19,6 +19,7 @@ interface AudioDevicesState {
   deviceOptions: Array<{ value: string; label: string }>;
   selectedDevice: string;
   setSelectedDevice: (device: string) => void;
+  refresh: () => Promise<void>;
   isLoading: boolean;
   error: boolean;
 }
@@ -141,6 +142,58 @@ describe('useAudioDevices', () => {
     });
 
     expect(state.selectedDevice).toBe('1');
+
+    cleanup();
+  });
+
+  it('refreshes the input device list and includes newly available devices', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
+          {
+            index: 1,
+            name: 'USB Audio',
+            input_channels: 2,
+            default_sample_rate: 48000,
+          },
+        ],
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    let state!: AudioDevicesState;
+    const cleanup = renderProbe((nextState) => {
+      state = nextState;
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await state.refresh();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(state.deviceOptions).toHaveLength(2);
+    expect(state.deviceOptions[1].label).toBe('USB Audio (48000 Hz)');
 
     cleanup();
   });

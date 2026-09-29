@@ -9,40 +9,46 @@ interface AudioTestPanelProps {
   labels: OperatorCopy;
   result: AudioTestResult | null;
   liveInputLevel: number | null;
+  runtimeInputLevel: number | null;
   error: string | null;
   isTesting: boolean;
   canRun: boolean;
   onRun: () => void;
+  onStop: () => void;
 }
 
 export default function AudioTestPanel({
   labels,
   result,
   liveInputLevel,
+  runtimeInputLevel,
   error,
   isTesting,
   canRun,
   onRun,
+  onStop,
 }: AudioTestPanelProps) {
-  const statusLabel = result
-    ? result.status === 'signal'
-      ? labels.audioTestSignal
-      : result.status === 'silent'
-        ? labels.audioTestSilent
-        : labels.audioTestDisconnected
-    : labels.audioTestNotRun;
+  const statusLabel = isTesting
+    ? labels.audioTestRunning
+    : result
+      ? result.status === 'signal'
+        ? labels.audioTestSignal
+        : result.status === 'silent'
+          ? labels.audioTestSilent
+          : labels.audioTestDisconnected
+      : labels.audioTestNotRun;
   const captureFormat = result
     ? formatAudioFormat(
         result.capture_sample_rate,
         result.capture_channels,
-        result.capture_sample_width
+        result.capture_sample_width,
       )
     : labels.audioTestNotRun;
   const processingFormat = result
     ? formatAudioFormat(
         result.processing_sample_rate,
         result.processing_channels,
-        result.processing_sample_width
+        result.processing_sample_width,
       )
     : labels.audioTestNotRun;
 
@@ -51,12 +57,12 @@ export default function AudioTestPanel({
       className={[
         styles.audioTestPanel,
         isTesting ? styles.audioTestPanelTesting : '',
-        !canRun ? styles.audioTestPanelDisabled : '',
+        !canRun && !isTesting ? styles.audioTestPanelDisabled : '',
       ]
         .filter(Boolean)
         .join(' ')}
       aria-busy={isTesting}
-      aria-disabled={!canRun}
+      aria-disabled={!canRun && !isTesting}
     >
       <div className={styles.audioTestGrid}>
         <div className={styles.audioTestRow}>
@@ -69,7 +75,7 @@ export default function AudioTestPanel({
             <AudioLevelMeter
               level={
                 isTesting
-                  ? liveInputLevel
+                  ? (runtimeInputLevel ?? liveInputLevel)
                   : canRun && result?.status === 'signal'
                     ? result.input_level_dbfs
                     : null
@@ -89,12 +95,22 @@ export default function AudioTestPanel({
         </div>
       </div>
       <div className={styles.audioTestAction}>
-        <Button variant="secondary" disabled={isTesting || !canRun} onClick={onRun}>
-          {isTesting ? labels.audioTestRunning : labels.audioTest}
+        <Button
+          variant={isTesting ? 'danger' : 'secondary'}
+          disabled={!isTesting && !canRun}
+          onClick={isTesting ? onStop : onRun}
+        >
+          {isTesting ? labels.audioTestStop : labels.audioTest}
         </Button>
       </div>
       {error ? (
-        <p className={[styles.audioTestMessage, styles.audioTestMessageError].join(' ')} role="alert">
+        <p
+          className={[
+            styles.audioTestMessage,
+            styles.audioTestMessageError,
+          ].join(' ')}
+          role="alert"
+        >
           {error}
         </p>
       ) : null}

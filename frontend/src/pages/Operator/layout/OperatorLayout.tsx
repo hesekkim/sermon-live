@@ -1,5 +1,12 @@
 import { Link, Outlet } from 'react-router-dom';
-import { LuLogOut, LuMoon, LuPower, LuPowerOff, LuSettings, LuSun } from 'react-icons/lu';
+import {
+  LuLogOut,
+  LuMoon,
+  LuPower,
+  LuPowerOff,
+  LuSettings,
+  LuSun,
+} from 'react-icons/lu';
 import { useRef } from 'react';
 import Button from '../../../shared/components/Button/Button';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
@@ -12,12 +19,18 @@ import { useOperatorLayout } from './useOperatorLayout';
 import styles from './OperatorLayout.module.css';
 
 export interface OperatorOutletContext {
+  audioLevel: number | null;
+  isSessionBusy: boolean;
   showInputPane: boolean;
   inputLines: string[];
   outputLines: string[];
 }
 
-export default function OperatorLayout({ onLogout }: { onLogout: () => Promise<void> }) {
+export default function OperatorLayout({
+  onLogout,
+}: {
+  onLogout: () => Promise<void>;
+}) {
   const { labels, theme, setTheme } = useOperatorPrefs();
   const { error: toastError } = useToast();
   const sessionErrorDuringAttemptRef = useRef(false);
@@ -35,11 +48,17 @@ export default function OperatorLayout({ onLogout }: { onLogout: () => Promise<v
   });
   const { showInputPane } = useOperatorLayout();
   const isLive = session.sessionStatus === 'live';
-  const isTransitioning = session.sessionStatus === 'starting' || session.sessionStatus === 'stopping';
-  const startDisabled = !isLive && (session.serverStatus !== 'online' || !session.startAvailable);
+  const isTransitioning =
+    session.sessionStatus === 'starting' ||
+    session.sessionStatus === 'stopping';
+  const isSessionBusy = isLive || isTransitioning;
+  const startDisabled =
+    !isLive && (session.serverStatus !== 'online' || !session.startAvailable);
   const powerLabel = isLive ? labels.sessionOn : labels.sessionOff;
   const powerTitle = startDisabled
-    ? session.serverStatus !== 'online' ? labels.serverOffline : session.startBlockReason || powerLabel
+    ? session.serverStatus !== 'online'
+      ? labels.serverOffline
+      : session.startBlockReason || powerLabel
     : powerLabel;
   const handleLogout = async () => {
     try {
@@ -56,7 +75,7 @@ export default function OperatorLayout({ onLogout }: { onLogout: () => Promise<v
         items={[]}
         ariaLabel={labels.broadcastStatus}
         collapsible={false}
-        footer={(
+        footer={
           <Button
             variant={isLive ? 'danger' : 'primary'}
             fullWidth
@@ -68,7 +87,7 @@ export default function OperatorLayout({ onLogout }: { onLogout: () => Promise<v
           >
             {powerLabel}
           </Button>
-        )}
+        }
       >
         <BroadcastHeader
           labels={labels}
@@ -120,17 +139,25 @@ export default function OperatorLayout({ onLogout }: { onLogout: () => Promise<v
               title={theme === 'dark' ? labels.lightMode : labels.darkMode}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             >
-              {theme === 'dark' ? <LuSun size={20} aria-hidden /> : <LuMoon size={20} aria-hidden />}
+              {theme === 'dark' ? (
+                <LuSun size={20} aria-hidden />
+              ) : (
+                <LuMoon size={20} aria-hidden />
+              )}
             </button>
           </div>
         </header>
         <div className={styles.routeContent}>
           <Outlet
-            context={{
-              showInputPane,
-              inputLines: session.inputLines,
-              outputLines: session.outputLines,
-            } satisfies OperatorOutletContext}
+            context={
+              {
+                audioLevel: session.audioLevel,
+                isSessionBusy,
+                showInputPane,
+                inputLines: session.inputLines,
+                outputLines: session.outputLines,
+              } satisfies OperatorOutletContext
+            }
           />
         </div>
       </main>

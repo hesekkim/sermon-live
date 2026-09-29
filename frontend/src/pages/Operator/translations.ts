@@ -36,6 +36,7 @@ export interface OperatorCopy {
   audioDeviceEmpty: string;
   audioDeviceSaving: string;
   audioDeviceRetry: string;
+  audioDeviceRefresh: string;
   audioDeviceSessionConflict: string;
   audioDeviceLoadFailed: string;
   audioTest: string;
@@ -45,6 +46,8 @@ export interface OperatorCopy {
   audioTestCaptureFormat: string;
   audioTestProcessingFormat: string;
   audioTestRunning: string;
+  audioTestTimeout: string;
+  audioTestStop: string;
   audioTestNotRun: string;
   audioTestNoDevice: string;
   audioTestSignal: string;
@@ -192,7 +195,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
       '사용 가능한 입력 장치가 없습니다. 시스템 기본 장치를 사용할 수 있습니다.',
     audioDeviceSaving: '입력 장치를 저장하는 중입니다',
     audioDeviceRetry: '다시 시도',
-    audioDeviceSessionConflict: '통역 세션을 중지한 뒤 입력 장치를 변경하세요.',
+    audioDeviceRefresh: '장치 새로고침',
+    audioDeviceSessionConflict:
+      '통역 세션을 중지한 뒤 입력 장치를 바꾸거나 테스트하세요.',
     audioDeviceLoadFailed: '입력 장치를 불러오지 못했습니다',
     audioTest: '오디오 테스트',
     audioTestDevice: '장치',
@@ -201,6 +206,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioTestCaptureFormat: '캡처 스트림 포맷',
     audioTestProcessingFormat: '처리 포맷',
     audioTestRunning: '테스트 중...',
+    audioTestTimeout:
+      '오디오 테스트가 시간 내에 완료되지 않았습니다. 입력 장치 연결을 확인한 뒤 다시 시도하세요.',
+    audioTestStop: '테스트 중지',
     audioTestNotRun: '아직 테스트하지 않았습니다',
     audioTestNoDevice: '장치 미선택',
     audioTestSignal: '신호 감지',
@@ -352,8 +360,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
       'No input devices are available. The system default may still be used.',
     audioDeviceSaving: 'Saving input device',
     audioDeviceRetry: 'Retry',
+    audioDeviceRefresh: 'Refresh devices',
     audioDeviceSessionConflict:
-      'Stop the translation session before changing the input device.',
+      'Stop the translation session before changing or testing the input device.',
     audioDeviceLoadFailed: 'Could not load input devices',
     audioTest: 'Audio test',
     audioTestDevice: 'Device',
@@ -362,6 +371,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioTestCaptureFormat: 'Capture stream format',
     audioTestProcessingFormat: 'Processing format',
     audioTestRunning: 'Testing...',
+    audioTestTimeout:
+      'The audio test did not finish in time. Check the input device connection and try again.',
+    audioTestStop: 'Stop test',
     audioTestNotRun: 'Not tested yet',
     audioTestNoDevice: 'No device selected',
     audioTestSignal: 'Signal detected',
@@ -515,8 +527,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
       'Keine Eingabegeräte verfügbar. Der Systemstandard kann weiterhin verwendet werden.',
     audioDeviceSaving: 'Eingabegerät wird gespeichert',
     audioDeviceRetry: 'Erneut versuchen',
+    audioDeviceRefresh: 'Geräte aktualisieren',
     audioDeviceSessionConflict:
-      'Beenden Sie die Übersetzungssitzung, bevor Sie das Eingabegerät ändern.',
+      'Beenden Sie die Übersetzungssitzung, bevor Sie das Eingabegerät ändern oder testen.',
     audioDeviceLoadFailed: 'Eingabegeräte konnten nicht geladen werden',
     audioTest: 'Audio-Test',
     audioTestDevice: 'Gerät',
@@ -525,6 +538,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioTestCaptureFormat: 'Aufnahme-Streamformat',
     audioTestProcessingFormat: 'Verarbeitungsformat',
     audioTestRunning: 'Wird getestet...',
+    audioTestTimeout:
+      'Der Audiotest wurde nicht rechtzeitig abgeschlossen. Prüfen Sie die Verbindung des Eingabegeräts und versuchen Sie es erneut.',
+    audioTestStop: 'Test stoppen',
     audioTestNotRun: 'Noch nicht getestet',
     audioTestNoDevice: 'Kein Gerät ausgewählt',
     audioTestSignal: 'Signal erkannt',

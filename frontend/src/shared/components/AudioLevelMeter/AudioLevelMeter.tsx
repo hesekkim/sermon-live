@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import styles from './AudioLevelMeter.module.css';
 
 const MIN_DBFS = -60;
@@ -50,20 +51,28 @@ export default function AudioLevelMeter({
       aria-valuemax={MAX_DBFS}
       aria-valuenow={safeLevel ?? MIN_DBFS}
       aria-valuetext={
-        isActive ? 'measuring' : safeLevel === null ? 'idle' : `${safeLevel.toFixed(1)} dBFS`
+        isActive
+          ? 'measuring'
+          : safeLevel === null
+            ? 'idle'
+            : `${safeLevel.toFixed(1)} dBFS`
       }
     >
       <div className={styles.fill} style={{ width: `${fillPercent}%` }}>
-        {LEVEL_BANDS.map(({ threshold, color }) => (
+        {LEVEL_BANDS.map(({ threshold, color }, index) => (
           <span
             key={threshold}
             data-segment
             data-visible={String(fillPercent >= threshold)}
             className={styles.segment}
-            style={{
-              background: color,
-              opacity: fillPercent >= threshold ? 1 : 0,
-            }}
+            style={
+              {
+                background: color,
+                '--segment-color': color,
+                '--next-segment-color': LEVEL_BANDS[index + 1]?.color ?? color,
+                opacity: fillPercent >= threshold ? 1 : 0,
+              } as CSSProperties
+            }
           />
         ))}
       </div>

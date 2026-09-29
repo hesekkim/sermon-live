@@ -1,7 +1,9 @@
+import asyncio
 import json
-from typing import AsyncIterator, Literal
+from collections.abc import AsyncIterator, Awaitable
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -16,6 +18,28 @@ from services.operator_auth import require_http_operator
 
 router = APIRouter()
 AUDIO_TEST_DURATION_SECONDS = 3.0
+AUDIO_TEST_DISCONNECT_POLL_SECONDS = 0.1
+
+
+async def _collect_audio_until_disconnected(
+    request: Request, collection: Awaitable[bytes]
+) -> bytes:
+    collection_task = asyncio.ensure_future(collection)
+    try:
+        while not collection_task.done():
+            await asyncio.wait(
+                {collection_task}, timeout=AUDIO_TEST_DISCONNECT_POLL_SECONDS
+            )
+            if not collection_task.done() and await request.is_disconnected():
+                collection_task.cancel()
+                await asyncio.gather(collection_task, return_exceptions=True)
+                raise asyncio.CancelledError
+        return collection_task.result()
+    except BaseException:
+        if not collection_task.done():
+            collection_task.cancel()
+        await asyncio.gather(collection_task, return_exceptions=True)
+        raise
 
 
 class AudioDeviceResponse(BaseModel):
@@ -102,7 +126,9 @@ def get_audio_devices() -> list[dict[str, object]]:
     response_model=AudioTestResponse,
     dependencies=[Depends(require_http_operator)],
 )
-async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTestResponse:
+async def test_audio_input(
+    client_request: Request, request: AudioTestRequest | None = None
+) -> AudioTestResponse:
     if session.state in ("starting", "live", "stopping"):
         raise HTTPException(
             status_code=409,
@@ -117,7 +143,9 @@ async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTest
                 native_format = audio.input_format
                 if native_format is None:
                     raise RuntimeError("Audio input device is not available")
-                raw = await audio.collect(AUDIO_TEST_DURATION_SECONDS)
+                raw = await _collect_audio_until_disconnected(
+                    client_request, audio.collect(AUDIO_TEST_DURATION_SECONDS)
+                )
                 rate, channels, width = native_format
                 processor = AudioProcessor(rate, channels, width, *target_format)
                 processor.process(raw)
@@ -156,7 +184,9 @@ async def test_audio_input(request: AudioTestRequest | None = None) -> AudioTest
                 message="No audio input device is available",
             )
 
-        raw = await capture.collect(AUDIO_TEST_DURATION_SECONDS)
+        raw = await _collect_audio_until_disconnected(
+            client_request, capture.collect(AUDIO_TEST_DURATION_SECONDS)
+        )
         rate, channels, width = native_format
         processor = AudioProcessor(rate, channels, width, *target_format)
         processor.process(raw)

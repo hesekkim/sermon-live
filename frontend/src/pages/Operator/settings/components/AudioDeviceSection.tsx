@@ -1,5 +1,6 @@
 import Button from '../../../../shared/components/Button/Button';
 import Select from '../../../../shared/components/Select/Select';
+import { FiRefreshCw } from 'react-icons/fi';
 import type { OperatorCopy } from '../../translations';
 import type { AudioDeviceOption } from '../hooks/useAudioDevices';
 import type { AudioTestResult } from '../hooks/useAudioTest';
@@ -12,16 +13,20 @@ interface AudioDeviceSectionProps {
   selectedDevice: string;
   isLoading: boolean;
   isSaving: boolean;
+  isSessionBusy: boolean;
   hasLoadError: boolean;
   hasDevices: boolean;
   deviceSaveError: string | null;
   onDeviceChange: (device: string) => void;
+  onRefresh: () => void;
   onRetry: () => void;
   result: AudioTestResult | null;
   liveInputLevel: number | null;
+  runtimeInputLevel: number | null;
   error: string | null;
   isTesting: boolean;
   onRunTest: () => void;
+  onStopTest: () => void;
 }
 
 export default function AudioDeviceSection({
@@ -30,16 +35,20 @@ export default function AudioDeviceSection({
   selectedDevice,
   isLoading,
   isSaving,
+  isSessionBusy,
   hasLoadError,
   hasDevices,
   deviceSaveError,
   onDeviceChange,
+  onRefresh,
   onRetry,
   result,
   liveInputLevel,
+  runtimeInputLevel,
   error,
   isTesting,
   onRunTest,
+  onStopTest,
 }: AudioDeviceSectionProps) {
   const canRun = selectedDevice
     ? options.some((option) => option.value === selectedDevice)
@@ -47,15 +56,27 @@ export default function AudioDeviceSection({
 
   return (
     <section className={styles.section}>
-      <h2>{labels.audioDevice}</h2>
+      <div className={styles.sectionTitle}>
+        <h2>{labels.audioDevice}</h2>
+        <Button
+          variant="secondary"
+          icon={<FiRefreshCw />}
+          disabled={isLoading || isSaving}
+          onClick={onRefresh}
+        >
+          {labels.audioDeviceRefresh}
+        </Button>
+      </div>
+
       <Select
         label={labels.audioDevice}
         options={options}
         value={selectedDevice}
         placeholder={labels.audioDevicePlaceholder}
-        disabled={isLoading || isSaving}
+        disabled={isLoading || isSaving || isSessionBusy}
         onChange={onDeviceChange}
       />
+
       {isLoading ? <p role="status">{labels.audioDeviceLoading}</p> : null}
       {!isLoading && hasLoadError ? (
         <div role="alert">
@@ -74,11 +95,16 @@ export default function AudioDeviceSection({
         labels={labels}
         result={result}
         liveInputLevel={liveInputLevel}
+        runtimeInputLevel={runtimeInputLevel}
         error={error}
         isTesting={isTesting}
-        canRun={canRun}
+        canRun={canRun && !isSessionBusy}
         onRun={onRunTest}
+        onStop={onStopTest}
       />
+      {isSessionBusy ? (
+        <p role="status">{labels.audioDeviceSessionConflict}</p>
+      ) : null}
     </section>
   );
 }

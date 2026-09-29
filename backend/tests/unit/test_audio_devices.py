@@ -1,3 +1,4 @@
+import asyncio
 import json
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -7,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from core.config import Settings
+from api.v1.endpoints.audio import _collect_audio_until_disconnected
 from main import app
 from services.audio_devices import list_input_devices
 from services.runtime import session
@@ -280,6 +282,28 @@ def test_audio_test_endpoint_rejects_when_session_is_running(monkeypatch, operat
 
     assert response.status_code == 409
     assert response.json()["detail"] == "Audio test is unavailable while a session is running"
+
+
+@pytest.mark.asyncio
+async def test_audio_collection_is_cancelled_when_client_disconnects():
+    disconnected_checks = iter((False, True))
+
+    class FakeRequest:
+        async def is_disconnected(self) -> bool:
+            return next(disconnected_checks)
+
+    collection_cancelled = asyncio.Event()
+
+    async def collect() -> bytes:
+        try:
+            await asyncio.Future()
+        finally:
+            collection_cancelled.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await _collect_audio_until_disconnected(FakeRequest(), collect())
+
+    assert collection_cancelled.is_set()
 
 
 def test_audio_test_endpoint_uses_requested_device(monkeypatch, operator_client):
