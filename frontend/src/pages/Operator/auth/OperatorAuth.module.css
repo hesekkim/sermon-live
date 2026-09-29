@@ -8,17 +8,36 @@
 }
 
 .panel {
-  width: min(100%, 25rem);
+  box-sizing: border-box;
+  width: 100%;
   padding: var(--cf-space-24);
   border: 1px solid var(--cms-border);
   border-radius: var(--cf-radius-card);
   background: var(--cms-surface);
 }
 
-.brand {
-  margin: 0 0 var(--cf-space-8);
-  color: var(--cms-text-muted);
-  font-size: 0.875rem;
+.loginContent {
+  position: relative;
+  width: min(100%, 28rem);
+}
+
+.logoBadge {
+  position: absolute;
+  bottom: calc(100% + var(--cf-space-16));
+  left: 50%;
+  display: grid;
+  width: 12.5rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  transform: translateX(-50%);
+}
+
+.logo {
+  display: block;
+  width: 6rem;
+  height: auto;
 }
 
 .panel h1 {

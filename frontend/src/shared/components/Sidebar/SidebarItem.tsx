@@ -6,6 +6,7 @@ type IconComponent = ComponentType<{ className?: string; 'aria-hidden'?: boolean
 
 export interface SidebarItemProps {
   label: string;
+  brandImageSrc?: string;
   collapsed?: boolean;
   icon?: IconComponent;
   to?: string;
@@ -18,6 +19,7 @@ export interface SidebarItemProps {
 
 export default function SidebarItem({
   label,
+  brandImageSrc,
   collapsed = false,
   icon: Icon,
   to,
@@ -46,9 +48,15 @@ export default function SidebarItem({
         type="button"
         className={styles.brand}
         onClick={navigateTo}
+        aria-label={label}
         title={title}
       >
-        {label}
+        {brandImageSrc ? (
+          <span className={styles.brandLogoBadge}>
+            <img className={styles.brandLogo} src={brandImageSrc} alt="" />
+          </span>
+        ) : null}
+        <span className={styles.brandLabel}>{label}</span>
       </button>
     );
   }

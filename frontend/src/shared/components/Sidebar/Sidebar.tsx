@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
+import logoUrl from '../../../assets/sermon-live-logo.png';
 import SidebarPanelIcon from '../SidebarPanelIcon/SidebarPanelIcon';
 import SidebarItem from './SidebarItem';
 import styles from './Sidebar.module.css';
@@ -13,6 +14,7 @@ export interface SidebarNavItem {
 
 export interface SidebarProps {
   brandLabel: string;
+  brandImageSrc?: string;
   brandTo?: string;
   items?: SidebarNavItem[];
   children?: ReactNode;
@@ -27,6 +29,7 @@ export interface SidebarProps {
 
 export default function Sidebar({
   brandLabel,
+  brandImageSrc = logoUrl,
   brandTo,
   items = [],
   children,
@@ -76,11 +79,17 @@ export default function Sidebar({
             <SidebarItem
               variant="brand"
               label={brandLabel}
+              brandImageSrc={brandImageSrc}
               to={brandTo}
               collapsed={collapsed}
             />
           ) : (
-            <div className={styles.brandStatic}>{brandLabel}</div>
+            <div className={styles.brandStatic}>
+              <span className={styles.brandLogoBadge}>
+                <img className={styles.brandLogo} src={brandImageSrc} alt="" />
+              </span>
+              <span className={styles.brandLabel}>{brandLabel}</span>
+            </div>
           )}
         </div>
 
