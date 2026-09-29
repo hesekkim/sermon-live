@@ -67,6 +67,7 @@
 39. `046-backend-audio-device-name-encoding.md` — 입력 장치 필터 보정과 Unicode 이름 표시
 40. `047-frontend-audio-device-test-controls.md` — 입력 장치 새로고침, 테스트 중단, 미터 색상 경계 개선
 41. `048-frontend-listen-qr-sharing.md` — Operator에서 동적 Listen QR 공유
+42. `049-frontend-remove-unused-components.md` — 미사용 Frontend 공용 컴포넌트 제거
 
 ## 결정 사항
 
