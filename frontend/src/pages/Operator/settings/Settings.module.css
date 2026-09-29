@@ -111,6 +111,26 @@
   flex: 1;
 }
 
+.transcriptOption {
+  display: grid;
+  gap: var(--cf-space-4);
+}
+
+.transcriptToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-8);
+  width: fit-content;
+  color: var(--cms-text);
+}
+
+.transcriptToggle input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--cms-primary);
+}
+
 .timerGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));

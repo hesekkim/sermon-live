@@ -94,21 +94,19 @@ class OpenAIRealtimeInterpreter:
             if created.get("type") != "session.created":
                 raise RuntimeError("OpenAI Realtime session handshake failed")
 
+            audio_settings: dict[str, Any] = {
+                "output": {"language": self._settings.translation_target_language}
+            }
+            if self._settings.input_transcript_enabled:
+                audio_settings["input"] = {
+                    "transcription": {
+                        "model": self._settings.translation_source_transcription_model
+                    }
+                }
             await self._send_json(
                 {
                     "type": "session.update",
-                    "session": {
-                        "audio": {
-                            "input": {
-                                "transcription": {
-                                    "model": self._settings.translation_source_transcription_model
-                                }
-                            },
-                            "output": {
-                                "language": self._settings.translation_target_language
-                            },
-                        }
-                    },
+                    "session": {"audio": audio_settings},
                 }
             )
             updated = await self._receive_json(websocket)

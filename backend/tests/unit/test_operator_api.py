@@ -57,12 +57,14 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     monkeypatch.setattr(store, "_path", tmp_path / "operator.json")
     empty = operator_client.get("/api/v1/operator/settings")
     assert empty.status_code == 200
+    assert empty.json()["input_transcript_enabled"] is False
     saved = operator_client.put(
         "/api/v1/operator/settings",
         json={
             "interpreter": "openai",
             "openai_api_key": "unit-test-key",
             "audio_device": "USB Audio",
+            "input_transcript_enabled": True,
             "translation_session_auto_stop_minutes": 60,
             "translation_session_warning_minutes": 4,
             "translation_session_extension_minutes": 15,
@@ -73,6 +75,7 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     body = saved.json()
     assert body["interpreter"] == "openai"
     assert body["audio_device"] == "USB Audio"
+    assert body["input_transcript_enabled"] is True
     assert body["translation_session_auto_stop_minutes"] == 60
     assert body["translation_session_warning_minutes"] == 4
     assert body["translation_session_extension_minutes"] == 15
@@ -153,12 +156,18 @@ def test_operator_settings_cannot_change_safety_or_interpreter_during_session(
         "/api/v1/operator/settings",
         json={"interpreter": "echo", "openai_api_key": "replacement-key"},
     )
+    transcript_response = operator_client.put(
+        "/api/v1/operator/settings",
+        json={"interpreter": "echo", "input_transcript_enabled": True},
+    )
 
     assert timer_response.status_code == 409
     assert interpreter_response.status_code == 409
     assert key_response.status_code == 409
+    assert transcript_response.status_code == 409
     current = store.public_view(get_settings())
     assert current["translation_session_auto_stop_minutes"] == 90
+    assert current["input_transcript_enabled"] is False
     assert current["interpreter"] == "echo"
 
 

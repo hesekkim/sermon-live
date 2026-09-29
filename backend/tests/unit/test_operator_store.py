@@ -36,6 +36,34 @@ def test_overlay_uses_json_over_env(tmp_path):
     assert overlay.audio_device == "USB-1"
 
 
+def test_input_transcript_defaults_off_and_persists_operator_override(tmp_path):
+    settings = Settings(input_transcript_enabled=True)
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+
+    assert store.public_view(Settings())["input_transcript_enabled"] is False
+
+    store.save(interpreter="openai", input_transcript_enabled=True)
+    assert store.public_view(Settings())["input_transcript_enabled"] is True
+    assert store.overlay_settings(Settings()).input_transcript_enabled is True
+
+    store.save(interpreter="openai", input_transcript_enabled=False)
+    assert store.public_view(settings)["input_transcript_enabled"] is False
+    assert store.overlay_settings(settings).input_transcript_enabled is False
+
+
+def test_input_transcript_uses_environment_default_when_store_has_no_override(
+    tmp_path,
+):
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+
+    assert store.public_view(Settings(input_transcript_enabled=True))[
+        "input_transcript_enabled"
+    ] is True
+    assert store.overlay_settings(
+        Settings(input_transcript_enabled=True)
+    ).input_transcript_enabled is True
+
+
 def test_public_view_includes_openai_environment_key(tmp_path):
     store = OperatorSettingsStore(tmp_path / "operator.json")
     view = store.public_view(

@@ -137,6 +137,16 @@ async def test_start_stop_keeps_server_audio_ready_and_rejects_duplicate_transit
     assert hub.listener_events[-1] == hub.operator_events[-1]
 
 
+def test_session_status_exposes_effective_input_transcript_setting(tmp_path):
+    settings = Settings(interpreter="openai", input_transcript_enabled=True)
+    service, _hub = make_service(tmp_path, settings=settings)
+
+    assert service.status()["input_transcript_enabled"] is True
+
+    service._store.save(interpreter="echo", input_transcript_enabled=True)
+    assert service.status()["input_transcript_enabled"] is False
+
+
 @pytest.mark.asyncio
 async def test_shutdown_cancels_and_cleans_up_session_start_in_progress(
     tmp_path, monkeypatch
@@ -618,6 +628,7 @@ def test_broadcast_hub_limits_public_session_status_fields():
         "type": "translation_status",
         "session_status": "error",
         "last_termination_reason": "interpreter_error",
+        "input_transcript_enabled": True,
         "error": "upstream diagnostic",
         "audio_error": "device path",
         "start_block_reason": "private operator detail",

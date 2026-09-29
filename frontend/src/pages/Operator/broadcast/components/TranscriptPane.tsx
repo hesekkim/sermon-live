@@ -12,6 +12,7 @@ interface TranscriptPaneProps {
   lines: string[];
   downloadLabel: string;
   filename: string;
+  prominent?: boolean;
 }
 
 export default function TranscriptPane({
@@ -20,11 +21,14 @@ export default function TranscriptPane({
   lines,
   downloadLabel,
   filename,
+  prominent = false,
 }: TranscriptPaneProps) {
   const hasTranscript = lines.some((line) => line.trim().length > 0);
 
   return (
-    <section className={styles.pane}>
+    <section
+      className={`${styles.pane} ${prominent ? styles.paneProminent : ''}`}
+    >
       <div className={styles.paneHeader}>
         <h2>{title}</h2>
         <Button

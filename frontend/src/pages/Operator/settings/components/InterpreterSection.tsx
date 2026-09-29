@@ -13,6 +13,8 @@ interface InterpreterSectionProps {
   onInterpreterChange: (interpreter: InterpreterName) => void;
   apiKey: string;
   onApiKeyChange: (apiKey: string) => void;
+  inputTranscriptEnabled: boolean;
+  onInputTranscriptEnabledChange: (enabled: boolean) => void;
   keyStatus: KeyStatus;
   savedKeyPreview: string;
   keyWarning: string;
@@ -25,6 +27,8 @@ export default function InterpreterSection({
   onInterpreterChange,
   apiKey,
   onApiKeyChange,
+  inputTranscriptEnabled,
+  onInputTranscriptEnabledChange,
   keyStatus,
   savedKeyPreview,
   keyWarning,
@@ -80,6 +84,21 @@ export default function InterpreterSection({
             onChange={onApiKeyChange}
           />
         </div>
+      </div>
+      <div className={styles.transcriptOption}>
+        <label className={styles.transcriptToggle}>
+          <input
+            type="checkbox"
+            name="input_transcript_enabled"
+            checked={inputTranscriptEnabled}
+            disabled={keyDisabled}
+            onChange={(event) =>
+              onInputTranscriptEnabledChange(event.currentTarget.checked)
+            }
+          />
+          <span>{labels.inputTranscript}</span>
+        </label>
+        <p className={styles.timerHint}>{labels.inputTranscriptDescription}</p>
       </div>
       {keyWarning && keyStatus === 'invalid' ? (
         <p role="status">{keyWarning}</p>

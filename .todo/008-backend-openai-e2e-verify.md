@@ -34,6 +34,7 @@ adapter 단위 테스트만으로는 실제 운영 lifecycle(Translation Session
 
 - [ ] `gpt-realtime-translate` 모델 접근, session create/update, 24 kHz mono PCM16 입력 및 output sample-rate metadata 확인.
 - [ ] 실제 translation session에서 여러 `session.output_transcript.delta` 조각이 Listen subtitle 한 문장으로 누적되는지, 다음 문장에서 이전 문장이 적절히 교체되는지 확인. 문장부호 없는 출력, 독일어 약어/숫자, 따옴표 뒤 문장부호도 확인.
+- [ ] Input transcript off/on을 각각 실행해 한국어 원문 pane과 input transcript가 off에서 사라지고 on에서 나타나는지 확인. 동일 오디오 구간의 API Usage 차이를 기록하고, output translation 품질 차이는 결과가 확인된 경우에만 기록.
 - [ ] 한국어 input transcript와 독일어 output transcript/audio가 Operator 및 여러 공개 Listen client에 각각 올바르게 전달되는지 확인.
 - [ ] Listen subtitle과 translated audio의 상대 타이밍, 2초 playback lead 제한 후 최신 오디오 복구, 장시간 재생의 지연/누락 여부 확인.
 - [ ] 정상 stop, auto-stop, `session.close` 후 `session.closed`까지 마지막 transcript/audio flush가 완료되는지 확인.

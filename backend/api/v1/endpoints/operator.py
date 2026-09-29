@@ -17,6 +17,7 @@ class OperatorSettingsBody(BaseModel):
     interpreter: InterpreterName
     openai_api_key: str | None = Field(default=None)
     audio_device: str | None = Field(default=None)
+    input_transcript_enabled: bool | None = Field(default=None)
     translation_session_auto_stop_minutes: int | None = Field(default=None, gt=0)
     translation_session_warning_minutes: int | None = Field(default=None, gt=0)
     translation_session_extension_minutes: int | None = Field(default=None, gt=0)
@@ -65,6 +66,12 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
         "translation_session_hard_limit_minutes",
     )
     protected_settings_changed = body.interpreter != current_view["interpreter"]
+    if (
+        body.input_transcript_enabled is not None
+        and body.input_transcript_enabled
+        != current_view["input_transcript_enabled"]
+    ):
+        protected_settings_changed = True
     for field in timer_fields:
         requested = getattr(body, field)
         if requested is not None and requested != current_view[field]:
@@ -85,6 +92,7 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
             interpreter=body.interpreter,
             openai_api_key=body.openai_api_key,
             audio_device=body.audio_device,
+            input_transcript_enabled=body.input_transcript_enabled,
             settings=current_settings,
             translation_session_auto_stop_minutes=(
                 body.translation_session_auto_stop_minutes

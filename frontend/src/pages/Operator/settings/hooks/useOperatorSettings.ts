@@ -6,6 +6,7 @@ import type { OperatorCopy, UiLanguage } from '../../translations';
 type InterpreterName = 'echo' | 'openai';
 type KeyStatus = 'valid' | 'missing' | 'invalid';
 type SaveScope = 'device' | 'safety' | 'api';
+type SettingsValue = string | number | boolean | undefined;
 type TimerValueKey =
 	| 'autoStopMinutes'
 	| 'warningMinutes'
@@ -19,6 +20,7 @@ interface SettingsResponse {
 	translation_session_warning_minutes?: number | null;
 	translation_session_extension_minutes?: number | null;
 	translation_session_hard_limit_minutes?: number | null;
+	input_transcript_enabled?: boolean;
 	openai_key_set: boolean;
 	openai_key_masked?: string;
 	openai_key_status?: KeyStatus;
@@ -53,6 +55,7 @@ export function useOperatorSettings({
 	const [apiKey, setApiKey] = useState('');
 	const [openaiKeyStatus, setOpenaiKeyStatus] = useState<KeyStatus>('missing');
 	const [openaiKeyMasked, setOpenaiKeyMasked] = useState('');
+	const [inputTranscriptEnabled, setInputTranscriptEnabled] = useState(false);
 	const [keyWarning, setKeyWarning] = useState('');
 	const [draftLanguage, setDraftLanguage] = useState<UiLanguage>(language);
 	const [timerValues, setTimerValues] = useState<TimerDraftState>({
@@ -66,6 +69,7 @@ export function useOperatorSettings({
 	const { warning, error } = useToast();
 	const settingsLoadStartedRef = useRef(false);
 	const savedInterpreterRef = useRef<InterpreterName>('echo');
+	const savedInputTranscriptEnabledRef = useRef(false);
 	const savedTimerValuesRef = useRef<TimerDraftState | null>(null);
 	const setSelectedDeviceRef = useRef(setSelectedDevice);
 	setSelectedDeviceRef.current = setSelectedDevice;
@@ -75,6 +79,9 @@ export function useOperatorSettings({
 		setInterpreter(data.interpreter);
 		setOpenaiKeyStatus(data.openai_key_status ?? 'missing');
 		setOpenaiKeyMasked(data.openai_key_masked ?? '');
+		const enabled = data.input_transcript_enabled ?? false;
+		savedInputTranscriptEnabledRef.current = enabled;
+		setInputTranscriptEnabled(enabled);
 		setKeyWarning(getSelectedWarning(data));
 	};
 
@@ -114,7 +121,7 @@ export function useOperatorSettings({
 	const timerValidation = validateTimerDraft(timerValues, labels);
 
 	const submitSettings = async (
-		body: Record<string, string | number | undefined>,
+		body: Record<string, SettingsValue>,
 		scope: SaveScope
 	) => {
 		if (isSaving) return { success: false as const, message: labels.applyFailed };
@@ -163,7 +170,7 @@ export function useOperatorSettings({
 	};
 
 	const saveDevice = async (nextDevice: string) => {
-		const body: Record<string, string | number | undefined> = {
+		const body: Record<string, SettingsValue> = {
 			interpreter: savedInterpreterRef.current,
 			audio_device: nextDevice,
 		};
@@ -174,7 +181,7 @@ export function useOperatorSettings({
 		if (timerValidation.hasErrors) {
 			return { success: false as const, message: timerValidation.message };
 		}
-		const body: Record<string, string | number | undefined> = {
+		const body: Record<string, SettingsValue> = {
 			interpreter: savedInterpreterRef.current,
 			translation_session_auto_stop_minutes: Number(timerValues.autoStopMinutes),
 			translation_session_warning_minutes: Number(timerValues.warningMinutes),
@@ -186,8 +193,9 @@ export function useOperatorSettings({
 
 	const saveApiModel = async () => {
 		const trimmedKey = apiKey.trim();
-		const body: Record<string, string | number | undefined> = {
+		const body: Record<string, SettingsValue> = {
 			interpreter,
+			input_transcript_enabled: inputTranscriptEnabled,
 		};
 		if (trimmedKey) {
 			body.openai_api_key = trimmedKey;
@@ -200,15 +208,21 @@ export function useOperatorSettings({
 			const timerKey = key as TimerValueKey;
 			return timerValues[timerKey] !== savedTimerValuesRef.current?.[timerKey];
 		});
+	const hasInputTranscriptDraft =
+		inputTranscriptEnabled !== savedInputTranscriptEnabledRef.current;
 	const isApiModelDirty =
 		hasLoadedSettings &&
-		(interpreter !== savedInterpreterRef.current || Boolean(apiKey.trim()));
+		(interpreter !== savedInterpreterRef.current ||
+			Boolean(apiKey.trim()) ||
+			hasInputTranscriptDraft);
 
 	return {
 		interpreter,
 		setInterpreter,
 		apiKey,
 		setApiKey,
+		inputTranscriptEnabled,
+		setInputTranscriptEnabled,
 		openaiKeyStatus,
 		openaiKeyMasked,
 		keyWarning,

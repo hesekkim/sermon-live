@@ -57,6 +57,8 @@ export interface OperatorCopy {
   apiKey: string;
   apiKeyPlaceholder: string;
   apiKeySaved: string;
+  inputTranscript: string;
+  inputTranscriptDescription: string;
   showApiKey: string;
   hideApiKey: string;
   apply: string;
@@ -228,6 +230,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'API KEY를 입력하세요',
     apiKeySaved: '저장된 키가 있습니다',
+    inputTranscript: '한국어 원문 transcript 사용',
+    inputTranscriptDescription:
+      '방송 화면과 다운로드에 한국어 원문을 표시합니다. 번역 품질을 높이지 않으며 추가 API 사용량이 발생할 수 있습니다.',
     showApiKey: 'API KEY 표시',
     hideApiKey: 'API KEY 숨기기',
     apply: '적용',
@@ -404,6 +409,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'Enter API KEY',
     apiKeySaved: 'A key is already saved',
+    inputTranscript: 'Enable Korean source transcript',
+    inputTranscriptDescription:
+      'Shows and downloads the Korean source transcript for the operator. It does not improve translation and may add API usage.',
     showApiKey: 'Show API KEY',
     hideApiKey: 'Hide API KEY',
     apply: 'Apply',
@@ -582,6 +590,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     apiKey: 'API KEY',
     apiKeyPlaceholder: 'API KEY eingeben',
     apiKeySaved: 'Ein Schlüssel ist gespeichert',
+    inputTranscript: 'Koreanisches Originaltranskript verwenden',
+    inputTranscriptDescription:
+      'Zeigt und lädt das koreanische Originaltranskript für den Operator. Es verbessert die Übersetzung nicht und kann zusätzliche API-Nutzung verursachen.',
     showApiKey: 'API KEY anzeigen',
     hideApiKey: 'API KEY ausblenden',
     apply: 'Anwenden',

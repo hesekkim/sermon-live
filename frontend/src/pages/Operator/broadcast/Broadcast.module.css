@@ -139,6 +139,10 @@
   font-weight: 600;
 }
 
+.paneProminent h2 {
+  font-size: 1.125rem;
+}
+
 .paneHeader {
   display: flex;
   align-items: center;
@@ -170,6 +174,12 @@
   color: var(--cms-text-secondary);
 }
 
+.paneProminent .empty {
+  max-width: 72ch;
+  font-size: 1.25rem;
+  line-height: 1.55;
+}
+
 .past {
   margin: 0 0 var(--cf-space-8);
   color: var(--cms-text);
@@ -181,6 +191,13 @@
   color: var(--highlight);
   font-weight: 600;
   line-height: 1.5;
+}
+
+.paneProminent .past,
+.paneProminent .current {
+  max-width: 72ch;
+  font-size: 1.25rem;
+  line-height: 1.55;
 }
 
 @media (max-width: 520px) {

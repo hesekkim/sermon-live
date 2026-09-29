@@ -45,6 +45,8 @@ export default function Settings() {
     setInterpreter,
     apiKey,
     setApiKey,
+    inputTranscriptEnabled,
+    setInputTranscriptEnabled,
     openaiKeyStatus,
     openaiKeyMasked,
     keyWarning,
@@ -196,6 +198,8 @@ export default function Settings() {
           }}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
+          inputTranscriptEnabled={inputTranscriptEnabled}
+          onInputTranscriptEnabledChange={setInputTranscriptEnabled}
           keyStatus={currentKeyStatus}
           savedKeyPreview={openaiKeyMasked}
           keyWarning={keyWarning}
@@ -207,6 +211,9 @@ export default function Settings() {
             onClick={async () => {
               const saved = await saveApiModel();
               if (saved.success) {
+                outletContext?.setInputTranscriptEnabled(
+                  interpreter === 'openai' && inputTranscriptEnabled,
+                );
                 info(labels.applySaved);
               } else {
                 error(saved.message);

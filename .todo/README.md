@@ -14,7 +14,7 @@
 
 ### 지금
 
-1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증 (051 완료 후)
+1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증 (052 완료 후)
 
 ## 보류 (`hold/`)
 
@@ -70,6 +70,7 @@
 42. `049-frontend-remove-unused-components.md` — 미사용 Frontend 공용 컴포넌트 제거
 43. `050-operator-websocket-audio-isolation.md` — 운영자 WebSocket 지연 격리와 재연결 상태 처리
 44. `051-openai-live-readiness-audit.md` — OpenAI 실장 전 전체 구현 점검 및 핵심 하드닝
+45. `052-optional-openai-input-transcript.md` — OpenAI 입력 transcript 선택 설정과 비용 절감 기본값
 
 ## 결정 사항
 

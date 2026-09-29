@@ -94,6 +94,7 @@ let logoutUnavailable = false;
 let logoutForbidden = false;
 let protectedApiForbidden = false;
 let detectedLanIp: string | null = '192.168.1.12';
+let inputTranscriptEnabled = false;
 
 beforeEach(() => {
   installStorage();
@@ -106,6 +107,7 @@ beforeEach(() => {
   logoutForbidden = false;
   protectedApiForbidden = false;
   detectedLanIp = '192.168.1.12';
+  inputTranscriptEnabled = false;
   vi.stubGlobal('WebSocket', MockWebSocket);
   vi.stubGlobal(
     'fetch',
@@ -138,11 +140,18 @@ beforeEach(() => {
           interpreter: 'echo',
           openai_key_set: false,
           audio_device: '',
+          input_transcript_enabled: inputTranscriptEnabled,
         };
       } else if (url.includes('/operator/network')) {
         payload = { lan_ip: detectedLanIp };
       } else if (url.includes('/api/v1/session') && protectedApiForbidden) {
         return { ok: false, status: 403, json: async () => ({}) } as Response;
+      } else if (url.includes('/api/v1/session')) {
+        payload = {
+          running: false,
+          listener_count: 0,
+          input_transcript_enabled: inputTranscriptEnabled,
+        };
       } else if (url.includes('/audio/devices')) {
         payload = [
           {
@@ -239,7 +248,7 @@ describe('Operator navigation', () => {
     expect(
       container.querySelector('button[aria-label="다크 모드"]'),
     ).not.toBeNull();
-    expect(container).toHaveTextContent('입력 (한국어)');
+    expect(container).not.toHaveTextContent('입력 (한국어)');
 
     act(() => {
       (
@@ -257,7 +266,7 @@ describe('Operator navigation', () => {
   it('redirects the disabled sermon session route to Broadcast', async () => {
     const page = await renderApp('/operator/sermon-session');
 
-    expect(page.container).toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('입력 (한국어)');
     expect(page.container).not.toHaveTextContent('설교 제목');
     expect(page.container.querySelector('a[aria-label="설정"]')).not.toBeNull();
 
@@ -265,6 +274,7 @@ describe('Operator navigation', () => {
   });
 
   it('keeps the session socket and transcript mounted across settings navigation', async () => {
+    inputTranscriptEnabled = true;
     const rootRender = await renderApp('/operator');
     const socket = MockWebSocket.instances[0];
 
@@ -303,6 +313,35 @@ describe('Operator navigation', () => {
     const broadcastRender = await renderApp('/operator/broadcast');
     expect(broadcastRender.container).toHaveTextContent('입력 (한국어)');
     broadcastRender.cleanup();
+  });
+
+  it('shows the input transcript pane only when its setting is enabled', async () => {
+    const page = await renderApp('/operator');
+    const socket = MockWebSocket.instances[0];
+
+    expect(page.container).not.toHaveTextContent('입력 (한국어)');
+    act(() => {
+      socket?.message({
+        type: 'translation_status',
+        running: false,
+        session_status: 'off',
+        listener_count: 0,
+        input_transcript_enabled: true,
+      });
+    });
+    expect(page.container).toHaveTextContent('입력 (한국어)');
+
+    act(() => {
+      socket?.message({
+        type: 'translation_status',
+        running: false,
+        session_status: 'off',
+        listener_count: 0,
+        input_transcript_enabled: false,
+      });
+    });
+    expect(page.container).not.toHaveTextContent('입력 (한국어)');
+    page.cleanup();
   });
 
   it('gates Operator routes until login and returns to the requested route after logout', async () => {
@@ -434,7 +473,7 @@ describe('Operator navigation', () => {
     expect(document.body).toHaveTextContent(
       '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.',
     );
-    expect(page.container).toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('입력 (한국어)');
     expect(page.container).not.toHaveTextContent('Operator 로그인');
     page.cleanup();
   });
@@ -456,7 +495,7 @@ describe('Operator navigation', () => {
     expect(document.body).toHaveTextContent(
       '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.',
     );
-    expect(page.container).toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('입력 (한국어)');
     expect(page.container).not.toHaveTextContent('Operator 로그인');
     page.cleanup();
   });

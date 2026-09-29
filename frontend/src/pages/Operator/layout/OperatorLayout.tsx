@@ -24,6 +24,8 @@ export interface OperatorOutletContext {
   audioLevelStale: boolean;
   isSessionBusy: boolean;
   showInputPane: boolean;
+  inputTranscriptEnabled: boolean;
+  setInputTranscriptEnabled: (enabled: boolean) => void;
   inputLines: string[];
   outputLines: string[];
 }
@@ -159,6 +161,8 @@ export default function OperatorLayout({
                 audioLevelStale: session.audioLevelStale,
                 isSessionBusy,
                 showInputPane,
+                inputTranscriptEnabled: session.inputTranscriptEnabled,
+                setInputTranscriptEnabled: session.setInputTranscriptEnabled,
                 inputLines: session.inputLines,
                 outputLines: session.outputLines,
               } satisfies OperatorOutletContext

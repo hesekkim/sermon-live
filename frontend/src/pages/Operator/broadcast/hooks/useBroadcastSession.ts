@@ -44,6 +44,7 @@ interface SessionStatus {
   last_termination_reason?: TerminationReason | null;
   audio_dropped_chunks?: number;
   audio_dropped_duration_seconds?: number;
+  input_transcript_enabled?: boolean;
   timer?: SessionTimerState;
 }
 
@@ -73,6 +74,7 @@ interface OperatorMessage {
   last_termination_reason?: TerminationReason | null;
   audio_dropped_chunks?: number;
   audio_dropped_duration_seconds?: number;
+  input_transcript_enabled?: boolean;
 }
 
 const AUDIO_LEVEL_MIN_DBFS = -60;
@@ -134,6 +136,7 @@ export function useBroadcastSession(
   const [audioDroppedChunks, setAudioDroppedChunks] = useState(0);
   const [audioDroppedDurationSeconds, setAudioDroppedDurationSeconds] =
     useState(0);
+  const [inputTranscriptEnabled, setInputTranscriptEnabled] = useState(false);
   const [inputLines, setInputLines] = useState<string[]>([]);
   const [outputLines, setOutputLines] = useState<string[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
@@ -224,6 +227,9 @@ export function useBroadcastSession(
       if (typeof data.audio_dropped_duration_seconds === 'number') {
         setAudioDroppedDurationSeconds(data.audio_dropped_duration_seconds);
       }
+      if (typeof data.input_transcript_enabled === 'boolean') {
+        setInputTranscriptEnabled(data.input_transcript_enabled);
+      }
       setListenerCount(data.listener_count);
       if ('timer' in data) {
         setTimer(data.timer ?? null);
@@ -297,6 +303,9 @@ export function useBroadcastSession(
           ) {
             const sessionStatus =
               payload.session_status ?? payload.sessionStatus;
+            if (typeof payload.input_transcript_enabled === 'boolean') {
+              setInputTranscriptEnabled(payload.input_transcript_enabled);
+            }
             const listenerCount =
               typeof payload.listener_count === 'number'
                 ? payload.listener_count
@@ -595,6 +604,8 @@ export function useBroadcastSession(
     lastTerminationReason,
     audioDroppedChunks,
     audioDroppedDurationSeconds,
+    inputTranscriptEnabled,
+    setInputTranscriptEnabled,
     inputLines,
     outputLines,
     start,

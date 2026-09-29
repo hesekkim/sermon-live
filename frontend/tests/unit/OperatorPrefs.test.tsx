@@ -149,6 +149,7 @@ describe('Settings save flow', () => {
           translation_session_warning_minutes: 5,
           translation_session_extension_minutes: 10,
           translation_session_hard_limit_minutes: 120,
+          input_transcript_enabled: false,
           openai_key_set: false,
         }),
       })
@@ -446,6 +447,7 @@ describe('Settings save flow', () => {
           translation_session_warning_minutes: 3,
           translation_session_extension_minutes: 15,
           translation_session_hard_limit_minutes: 90,
+          input_transcript_enabled: false,
           openai_key_set: false,
         }),
       });
@@ -786,6 +788,7 @@ describe('Settings save flow', () => {
           translation_session_warning_minutes: 5,
           translation_session_extension_minutes: 10,
           translation_session_hard_limit_minutes: 120,
+          input_transcript_enabled: true,
           openai_key_set: true,
           openai_key_masked: 'sk-...abcd',
         }),
@@ -881,6 +884,14 @@ describe('Settings save flow', () => {
       openAiOption?.click();
     });
 
+    const inputTranscriptToggle = container.querySelector(
+      'input[name="input_transcript_enabled"]',
+    ) as HTMLInputElement;
+    expect(inputTranscriptToggle.checked).toBe(false);
+    await act(async () => {
+      inputTranscriptToggle.click();
+    });
+
     const apiInput = container.querySelector(
       'input[type="password"]',
     ) as HTMLInputElement;
@@ -914,6 +925,7 @@ describe('Settings save flow', () => {
     expect(apiPayload).toMatchObject({
       interpreter: 'openai',
       openai_api_key: 'sk-test-1234',
+      input_transcript_enabled: true,
     });
     expect(apiPayload).not.toHaveProperty('audio_device');
     expect(apiPayload).not.toHaveProperty(

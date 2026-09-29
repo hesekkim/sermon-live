@@ -6,7 +6,9 @@ import styles from './Broadcast.module.css';
 
 export default function Broadcast() {
   const outletContext = useOutletContext<OperatorOutletContext | null>();
-  const showInputPane = outletContext?.showInputPane ?? true;
+  const showInputPane =
+    (outletContext?.showInputPane ?? true) &&
+    (outletContext?.inputTranscriptEnabled ?? false);
   const { labels } = useOperatorPrefs();
   const inputLines = outletContext?.inputLines ?? [];
   const outputLines = outletContext?.outputLines ?? [];
@@ -29,6 +31,7 @@ export default function Broadcast() {
           lines={outputLines}
           downloadLabel={labels.outputDownload}
           filename="sermon-output-transcript.txt"
+          prominent={!showInputPane}
         />
       </div>
     </div>
