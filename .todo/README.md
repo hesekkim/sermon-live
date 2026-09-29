@@ -12,10 +12,6 @@
 
 개인 예배용 실시간 통역 운영 기능. Server는 계속 실행할 수 있고, 비용이 발생하는 Translation Session만 필요할 때 실행한다.
 
-### 운영 UX와 환경설정 정합성
-
-1. `045-backend-env-example-config-parity.md` — 환경변수 예제와 Settings config 정합성
-
 ### 기존 후속 기능
 
 3. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
@@ -67,6 +63,7 @@
 35. `042-disable-sermon-session-routes.md` — Sermon Session API/Operator route 비활성화, 소스와 데이터 보존
 36. `043-backend-session-service-test-alignment.md — 활성 SessionService 기준 테스트 정렬`
 37. `044-frontend-listen-settings-ux-polish.md` — Listener 듣기/다운로드와 Settings Apply/focus 동작 보정
+38. `045-backend-env-example-config-parity.md` — 환경변수 예제와 Settings config 정합성
 
 ## 결정 사항
 
