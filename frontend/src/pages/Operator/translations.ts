@@ -43,6 +43,7 @@ export interface OperatorCopy {
   audioTestDevice: string;
   audioTestStatus: string;
   audioTestInputLevel: string;
+  audioLevelStale: string;
   audioTestCaptureFormat: string;
   audioTestProcessingFormat: string;
   audioTestRunning: string;
@@ -212,6 +213,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioTestDevice: '장치',
     audioTestStatus: '상태',
     audioTestInputLevel: '입력 레벨',
+    audioLevelStale: '오래된 측정값',
     audioTestCaptureFormat: '캡처 스트림 포맷',
     audioTestProcessingFormat: '처리 포맷',
     audioTestRunning: '테스트 중...',
@@ -387,6 +389,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioTestDevice: 'Device',
     audioTestStatus: 'Status',
     audioTestInputLevel: 'Input level',
+    audioLevelStale: 'Stale measurement',
     audioTestCaptureFormat: 'Capture stream format',
     audioTestProcessingFormat: 'Processing format',
     audioTestRunning: 'Testing...',
@@ -564,6 +567,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioTestDevice: 'Gerät',
     audioTestStatus: 'Status',
     audioTestInputLevel: 'Eingangspegel',
+    audioLevelStale: 'Veralteter Messwert',
     audioTestCaptureFormat: 'Aufnahme-Streamformat',
     audioTestProcessingFormat: 'Verarbeitungsformat',
     audioTestRunning: 'Wird getestet...',

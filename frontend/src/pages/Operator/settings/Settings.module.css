@@ -173,8 +173,16 @@
 
 .audioTestMeter {
   display: flex;
+  flex-direction: column;
   align-items: center;
   min-height: 1.5rem;
+}
+
+.audioTestStale {
+  align-self: flex-start;
+  margin: var(--cf-space-4) 0 0;
+  color: var(--cms-warning-text, #a16207);
+  font-size: 0.75rem;
 }
 
 .audioTestAction {

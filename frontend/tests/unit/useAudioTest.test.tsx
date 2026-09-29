@@ -317,6 +317,7 @@ describe('useAudioTest', () => {
           result={null}
           liveInputLevel={null}
           runtimeInputLevel={null}
+          runtimeInputLevelStale={false}
           error={null}
           isTesting
           canRun
@@ -346,6 +347,7 @@ describe('useAudioTest', () => {
           result={null}
           liveInputLevel={-42}
           runtimeInputLevel={-18}
+          runtimeInputLevelStale={false}
           error={null}
           isTesting
           canRun

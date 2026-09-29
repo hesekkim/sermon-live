@@ -10,6 +10,7 @@ interface AudioTestPanelProps {
   result: AudioTestResult | null;
   liveInputLevel: number | null;
   runtimeInputLevel: number | null;
+  runtimeInputLevelStale: boolean;
   error: string | null;
   isTesting: boolean;
   canRun: boolean;
@@ -22,6 +23,7 @@ export default function AudioTestPanel({
   result,
   liveInputLevel,
   runtimeInputLevel,
+  runtimeInputLevelStale,
   error,
   isTesting,
   canRun,
@@ -82,7 +84,14 @@ export default function AudioTestPanel({
               }
               label={labels.audioTestInputLevel}
               isActive={isTesting}
+              isStale={isTesting && runtimeInputLevelStale}
+              staleLabel={labels.audioLevelStale}
             />
+            {isTesting && runtimeInputLevelStale ? (
+              <p className={styles.audioTestStale} role="status">
+                {labels.audioLevelStale}
+              </p>
+            ) : null}
           </div>
         </div>
         <div className={styles.audioTestRow}>

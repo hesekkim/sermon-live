@@ -11,9 +11,12 @@ class FakeHub:
     def __init__(self):
         self.session_events = []
         self.operator_events = []
+        self.overflow_events = asyncio.Queue()
 
     async def broadcast_session(self, payload):
         self.session_events.append(payload)
+        if payload.get("type") == "audio_queue_overflow":
+            await self.overflow_events.put(payload)
 
     async def broadcast_operator(self, payload):
         self.operator_events.append(payload)
@@ -68,6 +71,104 @@ async def test_capture_and_processor_remain_ready_when_translation_detaches(monk
     assert runtime.running is True
     await runtime.stop()
     assert runtime.ready is False
+
+
+@pytest.mark.asyncio
+async def test_slow_audio_level_broadcast_does_not_block_capture_or_translation(monkeypatch):
+    class SlowLevelHub(FakeHub):
+        def __init__(self):
+            super().__init__()
+            self.level_started = asyncio.Event()
+            self.release_level = asyncio.Event()
+
+        async def broadcast_operator(self, payload):
+            if payload.get("type") == "audio_level":
+                self.level_started.set()
+                await self.release_level.wait()
+            self.operator_events.append(payload)
+
+    capture = FakeCapture(Settings())
+    monkeypatch.setattr(audio_runtime_module, "AudioCapture", lambda _settings: capture)
+    hub = SlowLevelHub()
+    runtime = AudioRuntime(Settings(), hub)
+    clock = {"value": 0.0}
+
+    def advance_clock():
+        clock["value"] += 0.2
+        return clock["value"]
+
+    runtime._clock = advance_clock
+    await runtime.start()
+    queue = runtime.attach_translation(FakeInterpreter())
+    chunks = [bytes([value, 0]) * 1600 for value in (16, 32, 48)]
+
+    try:
+        await capture.chunks_queue.put(chunks[0])
+        await asyncio.wait_for(hub.level_started.wait(), timeout=1)
+        assert await asyncio.wait_for(queue.get(), timeout=0.2) == chunks[0]
+
+        for chunk in chunks[1:]:
+            await capture.chunks_queue.put(chunk)
+            assert await asyncio.wait_for(queue.get(), timeout=0.2) == chunk
+
+        level_queue = runtime._audio_level_queue
+        assert level_queue is not None
+        assert level_queue.maxsize == 1
+        assert level_queue.qsize() == 1
+        latest_level = runtime._processor.input_level_dbfs
+    finally:
+        hub.release_level.set()
+        await runtime.stop()
+
+    level_events = [
+        event for event in hub.operator_events if event.get("type") == "audio_level"
+    ]
+    assert len(level_events) == 2
+    assert level_events[-1]["level"] == latest_level
+
+
+@pytest.mark.asyncio
+async def test_slow_overflow_broadcast_does_not_block_capture_or_translation(monkeypatch):
+    class SlowOverflowHub(FakeHub):
+        def __init__(self):
+            super().__init__()
+            self.warning_started = asyncio.Event()
+            self.release_warning = asyncio.Event()
+
+        async def broadcast_session(self, payload):
+            if payload.get("type") == "audio_queue_overflow":
+                self.warning_started.set()
+                await self.release_warning.wait()
+            self.session_events.append(payload)
+
+    settings = Settings(translation_queue_max_seconds=0.2)
+    capture = FakeCapture(settings)
+    monkeypatch.setattr(audio_runtime_module, "AudioCapture", lambda _settings: capture)
+    hub = SlowOverflowHub()
+    runtime = AudioRuntime(settings, hub)
+    await runtime.start()
+    queue = runtime.attach_translation(FakeInterpreter())
+    chunks = [bytes([value, 0]) * 1600 for value in (16, 32, 48, 64)]
+
+    try:
+        await capture.chunks_queue.put(b"".join(chunks[:3]))
+        await asyncio.wait_for(hub.warning_started.wait(), timeout=1)
+        await capture.chunks_queue.put(chunks[3])
+
+        for _ in range(20):
+            if runtime.dropped_chunks == 2:
+                break
+            await asyncio.sleep(0)
+
+        assert runtime.dropped_chunks == 2
+        assert runtime.queued_duration_seconds == pytest.approx(0.2)
+        assert queue.qsize() == 2
+        overflow_queue = runtime._overflow_warning_queue
+        assert overflow_queue is not None
+        assert overflow_queue.maxsize == 1
+    finally:
+        hub.release_warning.set()
+        await runtime.stop()
 
 
 @pytest.mark.asyncio
@@ -136,6 +237,7 @@ async def test_translation_queue_caps_audio_duration_and_keeps_latest_chunks(mon
     assert retained == [second, third]
     assert runtime.dropped_chunks == 1
     assert runtime.dropped_duration_seconds == pytest.approx(0.1)
+    await asyncio.wait_for(hub.overflow_events.get(), timeout=1)
     assert [event["type"] for event in hub.session_events].count("audio_queue_overflow") == 1
 
     await capture.chunks_queue.put(first + second + third)
@@ -149,6 +251,7 @@ async def test_translation_queue_caps_audio_duration_and_keeps_latest_chunks(mon
         queue.get_nowait()
     clock["value"] = runtime._OVERFLOW_WARNING_INTERVAL
     await capture.chunks_queue.put(first + second + third)
+    await asyncio.wait_for(hub.overflow_events.get(), timeout=1)
     for _ in range(20):
         if runtime.dropped_chunks >= 3:
             break

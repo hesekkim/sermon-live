@@ -4,9 +4,17 @@ import type { OperatorCopy } from '../../translations';
 import { appendTranscriptLine } from '../utils/transcriptFile';
 
 export type ServerStatus = 'connecting' | 'online' | 'offline';
-export type OperatorConnectionStatus = 'connecting' | 'connected' | 'reconnecting';
+export type OperatorConnectionStatus =
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting';
 export type InterpreterStatus = 'connected' | 'disconnected' | 'error';
-export type TranslationSessionStatus = 'off' | 'starting' | 'live' | 'stopping' | 'error';
+export type TranslationSessionStatus =
+  | 'off'
+  | 'starting'
+  | 'live'
+  | 'stopping'
+  | 'error';
 export type TerminationReason =
   | 'manual'
   | 'auto_stop'
@@ -70,96 +78,175 @@ interface OperatorMessage {
 const AUDIO_LEVEL_MIN_DBFS = -60;
 const AUDIO_LEVEL_MAX_DBFS = 0;
 const SOCKET_RETRY_DELAY_MS = 1000;
+const AUDIO_LEVEL_STALE_TIMEOUT_MS = 3000;
 
 function clampAudioLevel(level: number) {
   return Math.min(AUDIO_LEVEL_MAX_DBFS, Math.max(AUDIO_LEVEL_MIN_DBFS, level));
 }
 
-function getTerminationLabel(labels: OperatorCopy, reason: TerminationReason | null) {
+function getTerminationLabel(
+  labels: OperatorCopy,
+  reason: TerminationReason | null,
+) {
   switch (reason) {
-    case 'manual': return labels.terminationManual;
-    case 'auto_stop': return labels.terminationAutoStop;
-    case 'hard_limit': return labels.terminationHardLimit;
-    case 'interpreter_error': return labels.terminationInterpreterError;
-    case 'device_error': return labels.terminationDeviceError;
-    case 'server_shutdown': return labels.terminationServerShutdown;
-    default: return reason ? labels.terminationUnknown : null;
+    case 'manual':
+      return labels.terminationManual;
+    case 'auto_stop':
+      return labels.terminationAutoStop;
+    case 'hard_limit':
+      return labels.terminationHardLimit;
+    case 'interpreter_error':
+      return labels.terminationInterpreterError;
+    case 'device_error':
+      return labels.terminationDeviceError;
+    case 'server_shutdown':
+      return labels.terminationServerShutdown;
+    default:
+      return reason ? labels.terminationUnknown : null;
   }
 }
 
-export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (message: string) => void) {
+export function useBroadcastSession(
+  labels: OperatorCopy,
+  onSessionError?: (message: string) => void,
+) {
   const [running, setRunning] = useState(false);
-    const [sessionStatus, setSessionStatus] = useState<TranslationSessionStatus>('off');
-    const [audioReady, setAudioReady] = useState(false);
-    const [audioError, setAudioError] = useState<string | null>(null);
-    const [startAvailable, setStartAvailable] = useState(false);
-    const [startBlockReason, setStartBlockReason] = useState<string | null>(null);
-    const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionStatus, setSessionStatus] =
+    useState<TranslationSessionStatus>('off');
+  const [audioReady, setAudioReady] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [startAvailable, setStartAvailable] = useState(false);
+  const [startBlockReason, setStartBlockReason] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [listenerCount, setListenerCount] = useState(0);
   const [audioLevel, setAudioLevel] = useState<number | null>(null);
+  const [audioLevelStale, setAudioLevelStale] = useState(false);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [serverStatus, setServerStatus] = useState<ServerStatus>('connecting');
   const [operatorConnectionStatus, setOperatorConnectionStatus] =
     useState<OperatorConnectionStatus>('connecting');
-  const [interpreterStatus, setInterpreterStatus] = useState<InterpreterStatus>('disconnected');
+  const [interpreterStatus, setInterpreterStatus] =
+    useState<InterpreterStatus>('disconnected');
   const [timer, setTimer] = useState<SessionTimerState | null>(null);
-  const [lastTerminationReason, setLastTerminationReason] = useState<string | null>(null);
+  const [lastTerminationReason, setLastTerminationReason] = useState<
+    string | null
+  >(null);
   const [audioDroppedChunks, setAudioDroppedChunks] = useState(0);
-  const [audioDroppedDurationSeconds, setAudioDroppedDurationSeconds] = useState(0);
+  const [audioDroppedDurationSeconds, setAudioDroppedDurationSeconds] =
+    useState(0);
   const [inputLines, setInputLines] = useState<string[]>([]);
   const [outputLines, setOutputLines] = useState<string[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isUnmountingRef = useRef(false);
-  const socketErrorReportedRef = useRef(false);
   const sessionEndedRef = useRef(false);
   const statusRequestGenerationRef = useRef(0);
   const startRequestPendingRef = useRef(false);
   const onSessionErrorRef = useRef(onSessionError);
+  const audioLevelRef = useRef<number | null>(null);
+  const audioLevelStaleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  const clearAudioLevel = useCallback(() => {
+    if (audioLevelStaleTimerRef.current) {
+      clearTimeout(audioLevelStaleTimerRef.current);
+      audioLevelStaleTimerRef.current = null;
+    }
+    audioLevelRef.current = null;
+    setAudioLevel(null);
+    setAudioLevelStale(false);
+  }, []);
+  const updateAudioLevel = useCallback((level: number) => {
+    if (audioLevelStaleTimerRef.current) {
+      clearTimeout(audioLevelStaleTimerRef.current);
+      audioLevelStaleTimerRef.current = null;
+    }
+    const nextLevel = clampAudioLevel(level);
+    audioLevelRef.current = nextLevel;
+    setAudioLevel(nextLevel);
+    setAudioLevelStale(false);
+  }, []);
+  const markAudioLevelStale = useCallback(() => {
+    if (audioLevelRef.current === null) return;
+    if (audioLevelStaleTimerRef.current) {
+      clearTimeout(audioLevelStaleTimerRef.current);
+    }
+    setAudioLevelStale(true);
+    audioLevelStaleTimerRef.current = setTimeout(
+      clearAudioLevel,
+      AUDIO_LEVEL_STALE_TIMEOUT_MS,
+    );
+  }, [clearAudioLevel]);
 
   useEffect(() => {
     onSessionErrorRef.current = onSessionError;
   }, [onSessionError]);
 
-  const formatSessionError = useCallback((message?: string) => {
-    const text = (message ?? '').toLowerCase();
-    return text.includes('api key') && (text.includes('not valid') || text.includes('invalid'))
-      ? labels.invalidApiKey
-      : labels.sessionError;
-  }, [labels.invalidApiKey, labels.sessionError]);
-  const emitSessionError = useCallback((message?: string) => {
-    onSessionErrorRef.current?.(formatSessionError(message));
-  }, [formatSessionError]);
-  const applyStatus = useCallback((data: SessionStatus) => {
-    const status = data.session_status ?? (data.running ? 'live' : 'off');
-    if (sessionEndedRef.current && data.running && status !== 'error') return;
-    setRunning(data.running);
-    setSessionStatus(status);
-    if (typeof data.audio_ready === 'boolean') setAudioReady(data.audio_ready);
-    if ('audio_error' in data) setAudioError(data.audio_error ?? null);
-    if (typeof data.start_available === 'boolean') setStartAvailable(data.start_available);
-    if ('start_block_reason' in data) setStartBlockReason(data.start_block_reason ?? null);
-    if ('error' in data) setSessionError(data.error ?? null);
-    if (data.last_termination_reason) {
-      setLastTerminationReason(getTerminationLabel(labels, data.last_termination_reason));
-    }
-    if (typeof data.audio_dropped_chunks === 'number') {
-      setAudioDroppedChunks(data.audio_dropped_chunks);
-    }
-    if (typeof data.audio_dropped_duration_seconds === 'number') {
-      setAudioDroppedDurationSeconds(data.audio_dropped_duration_seconds);
-    }
-    setListenerCount(data.listener_count);
-    if ('timer' in data) {
-      setTimer(data.timer ?? null);
-    } else if (!data.running) {
-      setTimer(null);
-    }
-    setInterpreterStatus((current) =>
-      current === 'error' ? current : data.running ? 'connected' : 'disconnected'
-    );
-    if (!data.running) setAudioLevel(null);
-  }, [labels]);
+  const formatSessionError = useCallback(
+    (message?: string) => {
+      const text = (message ?? '').toLowerCase();
+      return text.includes('api key') &&
+        (text.includes('not valid') || text.includes('invalid'))
+        ? labels.invalidApiKey
+        : labels.sessionError;
+    },
+    [labels.invalidApiKey, labels.sessionError],
+  );
+  const emitSessionError = useCallback(
+    (message?: string) => {
+      onSessionErrorRef.current?.(formatSessionError(message));
+    },
+    [formatSessionError],
+  );
+  const applyStatus = useCallback(
+    (data: SessionStatus) => {
+      const status = data.session_status ?? (data.running ? 'live' : 'off');
+      if (sessionEndedRef.current && data.running && status !== 'error') return;
+      setRunning(data.running);
+      setSessionStatus(status);
+      if (typeof data.audio_ready === 'boolean')
+        setAudioReady(data.audio_ready);
+      if ('audio_error' in data) setAudioError(data.audio_error ?? null);
+      if (typeof data.start_available === 'boolean')
+        setStartAvailable(data.start_available);
+      if ('start_block_reason' in data)
+        setStartBlockReason(data.start_block_reason ?? null);
+      if ('error' in data) setSessionError(data.error ?? null);
+      if (data.last_termination_reason) {
+        setLastTerminationReason(
+          getTerminationLabel(labels, data.last_termination_reason),
+        );
+      }
+      if (typeof data.audio_dropped_chunks === 'number') {
+        setAudioDroppedChunks(data.audio_dropped_chunks);
+      }
+      if (typeof data.audio_dropped_duration_seconds === 'number') {
+        setAudioDroppedDurationSeconds(data.audio_dropped_duration_seconds);
+      }
+      setListenerCount(data.listener_count);
+      if ('timer' in data) {
+        setTimer(data.timer ?? null);
+      } else if (!data.running) {
+        setTimer(null);
+      }
+      setInterpreterStatus((current) =>
+        current === 'error'
+          ? current
+          : data.running
+            ? 'connected'
+            : 'disconnected',
+      );
+      if (
+        !data.running ||
+        data.audio_ready === false ||
+        Boolean(data.audio_error)
+      ) {
+        clearAudioLevel();
+      }
+    },
+    [clearAudioLevel, labels],
+  );
   const refreshStatus = useCallback(async () => {
     const requestGeneration = ++statusRequestGenerationRef.current;
     try {
@@ -169,15 +256,18 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
       if (
         startRequestPendingRef.current ||
         requestGeneration !== statusRequestGenerationRef.current
-      ) return;
+      )
+        return;
       applyStatus(data);
       setServerStatus('online');
     } catch {
       if (
         startRequestPendingRef.current ||
         requestGeneration !== statusRequestGenerationRef.current
-      ) return;
-      if (socketRef.current?.readyState !== WebSocket.OPEN) setServerStatus('offline');
+      )
+        return;
+      if (socketRef.current?.readyState !== WebSocket.OPEN)
+        setServerStatus('offline');
     }
   }, [applyStatus]);
 
@@ -195,53 +285,82 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
       socketRef.current = socket;
       socket.addEventListener('open', () => {
         setOperatorConnectionStatus('connected');
-        socketErrorReportedRef.current = false;
       });
       socket.addEventListener('message', (event) => {
         if (typeof event.data !== 'string') return;
         try {
           const payload = JSON.parse(event.data) as OperatorMessage;
-          if (payload.type === 'translation_status' || payload.type === 'server_status' || payload.type === 'status') {
-            const sessionStatus = payload.session_status ?? payload.sessionStatus;
+          if (
+            payload.type === 'translation_status' ||
+            payload.type === 'server_status' ||
+            payload.type === 'status'
+          ) {
+            const sessionStatus =
+              payload.session_status ?? payload.sessionStatus;
             const listenerCount =
               typeof payload.listener_count === 'number'
                 ? payload.listener_count
                 : typeof payload.listenerCount === 'number'
                   ? payload.listenerCount
                   : undefined;
-            const isLiveStatus = sessionStatus === 'live'
-              || (!sessionStatus && payload.running === true);
+            const isLiveStatus =
+              sessionStatus === 'live' ||
+              (!sessionStatus && payload.running === true);
             if (sessionEndedRef.current && isLiveStatus) return;
             if (typeof payload.running === 'boolean') {
               setRunning(payload.running);
               setInterpreterStatus((current) =>
                 current === 'error'
                   ? current
-                  : payload.running ? 'connected' : 'disconnected'
+                  : payload.running
+                    ? 'connected'
+                    : 'disconnected',
               );
-              if (!payload.running) setAudioLevel(null);
+              if (!payload.running) clearAudioLevel();
             }
             if (sessionStatus) setSessionStatus(sessionStatus);
+            if (sessionStatus === 'off' || sessionStatus === 'error') {
+              clearAudioLevel();
+            }
             const audioReady = payload.audio_ready ?? payload.audioReady;
-            if (typeof audioReady === 'boolean') setAudioReady(audioReady);
+            if (typeof audioReady === 'boolean') {
+              setAudioReady(audioReady);
+              if (!audioReady) clearAudioLevel();
+            }
             const audioError = payload.audio_error ?? payload.audioError;
-            if ('audio_error' in payload || 'audioError' in payload) setAudioError(audioError ?? null);
-            const startAvailable = payload.start_available ?? payload.startAvailable;
-            if (typeof startAvailable === 'boolean') setStartAvailable(startAvailable);
-            const startBlockReason = payload.start_block_reason ?? payload.startBlockReason;
-            if ('start_block_reason' in payload || 'startBlockReason' in payload) setStartBlockReason(startBlockReason ?? null);
+            if ('audio_error' in payload || 'audioError' in payload) {
+              setAudioError(audioError ?? null);
+              if (audioError) clearAudioLevel();
+            }
+            const startAvailable =
+              payload.start_available ?? payload.startAvailable;
+            if (typeof startAvailable === 'boolean')
+              setStartAvailable(startAvailable);
+            const startBlockReason =
+              payload.start_block_reason ?? payload.startBlockReason;
+            if (
+              'start_block_reason' in payload ||
+              'startBlockReason' in payload
+            )
+              setStartBlockReason(startBlockReason ?? null);
             if ('error' in payload) setSessionError(payload.error ?? null);
             if (payload.reason || payload.last_termination_reason) {
               setLastTerminationReason(
-                getTerminationLabel(labels, payload.reason ?? payload.last_termination_reason ?? null),
+                getTerminationLabel(
+                  labels,
+                  payload.reason ?? payload.last_termination_reason ?? null,
+                ),
               );
             }
-            if (typeof listenerCount === 'number') setListenerCount(listenerCount);
+            if (typeof listenerCount === 'number')
+              setListenerCount(listenerCount);
             if (typeof payload.audio_dropped_chunks === 'number') {
               setAudioDroppedChunks(payload.audio_dropped_chunks);
             }
             if (typeof payload.audio_dropped_duration_seconds === 'number') {
-              setAudioDroppedDurationSeconds(payload.audio_dropped_duration_seconds);
+              setAudioDroppedDurationSeconds(
+                payload.audio_dropped_duration_seconds,
+              );
             }
             if ('timer' in payload) {
               setTimer(payload.timer ?? null);
@@ -257,17 +376,24 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
                 : typeof payload.listenerCount === 'number'
                   ? payload.listenerCount
                   : undefined;
-            if (typeof listenerCount === 'number') setListenerCount(listenerCount);
+            if (typeof listenerCount === 'number')
+              setListenerCount(listenerCount);
             return;
           }
           if (payload.type === 'audio_level') {
-            if (typeof payload.level === 'number' && Number.isFinite(payload.level)) {
-              setAudioLevel(clampAudioLevel(payload.level));
+            if (
+              typeof payload.level === 'number' &&
+              Number.isFinite(payload.level)
+            ) {
+              updateAudioLevel(payload.level);
             }
             return;
           }
           if (payload.type === 'latency') {
-            if (typeof payload.milliseconds === 'number' && Number.isFinite(payload.milliseconds)) {
+            if (
+              typeof payload.milliseconds === 'number' &&
+              Number.isFinite(payload.milliseconds)
+            ) {
               setLatencyMs(Math.max(0, payload.milliseconds));
             }
             return;
@@ -277,7 +403,9 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
               setAudioDroppedChunks(payload.audio_dropped_chunks);
             }
             if (typeof payload.audio_dropped_duration_seconds === 'number') {
-              setAudioDroppedDurationSeconds(payload.audio_dropped_duration_seconds);
+              setAudioDroppedDurationSeconds(
+                payload.audio_dropped_duration_seconds,
+              );
             }
             return;
           }
@@ -289,28 +417,43 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
             sessionEndedRef.current = true;
             const reason = payload.reason ?? null;
             setRunning(false);
-            setSessionStatus(reason === 'interpreter_error' || reason === 'device_error' ? 'error' : 'off');
-            setInterpreterStatus(reason === 'interpreter_error' ? 'error' : 'disconnected');
-            setAudioLevel(null);
+            setSessionStatus(
+              reason === 'interpreter_error' || reason === 'device_error'
+                ? 'error'
+                : 'off',
+            );
+            setInterpreterStatus(
+              reason === 'interpreter_error' ? 'error' : 'disconnected',
+            );
+            clearAudioLevel();
             setTimer(null);
-            if (reason) setLastTerminationReason(getTerminationLabel(labels, reason));
+            if (reason)
+              setLastTerminationReason(getTerminationLabel(labels, reason));
             if (typeof payload.audio_dropped_chunks === 'number') {
               setAudioDroppedChunks(payload.audio_dropped_chunks);
             }
             if (typeof payload.audio_dropped_duration_seconds === 'number') {
-              setAudioDroppedDurationSeconds(payload.audio_dropped_duration_seconds);
+              setAudioDroppedDurationSeconds(
+                payload.audio_dropped_duration_seconds,
+              );
             }
             return;
           }
           if (payload.type === 'audio_status') {
             if (typeof payload.ready === 'boolean') {
               setAudioReady(payload.ready);
-              if (!payload.ready) setStartAvailable(false);
+              if (!payload.ready) {
+                setStartAvailable(false);
+                clearAudioLevel();
+              }
               else void refreshStatus();
             }
             if (typeof payload.error === 'string' || payload.error === null) {
               setAudioError(payload.error ?? null);
-              if (payload.error) setStartBlockReason(payload.error);
+              if (payload.error) {
+                setStartBlockReason(payload.error);
+                clearAudioLevel();
+              }
             }
             return;
           }
@@ -323,21 +466,23 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
           }
           if (payload.type === 'transcript' && payload.text) {
             if (payload.role === 'input') {
-              setInputLines((lines) => appendTranscriptLine(lines, payload.text ?? ''));
+              setInputLines((lines) =>
+                appendTranscriptLine(lines, payload.text ?? ''),
+              );
             } else if (payload.role === 'output') {
-              setOutputLines((lines) => appendTranscriptLine(lines, payload.text ?? ''));
+              setOutputLines((lines) =>
+                appendTranscriptLine(lines, payload.text ?? ''),
+              );
             }
           }
-        } catch { return; }
+        } catch {
+          return;
+        }
       });
       const handleSocketFailure = () => {
         if (isUnmountingRef.current || !shouldReconnect) return;
         setOperatorConnectionStatus('reconnecting');
-        setAudioLevel(null);
-        if (!socketErrorReportedRef.current) {
-          socketErrorReportedRef.current = true;
-          emitSessionError();
-        }
+        markAudioLevelStale();
       };
       socket.addEventListener('error', handleSocketFailure);
       socket.addEventListener('close', () => {
@@ -353,23 +498,42 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
       isUnmountingRef.current = true;
       window.clearInterval(statusRefresh);
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      if (audioLevelStaleTimerRef.current)
+        clearTimeout(audioLevelStaleTimerRef.current);
       const socket = socketRef.current;
-      if (socket?.readyState === WebSocket.CONNECTING || socket?.readyState === WebSocket.OPEN) {
+      if (
+        socket?.readyState === WebSocket.CONNECTING ||
+        socket?.readyState === WebSocket.OPEN
+      ) {
         socket.close(1000, 'Page closed');
       }
       socketRef.current = null;
     };
-  }, [emitSessionError, refreshStatus]);
+  }, [
+    clearAudioLevel,
+    emitSessionError,
+    markAudioLevelStale,
+    refreshStatus,
+    updateAudioLevel,
+  ]);
 
   const start = useCallback(async () => {
     statusRequestGenerationRef.current += 1;
     startRequestPendingRef.current = true;
     try {
-      const response = await operatorFetch('/api/v1/session/start', { method: 'POST' });
+      const response = await operatorFetch('/api/v1/session/start', {
+        method: 'POST',
+      });
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+        const body = (await response.json().catch(() => null)) as {
+          detail?: string;
+        } | null;
         const detail = body?.detail ?? 'start failed';
-        if (detail.toLowerCase().includes('api key') && (detail.toLowerCase().includes('not valid') || detail.toLowerCase().includes('invalid'))) {
+        if (
+          detail.toLowerCase().includes('api key') &&
+          (detail.toLowerCase().includes('not valid') ||
+            detail.toLowerCase().includes('invalid'))
+        ) {
           throw new Error('invalid_api_key');
         }
         throw new Error(detail);
@@ -387,14 +551,20 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
     }
   }, [applyStatus]);
   const stop = useCallback(async () => {
-    const response = await operatorFetch('/api/v1/session/stop', { method: 'POST' });
+    const response = await operatorFetch('/api/v1/session/stop', {
+      method: 'POST',
+    });
     if (!response.ok) throw new Error('stop failed');
     applyStatus((await response.json()) as SessionStatus);
   }, [applyStatus]);
   const extend = useCallback(async () => {
-    const response = await operatorFetch('/api/v1/session/extend', { method: 'POST' });
+    const response = await operatorFetch('/api/v1/session/extend', {
+      method: 'POST',
+    });
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+      const body = (await response.json().catch(() => null)) as {
+        detail?: string;
+      } | null;
       const detail = body?.detail ?? 'extend failed';
       throw new Error(detail);
     }
@@ -413,6 +583,7 @@ export function useBroadcastSession(labels: OperatorCopy, onSessionError?: (mess
     sessionError,
     listenerCount,
     audioLevel,
+    audioLevelStale,
     latencyMs,
     serverStatus,
     operatorConnectionStatus,

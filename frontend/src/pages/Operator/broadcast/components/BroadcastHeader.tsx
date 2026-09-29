@@ -20,6 +20,7 @@ interface BroadcastHeaderProps {
   sessionError: string | null;
   listenerCount: number;
   audioLevel: number | null;
+  audioLevelStale: boolean;
   latencyMs: number | null;
   serverStatus: ServerStatus;
   operatorConnectionStatus: OperatorConnectionStatus;
@@ -53,6 +54,7 @@ export default function BroadcastHeader({
   sessionError,
   listenerCount,
   audioLevel,
+  audioLevelStale,
   latencyMs,
   serverStatus,
   operatorConnectionStatus,
@@ -122,7 +124,14 @@ export default function BroadcastHeader({
             level={audioLevel}
             label={labels.audioTestInputLevel}
             className={styles.levelMeter}
+            isStale={audioLevelStale}
+            staleLabel={labels.audioLevelStale}
           />
+          {audioLevelStale ? (
+            <p className={styles.levelStale} role="status">
+              {labels.audioLevelStale}
+            </p>
+          ) : null}
         </div>
       </section>
       <section className={styles.controlSection} aria-label={labels.listeners}>

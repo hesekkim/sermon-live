@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Literal
 
@@ -12,6 +13,9 @@ ClientKind = Literal["listen", "operator"]
 
 
 class BroadcastHub:
+    _OPERATOR_SEND_TIMEOUT_SECONDS = 1.0
+    _OPERATOR_CLOSE_TIMEOUT_SECONDS = 0.1
+
     def __init__(self) -> None:
         self._listen_clients: set[WebSocket] = set()
         self._operator_clients: set[WebSocket] = set()
@@ -77,9 +81,31 @@ class BroadcastHub:
         await self._broadcast_listen_json({"text": text})
 
     async def broadcast_operator(self, payload: dict[str, Any]) -> None:
+        async def send(client: WebSocket) -> tuple[WebSocket, bool]:
+            try:
+                ok = await asyncio.wait_for(
+                    self._safe_send_json(client, payload),
+                    timeout=self._OPERATOR_SEND_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                ok = False
+                try:
+                    await asyncio.wait_for(
+                        client.close(
+                            code=1013,
+                            reason="Operator connection is too slow",
+                        ),
+                        timeout=self._OPERATOR_CLOSE_TIMEOUT_SECONDS,
+                    )
+                except Exception:
+                    pass
+            return client, ok
+
+        results = await asyncio.gather(
+            *(send(client) for client in list(self._operator_clients))
+        )
         stale: list[WebSocket] = []
-        for client in list(self._operator_clients):
-            ok = await self._safe_send_json(client, payload)
+        for client, ok in results:
             if not ok:
                 stale.append(client)
         for client in stale:

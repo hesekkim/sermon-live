@@ -15,6 +15,8 @@ export interface AudioLevelMeterProps {
   label?: string;
   className?: string;
   isActive?: boolean;
+  isStale?: boolean;
+  staleLabel?: string;
 }
 
 function clampLevel(level: number) {
@@ -26,6 +28,8 @@ export default function AudioLevelMeter({
   label = 'Input level',
   className = '',
   isActive = false,
+  isStale = false,
+  staleLabel = 'Stale measurement',
 }: AudioLevelMeterProps) {
   const safeLevel = level === null ? null : clampLevel(level);
   const percent =
@@ -42,6 +46,7 @@ export default function AudioLevelMeter({
         className,
         safeLevel === null && !isActive ? styles.idle : '',
         isActive ? styles.active : '',
+        isStale ? styles.stale : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -55,7 +60,7 @@ export default function AudioLevelMeter({
           ? 'measuring'
           : safeLevel === null
             ? 'idle'
-            : `${safeLevel.toFixed(1)} dBFS`
+            : `${safeLevel.toFixed(1)} dBFS${isStale ? `, ${staleLabel}` : ''}`
       }
     >
       <div className={styles.fill} style={{ width: `${fillPercent}%` }}>

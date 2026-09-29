@@ -528,3 +528,39 @@ def test_broadcast_hub_sends_identical_lifecycle_event_to_both_client_groups():
 
     assert operator.messages == [payload]
     assert listener.messages == [payload]
+
+
+@pytest.mark.asyncio
+async def test_broadcast_hub_times_out_slow_operator_without_blocking_healthy_clients(
+    monkeypatch,
+):
+    class SlowWebSocket:
+        def __init__(self):
+            self.closed = False
+
+        async def send_json(self, _payload):
+            await asyncio.Event().wait()
+
+        async def close(self, **_kwargs):
+            self.closed = True
+
+    class HealthyWebSocket:
+        def __init__(self):
+            self.messages = []
+
+        async def send_json(self, payload):
+            self.messages.append(payload)
+
+    monkeypatch.setattr(BroadcastHub, "_OPERATOR_SEND_TIMEOUT_SECONDS", 0.01)
+    hub = BroadcastHub()
+    slow = SlowWebSocket()
+    healthy = HealthyWebSocket()
+    hub._operator_clients.update((slow, healthy))
+    payload = {"type": "audio_level", "level": -12.0}
+
+    await asyncio.wait_for(hub.broadcast_operator(payload), timeout=0.2)
+
+    assert healthy.messages == [payload]
+    assert slow.closed is True
+    assert slow not in hub._operator_clients
+    assert healthy in hub._operator_clients

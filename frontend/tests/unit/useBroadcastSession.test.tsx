@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useBroadcastSession } from '../../src/pages/Operator/broadcast/hooks/useBroadcastSession';
 import { operatorCopy } from '../../src/pages/Operator/translations';
 
-(globalThis as typeof globalThis & {
-  IS_REACT_ACT_ENVIRONMENT: boolean;
-}).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 class FakeWebSocket {
   static CONNECTING = 0;
@@ -14,14 +16,20 @@ class FakeWebSocket {
   static latest: FakeWebSocket | null = null;
   static instances: FakeWebSocket[] = [];
   readyState = FakeWebSocket.OPEN;
-  private listeners = new Map<string, Array<(event?: { data?: string }) => void>>();
+  private listeners = new Map<
+    string,
+    Array<(event?: { data?: string }) => void>
+  >();
 
   constructor(_url: string) {
     FakeWebSocket.latest = this;
     FakeWebSocket.instances.push(this);
   }
 
-  addEventListener(type: string, listener: (event?: { data?: string }) => void) {
+  addEventListener(
+    type: string,
+    listener: (event?: { data?: string }) => void,
+  ) {
     const listeners = this.listeners.get(type) ?? [];
     listeners.push(listener);
     this.listeners.set(type, listeners);
@@ -43,10 +51,13 @@ function Probe({ onError }: { onError: (message: string) => void }) {
 
 describe('useBroadcastSession', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ running: false, listener_count: 0 }),
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ running: false, listener_count: 0 }),
+      }),
+    );
     vi.stubGlobal('WebSocket', FakeWebSocket);
     vi.stubGlobal('location', { protocol: 'http:', host: 'localhost' });
   });
@@ -83,15 +94,20 @@ describe('useBroadcastSession', () => {
     act(() => root.unmount());
   });
 
-  it('tracks audio level changes and resets stale values', async () => {
+  it('keeps the last audio level stale during reconnect and clears it after timeout', async () => {
+    vi.useFakeTimers();
     let latestAudioLevel: number | null = null;
+    let latestAudioLevelStale = false;
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
 
     function AudioLevelProbe() {
-      const { audioLevel } = useBroadcastSession(operatorCopy.ko);
+      const { audioLevel, audioLevelStale } = useBroadcastSession(
+        operatorCopy.ko,
+      );
       latestAudioLevel = audioLevel;
+      latestAudioLevelStale = audioLevelStale;
       return null;
     }
 
@@ -104,16 +120,31 @@ describe('useBroadcastSession', () => {
     expect(instance).not.toBeNull();
 
     await act(async () => {
-      instance?.emit('message', JSON.stringify({ type: 'audio_level', level: -12 }));
-      instance?.emit('message', JSON.stringify({ type: 'audio_level', level: 42 }));
-      instance?.emit('message', JSON.stringify({ type: 'status', running: false }));
+      instance?.emit(
+        'message',
+        JSON.stringify({ type: 'audio_level', level: -12 }),
+      );
+      instance?.emit(
+        'message',
+        JSON.stringify({ type: 'audio_level', level: 42 }),
+      );
+      instance?.emit(
+        'message',
+        JSON.stringify({ type: 'status', running: false }),
+      );
     });
 
     expect(latestAudioLevel).toBeNull();
 
     await act(async () => {
-      instance?.emit('message', JSON.stringify({ type: 'audio_level', level: -45 }));
-      instance?.emit('message', JSON.stringify({ type: 'audio_level', level: Number.NaN }));
+      instance?.emit(
+        'message',
+        JSON.stringify({ type: 'audio_level', level: -45 }),
+      );
+      instance?.emit(
+        'message',
+        JSON.stringify({ type: 'audio_level', level: Number.NaN }),
+      );
     });
 
     expect(latestAudioLevel).toBe(-45);
@@ -122,12 +153,47 @@ describe('useBroadcastSession', () => {
       instance?.emit('close');
     });
 
+    expect(latestAudioLevel).toBe(-45);
+    expect(latestAudioLevelStale).toBe(true);
+
+    await act(async () => {
+      instance?.emit(
+        'message',
+        JSON.stringify({ type: 'audio_level', level: -30 }),
+      );
+    });
+
+    expect(latestAudioLevel).toBe(-30);
+    expect(latestAudioLevelStale).toBe(false);
+
+    await act(async () => {
+      instance?.emit('close');
+      vi.advanceTimersByTime(3000);
+    });
+
     expect(latestAudioLevel).toBeNull();
+    expect(latestAudioLevelStale).toBe(false);
+
+    await act(async () => {
+      instance?.emit(
+        'message',
+        JSON.stringify({ type: 'audio_level', level: -20 }),
+      );
+      instance?.emit(
+        'message',
+        JSON.stringify({ type: 'audio_status', ready: false }),
+      );
+    });
+
+    expect(latestAudioLevel).toBeNull();
+    expect(latestAudioLevelStale).toBe(false);
     act(() => root.unmount());
   });
 
   it('tracks cumulative audio loss from overflow and session status events', async () => {
-    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+    const latestSession: {
+      current: ReturnType<typeof useBroadcastSession> | null;
+    } = {
       current: null,
     };
     const container = document.createElement('div');
@@ -145,18 +211,24 @@ describe('useBroadcastSession', () => {
     });
 
     await act(async () => {
-      FakeWebSocket.latest?.emit('message', JSON.stringify({
-        type: 'audio_queue_overflow',
-        audio_dropped_chunks: 3,
-        audio_dropped_duration_seconds: 0.3,
-      }));
-      FakeWebSocket.latest?.emit('message', JSON.stringify({
-        type: 'translation_status',
-        running: true,
-        listener_count: 1,
-        audio_dropped_chunks: 4,
-        audio_dropped_duration_seconds: 0.4,
-      }));
+      FakeWebSocket.latest?.emit(
+        'message',
+        JSON.stringify({
+          type: 'audio_queue_overflow',
+          audio_dropped_chunks: 3,
+          audio_dropped_duration_seconds: 0.3,
+        }),
+      );
+      FakeWebSocket.latest?.emit(
+        'message',
+        JSON.stringify({
+          type: 'translation_status',
+          running: true,
+          listener_count: 1,
+          audio_dropped_chunks: 4,
+          audio_dropped_duration_seconds: 0.4,
+        }),
+      );
     });
 
     expect(latestSession.current?.audioDroppedChunks).toBe(4);
@@ -165,7 +237,9 @@ describe('useBroadcastSession', () => {
   });
 
   it('updates operational status from operator messages and recovers the connection', async () => {
-    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+    const latestSession: {
+      current: ReturnType<typeof useBroadcastSession> | null;
+    } = {
       current: null,
     };
     const container = document.createElement('div');
@@ -187,18 +261,27 @@ describe('useBroadcastSession', () => {
 
     await act(async () => {
       firstSocket?.emit('open');
-      firstSocket?.emit('message', JSON.stringify({
-        type: 'status',
-        running: true,
-        sessionStatus: 'live',
-        audioReady: true,
-        startAvailable: false,
-        startBlockReason: null,
-        listenerCount: 4,
-        timer: { elapsedSeconds: 65, remainingSeconds: 535, warning: false },
-      }));
-      firstSocket?.emit('message', JSON.stringify({ type: 'latency', milliseconds: 180 }));
-      firstSocket?.emit('message', JSON.stringify({ type: 'session_ended', reason: 'auto_stop' }));
+      firstSocket?.emit(
+        'message',
+        JSON.stringify({
+          type: 'status',
+          running: true,
+          sessionStatus: 'live',
+          audioReady: true,
+          startAvailable: false,
+          startBlockReason: null,
+          listenerCount: 4,
+          timer: { elapsedSeconds: 65, remainingSeconds: 535, warning: false },
+        }),
+      );
+      firstSocket?.emit(
+        'message',
+        JSON.stringify({ type: 'latency', milliseconds: 180 }),
+      );
+      firstSocket?.emit(
+        'message',
+        JSON.stringify({ type: 'session_ended', reason: 'auto_stop' }),
+      );
     });
 
     expect(latestSession.current?.serverStatus).toBe('online');
@@ -210,14 +293,19 @@ describe('useBroadcastSession', () => {
     expect(latestSession.current?.listenerCount).toBe(4);
     expect(latestSession.current?.latencyMs).toBe(180);
     expect(latestSession.current?.timer).toBeNull();
-    expect(latestSession.current?.lastTerminationReason).toBe(operatorCopy.ko.terminationAutoStop);
+    expect(latestSession.current?.lastTerminationReason).toBe(
+      operatorCopy.ko.terminationAutoStop,
+    );
 
     await act(async () => {
-      firstSocket?.emit('message', JSON.stringify({
-        type: 'status',
-        running: true,
-        session_status: 'live',
-      }));
+      firstSocket?.emit(
+        'message',
+        JSON.stringify({
+          type: 'status',
+          running: true,
+          session_status: 'live',
+        }),
+      );
     });
     expect(latestSession.current?.running).toBe(false);
     expect(latestSession.current?.sessionStatus).toBe('off');
@@ -225,7 +313,9 @@ describe('useBroadcastSession', () => {
     vi.useFakeTimers();
     act(() => firstSocket?.emit('close'));
     expect(latestSession.current?.serverStatus).toBe('online');
-    expect(latestSession.current?.operatorConnectionStatus).toBe('reconnecting');
+    expect(latestSession.current?.operatorConnectionStatus).toBe(
+      'reconnecting',
+    );
 
     await act(async () => {
       vi.advanceTimersByTime(1000);
@@ -240,7 +330,9 @@ describe('useBroadcastSession', () => {
   });
 
   it('does not restore live from a status without running after termination', async () => {
-    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+    const latestSession: {
+      current: ReturnType<typeof useBroadcastSession> | null;
+    } = {
       current: null,
     };
     const container = document.createElement('div');
@@ -259,8 +351,14 @@ describe('useBroadcastSession', () => {
 
     const socket = FakeWebSocket.latest;
     await act(async () => {
-      socket?.emit('message', JSON.stringify({ type: 'session_ended', reason: 'auto_stop' }));
-      socket?.emit('message', JSON.stringify({ type: 'status', session_status: 'live' }));
+      socket?.emit(
+        'message',
+        JSON.stringify({ type: 'session_ended', reason: 'auto_stop' }),
+      );
+      socket?.emit(
+        'message',
+        JSON.stringify({ type: 'status', session_status: 'live' }),
+      );
     });
 
     expect(latestSession.current?.running).toBe(false);
@@ -279,17 +377,22 @@ describe('useBroadcastSession', () => {
     }>((resolve) => {
       resolveStaleStatus = resolve;
     });
-    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
-      if (String(input).endsWith('/start')) {
-        return Promise.resolve({
-          ok: false,
-          json: async () => ({ detail: 'start failed' }),
-        });
-      }
-      return staleStatus;
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        if (String(input).endsWith('/start')) {
+          return Promise.resolve({
+            ok: false,
+            json: async () => ({ detail: 'start failed' }),
+          });
+        }
+        return staleStatus;
+      }),
+    );
 
-    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+    const latestSession: {
+      current: ReturnType<typeof useBroadcastSession> | null;
+    } = {
       current: null,
     };
     const container = document.createElement('div');
@@ -306,10 +409,17 @@ describe('useBroadcastSession', () => {
       await Promise.resolve();
     });
     const socket = FakeWebSocket.latest;
-    act(() => socket?.emit('message', JSON.stringify({ type: 'session_ended', reason: 'auto_stop' })));
+    act(() =>
+      socket?.emit(
+        'message',
+        JSON.stringify({ type: 'session_ended', reason: 'auto_stop' }),
+      ),
+    );
 
     await act(async () => {
-      await expect(latestSession.current?.start()).rejects.toThrow('start failed');
+      await expect(latestSession.current?.start()).rejects.toThrow(
+        'start failed',
+      );
     });
     await act(async () => {
       resolveStaleStatus({
@@ -324,7 +434,7 @@ describe('useBroadcastSession', () => {
     act(() => root.unmount());
   });
 
-  it('reports a WebSocket error and following close only once', async () => {
+  it('treats a WebSocket failure as reconnection rather than a session error', async () => {
     const errors: string[] = [];
     const container = document.createElement('div');
     document.body.appendChild(container);
@@ -343,17 +453,88 @@ describe('useBroadcastSession', () => {
       instance?.emit('close');
     });
 
-    expect(errors).toEqual(['방송 처리 중 오류가 발생했습니다']);
+    expect(errors).toEqual([]);
+    act(() => root.unmount());
+  });
+
+  it('restores the live snapshot after reconnecting the operator socket', async () => {
+    const latestSession: {
+      current: ReturnType<typeof useBroadcastSession> | null;
+    } = {
+      current: null,
+    };
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    function StateProbe() {
+      latestSession.current = useBroadcastSession(operatorCopy.ko);
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<StateProbe />);
+      await Promise.resolve();
+    });
+
+    const firstSocket = FakeWebSocket.latest;
+    await act(async () => {
+      firstSocket?.emit(
+        'message',
+        JSON.stringify({
+          type: 'translation_status',
+          running: true,
+          session_status: 'live',
+        }),
+      );
+      firstSocket?.emit('close');
+    });
+
+    expect(latestSession.current?.sessionStatus).toBe('live');
+    expect(latestSession.current?.operatorConnectionStatus).toBe(
+      'reconnecting',
+    );
+
+    vi.useFakeTimers();
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    const recoveredSocket = FakeWebSocket.latest;
+    await act(async () => {
+      recoveredSocket?.emit('open');
+      recoveredSocket?.emit(
+        'message',
+        JSON.stringify({
+          type: 'translation_status',
+          running: true,
+          session_status: 'live',
+          listener_count: 3,
+          timer: { elapsedSeconds: 10, remainingSeconds: 50, warning: false },
+        }),
+      );
+    });
+
+    expect(latestSession.current?.operatorConnectionStatus).toBe('connected');
+    expect(latestSession.current?.sessionStatus).toBe('live');
+    expect(latestSession.current?.listenerCount).toBe(3);
+    expect(latestSession.current?.timer?.remainingSeconds).toBe(50);
     act(() => root.unmount());
   });
 
   it('keeps interpreter errors visible while status polling reports a running session', async () => {
     vi.useFakeTimers();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ running: true, listener_count: 0 }),
-    }));
-    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ running: true, listener_count: 0 }),
+      }),
+    );
+    const latestSession: {
+      current: ReturnType<typeof useBroadcastSession> | null;
+    } = {
       current: null,
     };
     const container = document.createElement('div');
@@ -371,7 +552,12 @@ describe('useBroadcastSession', () => {
     });
 
     const socket = FakeWebSocket.latest;
-    act(() => socket?.emit('message', JSON.stringify({ type: 'error', text: 'interpreter failed' })));
+    act(() =>
+      socket?.emit(
+        'message',
+        JSON.stringify({ type: 'error', text: 'interpreter failed' }),
+      ),
+    );
     expect(latestSession.current?.interpreterStatus).toBe('error');
     expect(latestSession.current?.sessionStatus).toBe('error');
     expect(latestSession.current?.sessionError).toBe('interpreter failed');
@@ -392,7 +578,9 @@ describe('useBroadcastSession', () => {
     ['interpreter_error', operatorCopy.ko.terminationInterpreterError, 'error'],
     ['device_error', operatorCopy.ko.terminationDeviceError, 'error'],
   ] as const)('normalizes %s termination', async (reason, label, status) => {
-    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = { current: null };
+    const latestSession: {
+      current: ReturnType<typeof useBroadcastSession> | null;
+    } = { current: null };
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -407,7 +595,10 @@ describe('useBroadcastSession', () => {
       await Promise.resolve();
     });
     await act(async () => {
-      FakeWebSocket.latest?.emit('message', JSON.stringify({ type: 'session_ended', reason }));
+      FakeWebSocket.latest?.emit(
+        'message',
+        JSON.stringify({ type: 'session_ended', reason }),
+      );
     });
 
     expect(latestSession.current?.running).toBe(false);
@@ -418,22 +609,49 @@ describe('useBroadcastSession', () => {
   });
 
   it('supports timer extension during the warning window and clears stale timer data afterward', async () => {
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ running: true, session_status: 'live', listener_count: 2, timer: { elapsedSeconds: 90, remainingSeconds: 60, warning: true, extensionCount: 0 } }),
+        json: async () => ({
+          running: true,
+          session_status: 'live',
+          listener_count: 2,
+          timer: {
+            elapsedSeconds: 90,
+            remainingSeconds: 60,
+            warning: true,
+            extensionCount: 0,
+          },
+        }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ running: true, session_status: 'live', listener_count: 2, timer: { elapsedSeconds: 100, remainingSeconds: 120, warning: false, extensionCount: 1 } }),
+        json: async () => ({
+          running: true,
+          session_status: 'live',
+          listener_count: 2,
+          timer: {
+            elapsedSeconds: 100,
+            remainingSeconds: 120,
+            warning: false,
+            extensionCount: 1,
+          },
+        }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ running: false, session_status: 'off', listener_count: 0 }),
+        json: async () => ({
+          running: false,
+          session_status: 'off',
+          listener_count: 0,
+        }),
       });
     vi.stubGlobal('fetch', fetchMock);
 
-    const latestSession: { current: ReturnType<typeof useBroadcastSession> | null } = {
+    const latestSession: {
+      current: ReturnType<typeof useBroadcastSession> | null;
+    } = {
       current: null,
     };
     const container = document.createElement('div');
@@ -458,7 +676,7 @@ describe('useBroadcastSession', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/session/extend',
-      expect.objectContaining({ method: 'POST', credentials: 'same-origin' })
+      expect.objectContaining({ method: 'POST', credentials: 'same-origin' }),
     );
     expect(latestSession.current?.timer?.extensionCount).toBe(1);
     expect(latestSession.current?.timer?.warning).toBe(false);

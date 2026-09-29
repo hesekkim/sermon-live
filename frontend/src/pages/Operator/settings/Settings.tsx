@@ -142,6 +142,7 @@ export default function Settings() {
           result={result}
           liveInputLevel={liveInputLevel}
           runtimeInputLevel={outletContext?.audioLevel ?? null}
+          runtimeInputLevelStale={outletContext?.audioLevelStale ?? false}
           error={audioTestError}
           isTesting={isTesting}
           onRunTest={() => void runTest()}

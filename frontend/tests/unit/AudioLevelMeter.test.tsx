@@ -43,4 +43,28 @@ describe('AudioLevelMeter', () => {
     act(() => root.unmount());
     container.remove();
   });
+
+  it('announces when the displayed level is stale', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <AudioLevelMeter
+          level={-18}
+          isStale
+          staleLabel="Stale measurement"
+        />,
+      );
+    });
+
+    const meter = container.querySelector('[role="meter"]');
+    expect(meter?.getAttribute('aria-valuetext')).toBe(
+      '-18.0 dBFS, Stale measurement',
+    );
+
+    act(() => root.unmount());
+    container.remove();
+  });
 });

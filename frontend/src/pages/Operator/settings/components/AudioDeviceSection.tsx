@@ -23,6 +23,7 @@ interface AudioDeviceSectionProps {
   result: AudioTestResult | null;
   liveInputLevel: number | null;
   runtimeInputLevel: number | null;
+  runtimeInputLevelStale: boolean;
   error: string | null;
   isTesting: boolean;
   onRunTest: () => void;
@@ -45,6 +46,7 @@ export default function AudioDeviceSection({
   result,
   liveInputLevel,
   runtimeInputLevel,
+  runtimeInputLevelStale,
   error,
   isTesting,
   onRunTest,
@@ -96,6 +98,7 @@ export default function AudioDeviceSection({
         result={result}
         liveInputLevel={liveInputLevel}
         runtimeInputLevel={runtimeInputLevel}
+        runtimeInputLevelStale={runtimeInputLevelStale}
         error={error}
         isTesting={isTesting}
         canRun={canRun && !isSessionBusy}

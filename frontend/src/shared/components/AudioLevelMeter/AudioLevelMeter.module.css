@@ -19,6 +19,10 @@
   );
 }
 
+.stale {
+  opacity: 0.55;
+}
+
 .fill {
   position: absolute;
   inset: 0 auto 0 0;

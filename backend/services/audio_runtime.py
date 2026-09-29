@@ -55,6 +55,10 @@ class AudioRuntime:
         self._capture: AudioCapture | None = None
         self._processor: AudioProcessor | None = None
         self._capture_task: asyncio.Task[None] | None = None
+        self._audio_level_queue: asyncio.Queue[float] | None = None
+        self._audio_level_task: asyncio.Task[None] | None = None
+        self._overflow_warning_queue: asyncio.Queue[tuple[int, float]] | None = None
+        self._overflow_warning_task: asyncio.Task[None] | None = None
         self._translation_queue: _DurationTrackedQueue | None = None
         self._test_queues: set[asyncio.Queue[bytes | None]] = set()
         self._input_format: tuple[int, int, int] | None = None
@@ -126,6 +130,16 @@ class AudioRuntime:
             self._processor = self._new_processor(input_format, input_format)
             self._error = None
             self._last_audio_level_broadcast = None
+            self._audio_level_queue = asyncio.Queue(maxsize=1)
+            self._audio_level_task = asyncio.create_task(
+                self._pump_audio_levels(self._audio_level_queue),
+                name="pump-audio-levels",
+            )
+            self._overflow_warning_queue = asyncio.Queue(maxsize=1)
+            self._overflow_warning_task = asyncio.create_task(
+                self._pump_overflow_warnings(self._overflow_warning_queue),
+                name="pump-audio-overflow-warnings",
+            )
             self._capture_task = asyncio.create_task(
                 self._pump_capture(), name="pump-audio-runtime"
             )
@@ -194,6 +208,8 @@ class AudioRuntime:
         if task is not None:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
+        await self._stop_audio_level_pump()
+        await self._stop_overflow_warning_pump()
         capture = self._capture
         self._capture = None
         self._input_format = None
@@ -288,7 +304,7 @@ class AudioRuntime:
             async for chunk in self._capture.chunks():
                 self._broadcast_test_chunk(chunk)
                 processed = self._processor.process(chunk)
-                await self._broadcast_audio_level()
+                self._queue_audio_level()
                 queue = self._translation_queue
                 if processed and queue is not None:
                     await self._enqueue_translation_audio(queue, processed)
@@ -303,10 +319,13 @@ class AudioRuntime:
             await self._broadcast_audio_status()
         finally:
             self._last_audio_level_broadcast = None
+            await self._stop_audio_level_pump()
+            await self._stop_overflow_warning_pump()
 
-    async def _broadcast_audio_level(self) -> None:
+    def _queue_audio_level(self) -> None:
         processor = self._processor
-        if processor is None:
+        queue = self._audio_level_queue
+        if processor is None or queue is None:
             return
         level = processor.input_level_dbfs
         now = self._clock()
@@ -318,10 +337,61 @@ class AudioRuntime:
                 >= self._AUDIO_LEVEL_BROADCAST_INTERVAL
             )
         ):
-            await self._hub.broadcast_operator(
-                {"type": "audio_level", "level": level}
-            )
+            if queue.full():
+                try:
+                    queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+            queue.put_nowait(level)
             self._last_audio_level_broadcast = now
+
+    async def _pump_audio_levels(self, queue: asyncio.Queue[float]) -> None:
+        while True:
+            level = await queue.get()
+            try:
+                await self._hub.broadcast_operator(
+                    {"type": "audio_level", "level": level}
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("Audio level broadcast failed")
+
+    async def _pump_overflow_warnings(
+        self, queue: asyncio.Queue[tuple[int, float]]
+    ) -> None:
+        while True:
+            dropped_chunks, dropped_duration_seconds = await queue.get()
+            try:
+                await self._hub.broadcast_session(
+                    {
+                        "type": "audio_queue_overflow",
+                        "audio_dropped_chunks": dropped_chunks,
+                        "audio_dropped_duration_seconds": dropped_duration_seconds,
+                    }
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("Audio queue overflow broadcast failed")
+
+    async def _stop_audio_level_pump(self) -> None:
+        task = self._audio_level_task
+        self._audio_level_task = None
+        self._audio_level_queue = None
+        if task is None or task is asyncio.current_task():
+            return
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    async def _stop_overflow_warning_pump(self) -> None:
+        task = self._overflow_warning_task
+        self._overflow_warning_task = None
+        self._overflow_warning_queue = None
+        if task is None or task is asyncio.current_task():
+            return
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
 
     async def _enqueue_translation_audio(
         self, queue: _DurationTrackedQueue, audio: bytes
@@ -373,13 +443,15 @@ class AudioRuntime:
         ):
             return
         self._last_overflow_warning = now
-        await self._hub.broadcast_session(
-            {
-                "type": "audio_queue_overflow",
-                "audio_dropped_chunks": self._dropped_chunks,
-                "audio_dropped_duration_seconds": self._dropped_duration_seconds,
-            }
-        )
+        queue = self._overflow_warning_queue
+        if queue is None:
+            return
+        if queue.full():
+            try:
+                queue.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+        queue.put_nowait((self._dropped_chunks, self._dropped_duration_seconds))
 
     def _broadcast_test_chunk(self, chunk: bytes) -> None:
         for queue in tuple(self._test_queues):

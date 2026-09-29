@@ -21,6 +21,7 @@ import styles from './OperatorLayout.module.css';
 
 export interface OperatorOutletContext {
   audioLevel: number | null;
+  audioLevelStale: boolean;
   isSessionBusy: boolean;
   showInputPane: boolean;
   inputLines: string[];
@@ -99,6 +100,7 @@ export default function OperatorLayout({
           sessionError={session.sessionError}
           listenerCount={session.listenerCount}
           audioLevel={session.audioLevel}
+          audioLevelStale={session.audioLevelStale}
           latencyMs={session.latencyMs}
           serverStatus={session.serverStatus}
           operatorConnectionStatus={session.operatorConnectionStatus}
@@ -154,6 +156,7 @@ export default function OperatorLayout({
             context={
               {
                 audioLevel: session.audioLevel,
+                audioLevelStale: session.audioLevelStale,
                 isSessionBusy,
                 showInputPane,
                 inputLines: session.inputLines,
