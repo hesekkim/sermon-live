@@ -381,7 +381,7 @@ describe('Operator navigation', () => {
       page.container.querySelector('input[type="password"]'),
     ).toHaveAttribute('aria-invalid', 'true');
     expect(
-      page.container.querySelector('.input-field__error-message'),
+      page.container.querySelector('form [role="alert"]'),
     ).toHaveTextContent('비밀번호가 올바르지 않습니다');
     page.cleanup();
   });

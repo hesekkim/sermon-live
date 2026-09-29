@@ -5,9 +5,11 @@ import Listen from '../../src/pages/Listen/Listen';
 import { useBroadcastSession } from '../../src/pages/Operator/broadcast/hooks/useBroadcastSession';
 import { operatorCopy } from '../../src/pages/Operator/translations';
 
-(globalThis as typeof globalThis & {
-  IS_REACT_ACT_ENVIRONMENT: boolean;
-}).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 class MockAudioContext {
   state: AudioContextState = 'suspended';
@@ -55,7 +57,9 @@ class MockWebSocket extends EventTarget {
   }
 
   message(payload: object) {
-    this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(payload) }));
+    this.dispatchEvent(
+      new MessageEvent('message', { data: JSON.stringify(payload) }),
+    );
   }
 
   close() {
@@ -88,7 +92,8 @@ function renderOperator() {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
-  const sessionRef: { current: ReturnType<typeof useBroadcastSession> | null } = { current: null };
+  const sessionRef: { current: ReturnType<typeof useBroadcastSession> | null } =
+    { current: null };
 
   function Probe() {
     sessionRef.current = useBroadcastSession(operatorCopy.ko);
@@ -158,9 +163,9 @@ describe('core live broadcast flow', () => {
 
     expect(operator.sessionRef.current?.sessionStatus).toBe('off');
     expect(listener.container).toHaveTextContent('VERBUNDEN · ÜBERSETZUNG AUS');
-
-    await click(listener.container.querySelector('button[aria-label="Listen"]'));
-    expect(listener.container).toHaveTextContent('wird angehört');
+    expect(
+      listener.container.querySelector('button[aria-label="Start listening"]'),
+    ).toBeDisabled();
 
     act(() => {
       operatorSocket?.message({
@@ -182,6 +187,13 @@ describe('core live broadcast flow', () => {
     expect(listener.container).toHaveTextContent('SESSION LIVE · DEUTSCH');
     expect(listener.container).toHaveTextContent('Guten Morgen.');
 
+    await click(
+      listener.container.querySelector('button[aria-label="Start listening"]'),
+    );
+    expect(
+      listener.container.querySelector('button[aria-label="Stop listening"]'),
+    ).not.toBeNull();
+
     act(() => {
       operatorSocket?.message({
         type: 'session_ended',
@@ -193,7 +205,9 @@ describe('core live broadcast flow', () => {
       });
     });
 
-    expect(operator.sessionRef.current?.lastTerminationReason).toBe(operatorCopy.ko.terminationAutoStop);
+    expect(operator.sessionRef.current?.lastTerminationReason).toBe(
+      operatorCopy.ko.terminationAutoStop,
+    );
     expect(listener.container).toHaveTextContent('SENDUNG BEENDET');
 
     act(() => {
@@ -229,7 +243,9 @@ describe('core live broadcast flow', () => {
     });
 
     expect(operator.sessionRef.current?.sessionStatus).toBe('error');
-    expect(operator.sessionRef.current?.lastTerminationReason).toBe(operatorCopy.ko.terminationInterpreterError);
+    expect(operator.sessionRef.current?.lastTerminationReason).toBe(
+      operatorCopy.ko.terminationInterpreterError,
+    );
     expect(listener.container).toHaveTextContent('ÜBERSETZUNG NICHT VERFÜGBAR');
     expect(listener.container).not.toHaveTextContent('SENDUNG BEENDET');
 
@@ -244,22 +260,32 @@ describe('core live broadcast flow', () => {
     const listener = renderListener();
     const firstSocket = MockWebSocket.instances[0];
 
-    await click(listener.container.querySelector('button[aria-label="Listen"]'));
+    await click(
+      listener.container.querySelector('button[aria-label="Listen"]'),
+    );
 
     act(() => {
       firstSocket?.open();
-      firstSocket?.message({ type: 'translation_status', session_status: 'off' });
+      firstSocket?.message({
+        type: 'translation_status',
+        session_status: 'off',
+      });
     });
     expect(listener.container).toHaveTextContent('VERBUNDEN · ÜBERSETZUNG AUS');
 
     act(() => firstSocket?.close());
-    expect(listener.container).toHaveTextContent('VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT');
+    expect(listener.container).toHaveTextContent(
+      'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
+    );
 
     act(() => vi.advanceTimersByTime(1200));
     const secondSocket = MockWebSocket.instances[1];
     act(() => {
       secondSocket?.open();
-      secondSocket?.message({ type: 'translation_status', session_status: 'off' });
+      secondSocket?.message({
+        type: 'translation_status',
+        session_status: 'off',
+      });
     });
     expect(listener.container).toHaveTextContent('VERBUNDEN · ÜBERSETZUNG AUS');
 
