@@ -16,6 +16,7 @@ interface InterpreterSectionProps {
   keyStatus: KeyStatus;
   savedKeyPreview: string;
   keyWarning: string;
+  disabled: boolean;
 }
 
 export default function InterpreterSection({
@@ -27,6 +28,7 @@ export default function InterpreterSection({
   keyStatus,
   savedKeyPreview,
   keyWarning,
+  disabled,
 }: InterpreterSectionProps) {
   const keyStatusLabel =
     keyStatus === 'valid'
@@ -35,14 +37,20 @@ export default function InterpreterSection({
         ? labels.keyStatusInvalid
         : labels.keyStatusMissing;
   const keyStatusVariant =
-    keyStatus === 'valid' ? 'decided' : keyStatus === 'invalid' ? 'deprecated' : 'readonly';
-  const keyDisabled = interpreter === 'echo';
+    keyStatus === 'valid'
+      ? 'decided'
+      : keyStatus === 'invalid'
+        ? 'deprecated'
+        : 'readonly';
+  const keyDisabled = disabled || interpreter === 'echo';
 
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>
         {labels.interpreter}
-        {interpreter !== 'echo' ? <StatusTag label={keyStatusLabel} variant={keyStatusVariant} /> : null}
+        {interpreter !== 'echo' ? (
+          <StatusTag label={keyStatusLabel} variant={keyStatusVariant} />
+        ) : null}
       </h2>
       <Select
         label={labels.interpreter}
@@ -51,6 +59,7 @@ export default function InterpreterSection({
           { value: 'openai', label: labels.openai },
         ]}
         value={interpreter}
+        disabled={disabled}
         onChange={(value) => onInterpreterChange(value as InterpreterName)}
       />
       <div className={styles.keyRow}>
@@ -63,12 +72,18 @@ export default function InterpreterSection({
             hidePasswordLabel={labels.hideApiKey}
             value={apiKey}
             disabled={keyDisabled}
-            placeholder={keyDisabled ? labels.echoNoKey : savedKeyPreview || labels.apiKeyPlaceholder}
+            placeholder={
+              keyDisabled
+                ? labels.echoNoKey
+                : savedKeyPreview || labels.apiKeyPlaceholder
+            }
             onChange={onApiKeyChange}
           />
         </div>
       </div>
-      {keyWarning && keyStatus === 'invalid' ? <p role="status">{keyWarning}</p> : null}
+      {keyWarning && keyStatus === 'invalid' ? (
+        <p role="status">{keyWarning}</p>
+      ) : null}
     </section>
   );
 }

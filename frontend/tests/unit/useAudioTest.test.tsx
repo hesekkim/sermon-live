@@ -43,7 +43,15 @@ vi.mock('../../src/pages/Operator/settings/hooks/useOperatorSettings', () => ({
     setDraftLanguage: vi.fn(),
     draftTheme: 'light',
     setDraftTheme: vi.fn(),
+    timerValues: {
+      autoStopMinutes: '90',
+      warningMinutes: '5',
+      extensionMinutes: '10',
+      hardLimitMinutes: '120',
+    },
     isSaving: false,
+    isSafetyDirty: true,
+    isApiModelDirty: true,
     setTimerValue: vi.fn(),
     timerValidation: { fieldErrors: {}, hasErrors: false, message: '' },
     saveDevice: vi.fn(),
@@ -432,6 +440,74 @@ describe('useAudioTest', () => {
     expect(container.textContent).toContain(
       '통역 세션을 중지한 뒤 입력 장치를 바꾸거나 테스트하세요.',
     );
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('disables safety and API model settings while a translation session is active', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={['/operator/settings']}>
+          <Routes>
+            <Route
+              path="/operator"
+              element={<Outlet context={{ isSessionBusy: true }} />}
+            >
+              <Route
+                path="settings"
+                element={
+                  <ToastProvider>
+                    <Settings />
+                  </ToastProvider>
+                }
+              />
+            </Route>
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('#settings-tab-safety')
+        ?.click(),
+    );
+    expect(
+      container.querySelector<HTMLInputElement>(
+        'input[name="translation_session_auto_stop_minutes"]',
+      ),
+    ).toBeDisabled();
+    expect(
+      Array.from(container.querySelectorAll('button')).find((button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(
+          button.textContent?.trim() ?? '',
+        ),
+      ),
+    ).toBeDisabled();
+
+    act(() =>
+      container.querySelector<HTMLButtonElement>('#settings-tab-api')?.click(),
+    );
+    expect(
+      container.querySelector<HTMLButtonElement>(
+        'button[aria-haspopup="listbox"]',
+      ),
+    ).toBeDisabled();
+    expect(
+      container.querySelector<HTMLInputElement>('input[type="password"]'),
+    ).toBeDisabled();
+    expect(
+      Array.from(container.querySelectorAll('button')).find((button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(
+          button.textContent?.trim() ?? '',
+        ),
+      ),
+    ).toBeDisabled();
 
     act(() => root.unmount());
     container.remove();

@@ -24,8 +24,8 @@ def test_sermon_session_routes_are_not_registered(operator_client):
     assert ("/api/v1/sermon-session", "PUT") not in registered_routes
 
 
-def test_operator_settings_roundtrip(operator_client, tmp_path):
-    store._path = tmp_path / "operator.json"
+def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
+    monkeypatch.setattr(store, "_path", tmp_path / "operator.json")
     empty = operator_client.get("/api/v1/operator/settings")
     assert empty.status_code == 200
     saved = operator_client.put(
@@ -65,6 +65,50 @@ def test_operator_settings_reject_invalid_timer_ranges(operator_client, tmp_path
     )
 
     assert response.status_code == 422
+
+
+def test_operator_settings_cannot_change_safety_or_interpreter_during_session(
+    operator_client, monkeypatch, tmp_path
+):
+    from core.config import get_settings
+    from services.runtime import session
+
+    monkeypatch.setattr(store, "_path", tmp_path / "operator.json")
+    initial = operator_client.put(
+        "/api/v1/operator/settings",
+        json={
+            "interpreter": "echo",
+            "translation_session_auto_stop_minutes": 90,
+            "translation_session_warning_minutes": 5,
+            "translation_session_extension_minutes": 10,
+            "translation_session_hard_limit_minutes": 120,
+        },
+    )
+    assert initial.status_code == 200
+    monkeypatch.setattr(session, "_state", "live")
+
+    timer_response = operator_client.put(
+        "/api/v1/operator/settings",
+        json={
+            "interpreter": "echo",
+            "translation_session_auto_stop_minutes": 45,
+        },
+    )
+    interpreter_response = operator_client.put(
+        "/api/v1/operator/settings",
+        json={"interpreter": "openai"},
+    )
+    key_response = operator_client.put(
+        "/api/v1/operator/settings",
+        json={"interpreter": "echo", "openai_api_key": "replacement-key"},
+    )
+
+    assert timer_response.status_code == 409
+    assert interpreter_response.status_code == 409
+    assert key_response.status_code == 409
+    current = store.public_view(get_settings())
+    assert current["translation_session_auto_stop_minutes"] == 90
+    assert current["interpreter"] == "echo"
 
 
 def test_operator_settings_storage_error_returns_generic_http_500(operator_client):

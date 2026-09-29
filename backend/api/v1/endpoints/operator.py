@@ -35,12 +35,36 @@ async def get_operator_settings() -> dict[str, object]:
 )
 async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]:
     current_settings = get_settings()
-    previous_device = store.public_view(current_settings)["audio_device"]
+    current_view = store.public_view(current_settings)
+    previous_device = current_view["audio_device"]
     device_changed = body.audio_device is not None and body.audio_device != previous_device
-    if device_changed and session.state in ("starting", "live", "stopping"):
+    session_busy = session.state in ("starting", "live", "stopping")
+    if device_changed and session_busy:
         raise HTTPException(
             status_code=409,
             detail="Stop the translation session before changing the input device",
+        )
+    timer_fields = (
+        "translation_session_auto_stop_minutes",
+        "translation_session_warning_minutes",
+        "translation_session_extension_minutes",
+        "translation_session_hard_limit_minutes",
+    )
+    protected_settings_changed = body.interpreter != current_view["interpreter"]
+    for field in timer_fields:
+        requested = getattr(body, field)
+        if requested is not None and requested != current_view[field]:
+            protected_settings_changed = True
+            break
+    stored_key = store.load().openai_api_key or current_settings.openai_api_key
+    protected_settings_changed = protected_settings_changed or (
+        body.openai_api_key not in (None, "")
+        and body.openai_api_key != stored_key
+    )
+    if protected_settings_changed and session_busy:
+        raise HTTPException(
+            status_code=409,
+            detail="Stop the translation session before changing protected settings",
         )
     try:
         store.save(

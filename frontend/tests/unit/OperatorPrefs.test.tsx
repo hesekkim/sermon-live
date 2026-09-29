@@ -6,7 +6,10 @@ import Settings from '../../src/pages/Operator/settings/Settings';
 const mockNavigate = vi.fn();
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  const actual =
+    await vi.importActual<typeof import('react-router-dom')>(
+      'react-router-dom',
+    );
   return {
     ...actual,
     useNavigate: () => mockNavigate,
@@ -18,9 +21,11 @@ import {
 } from '../../src/pages/Operator/OperatorPrefs';
 import { ToastProvider } from '../../src/shared/components/Toast/ToastProvider';
 
-(globalThis as typeof globalThis & {
-  IS_REACT_ACT_ENVIRONMENT: boolean;
-}).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 interface PrefState {
   language: string;
@@ -57,7 +62,7 @@ function renderProbe(onRender: (state: PrefState) => void) {
     root.render(
       <OperatorPrefsProvider>
         <Probe onRender={onRender} />
-      </OperatorPrefsProvider>
+      </OperatorPrefsProvider>,
     );
   });
   return () => {
@@ -121,8 +126,18 @@ describe('Settings save flow', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [
-          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
-          { index: 1, name: 'USB Audio', input_channels: 2, default_sample_rate: 48000 },
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
+          {
+            index: 1,
+            name: 'USB Audio',
+            input_channels: 2,
+            default_sample_rate: 48000,
+          },
         ],
       })
       .mockResolvedValueOnce({
@@ -162,44 +177,53 @@ describe('Settings save flow', () => {
           <ToastProvider>
             <Settings />
           </ToastProvider>
-        </OperatorPrefsProvider>
+        </OperatorPrefsProvider>,
       );
       await Promise.resolve();
     });
 
     const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
-      (button) => button.textContent?.includes('API Model') || button.textContent?.includes('API 모델')
+      (button) =>
+        button.textContent?.includes('API Model') ||
+        button.textContent?.includes('API 모델'),
     );
     await act(async () => {
       apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     const interpreterButton = Array.from(
-      container.querySelectorAll('button[aria-haspopup="listbox"]')
+      container.querySelectorAll('button[aria-haspopup="listbox"]'),
     )[0] as HTMLButtonElement;
     await act(async () => {
       interpreterButton.click();
     });
-    const openAiOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
-      (option) => option.getAttribute('aria-label') === 'OpenAI'
-    ) as HTMLButtonElement | undefined;
+    const openAiOption = Array.from(
+      document.body.querySelectorAll('[role="option"]'),
+    ).find((option) => option.getAttribute('aria-label') === 'OpenAI') as
+      | HTMLButtonElement
+      | undefined;
     expect(openAiOption).not.toBeUndefined();
     await act(async () => {
       openAiOption?.click();
     });
 
-    const passwordInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    const passwordInput = container.querySelector(
+      'input[type="password"]',
+    ) as HTMLInputElement;
     expect(passwordInput).not.toBeNull();
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        passwordInput,
-        'abc123'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(passwordInput, 'abc123');
       passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+      (button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(
+          button.textContent?.trim() ?? '',
+        ),
     );
     expect(saveButton).not.toBeNull();
     await act(async () => {
@@ -207,15 +231,21 @@ describe('Settings save flow', () => {
     });
 
     const putCall = fetchMock.mock.calls.find(
-      ([url, init]) => url === '/api/v1/operator/settings' && (init as RequestInit | undefined)?.method === 'PUT'
+      ([url, init]) =>
+        url === '/api/v1/operator/settings' &&
+        (init as RequestInit | undefined)?.method === 'PUT',
     );
     expect(putCall).toBeDefined();
-    expect(JSON.parse((putCall?.[1] as RequestInit | undefined)?.body as string)).toMatchObject({
+    expect(
+      JSON.parse((putCall?.[1] as RequestInit | undefined)?.body as string),
+    ).toMatchObject({
       interpreter: 'openai',
       openai_api_key: 'abc123',
     });
 
-    const clearedInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    const clearedInput = container.querySelector(
+      'input[type="password"]',
+    ) as HTMLInputElement;
     expect(clearedInput.value).toBe('');
     expect(clearedInput.placeholder).toBe('abc1...c123');
 
@@ -232,7 +262,12 @@ describe('Settings save flow', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [
-          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
         ],
       })
       .mockResolvedValueOnce({
@@ -260,33 +295,40 @@ describe('Settings save flow', () => {
           <ToastProvider>
             <Settings />
           </ToastProvider>
-        </OperatorPrefsProvider>
+        </OperatorPrefsProvider>,
       );
       await Promise.resolve();
     });
 
     const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
-      (button) => button.textContent?.includes('API Model') || button.textContent?.includes('API 모델')
+      (button) =>
+        button.textContent?.includes('API Model') ||
+        button.textContent?.includes('API 모델'),
     );
     await act(async () => {
       apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     const interpreterButton = container.querySelector(
-      'button[aria-haspopup="listbox"]'
+      'button[aria-haspopup="listbox"]',
     ) as HTMLButtonElement;
     await act(async () => {
       interpreterButton.click();
     });
-    const openAiOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
-      (option) => option.getAttribute('aria-label') === 'OpenAI'
-    ) as HTMLButtonElement | undefined;
+    const openAiOption = Array.from(
+      document.body.querySelectorAll('[role="option"]'),
+    ).find((option) => option.getAttribute('aria-label') === 'OpenAI') as
+      | HTMLButtonElement
+      | undefined;
     await act(async () => {
       openAiOption?.click();
     });
 
     const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+      (button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(
+          button.textContent?.trim() ?? '',
+        ),
     );
     expect(saveButton).not.toBeNull();
     await act(async () => {
@@ -308,7 +350,12 @@ describe('Settings save flow', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [
-          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
         ],
       })
       .mockResolvedValue({
@@ -338,20 +385,24 @@ describe('Settings save flow', () => {
           <ToastProvider>
             <Settings />
           </ToastProvider>
-        </OperatorPrefsProvider>
+        </OperatorPrefsProvider>,
       );
       await Promise.resolve();
     });
 
     const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
-      (button) => button.textContent?.includes('API Model') || button.textContent?.includes('API 모델')
+      (button) =>
+        button.textContent?.includes('API Model') ||
+        button.textContent?.includes('API 모델'),
     );
     await act(async () => {
       apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     expect(container.textContent).toContain('유효하지 않음');
-    expect(container.textContent).toContain('서버가 OpenAI API 키를 확인하지 못했습니다.');
+    expect(container.textContent).toContain(
+      '서버가 OpenAI API 키를 확인하지 못했습니다.',
+    );
 
     await act(async () => {
       root.unmount();
@@ -366,7 +417,12 @@ describe('Settings save flow', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [
-          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
         ],
       })
       .mockResolvedValueOnce({
@@ -405,34 +461,41 @@ describe('Settings save flow', () => {
           <ToastProvider>
             <Settings />
           </ToastProvider>
-        </OperatorPrefsProvider>
+        </OperatorPrefsProvider>,
       );
       await Promise.resolve();
     });
 
-    const safetyTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
-      (button) => button.textContent?.includes('안전 설정') || button.textContent?.includes('Safety')
+    const safetyTab = Array.from(
+      container.querySelectorAll('[role="tab"]'),
+    ).find(
+      (button) =>
+        button.textContent?.includes('안전 설정') ||
+        button.textContent?.includes('Safety'),
     );
     await act(async () => {
       safetyTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+      (button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(
+          button.textContent?.trim() ?? '',
+        ),
     ) as HTMLButtonElement;
     expect(saveButton).toBeDisabled();
 
     const autoStopInput = container.querySelector(
-      'input[name="translation_session_auto_stop_minutes"]'
+      'input[name="translation_session_auto_stop_minutes"]',
     ) as HTMLInputElement;
     const warningInput = container.querySelector(
-      'input[name="translation_session_warning_minutes"]'
+      'input[name="translation_session_warning_minutes"]',
     ) as HTMLInputElement;
     const extensionInput = container.querySelector(
-      'input[name="translation_session_extension_minutes"]'
+      'input[name="translation_session_extension_minutes"]',
     ) as HTMLInputElement;
     const hardLimitInput = container.querySelector(
-      'input[name="translation_session_hard_limit_minutes"]'
+      'input[name="translation_session_hard_limit_minutes"]',
     ) as HTMLInputElement;
 
     expect(autoStopInput).not.toBeNull();
@@ -441,42 +504,42 @@ describe('Settings save flow', () => {
     expect(hardLimitInput).not.toBeNull();
 
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        autoStopInput,
-        '45'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(autoStopInput, '45');
       autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(saveButton).toBeEnabled();
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        autoStopInput,
-        '90'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(autoStopInput, '90');
       autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(saveButton).toBeDisabled();
 
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        autoStopInput,
-        '45.5'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(autoStopInput, '45.5');
       autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        warningInput,
-        '3'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(warningInput, '3');
       warningInput.dispatchEvent(new Event('input', { bubbles: true }));
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        extensionInput,
-        '15'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(extensionInput, '15');
       extensionInput.dispatchEvent(new Event('input', { bubbles: true }));
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        hardLimitInput,
-        '90'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(hardLimitInput, '90');
       hardLimitInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(saveButton).toBeDisabled();
@@ -487,33 +550,37 @@ describe('Settings save flow', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(saveButton).toBeDisabled();
-    expect(container.textContent).toContain('자동 종료 시간은 1분 이상의 정수여야 합니다.');
+    expect(container.textContent).toContain(
+      '자동 종료 시간은 1분 이상의 정수여야 합니다.',
+    );
 
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        autoStopInput,
-        '45'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(autoStopInput, '45');
       autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(saveButton).toBeEnabled();
     await act(async () => saveButton?.click());
 
     const putCall = fetchMock.mock.calls.find(
-      ([url, init]) => url === '/api/v1/operator/settings' && (init as RequestInit | undefined)?.method === 'PUT'
+      ([url, init]) =>
+        url === '/api/v1/operator/settings' &&
+        (init as RequestInit | undefined)?.method === 'PUT',
     );
     expect(putCall).toBeDefined();
     expect((putCall?.[1] as RequestInit | undefined)?.body).toContain(
-      '"translation_session_auto_stop_minutes":45'
+      '"translation_session_auto_stop_minutes":45',
     );
     expect((putCall?.[1] as RequestInit | undefined)?.body).toContain(
-      '"translation_session_warning_minutes":3'
+      '"translation_session_warning_minutes":3',
     );
     expect((putCall?.[1] as RequestInit | undefined)?.body).toContain(
-      '"translation_session_extension_minutes":15'
+      '"translation_session_extension_minutes":15',
     );
     expect((putCall?.[1] as RequestInit | undefined)?.body).toContain(
-      '"translation_session_hard_limit_minutes":90'
+      '"translation_session_hard_limit_minutes":90',
     );
     expect(saveButton).toBeDisabled();
 
@@ -525,18 +592,21 @@ describe('Settings save flow', () => {
 
   it('returns API Model Apply to pristine when a temporary key is cleared', async () => {
     installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        interpreter: 'echo',
-        audio_device: '0',
-        translation_session_auto_stop_minutes: 90,
-        translation_session_warning_minutes: 5,
-        translation_session_extension_minutes: 10,
-        translation_session_hard_limit_minutes: 120,
-        openai_key_set: false,
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          interpreter: 'echo',
+          audio_device: '0',
+          translation_session_auto_stop_minutes: 90,
+          translation_session_warning_minutes: 5,
+          translation_session_extension_minutes: 10,
+          translation_session_hard_limit_minutes: 120,
+          openai_key_set: false,
+        }),
       }),
-    }));
+    );
 
     const container = document.createElement('div');
     document.body.appendChild(container);
@@ -548,36 +618,45 @@ describe('Settings save flow', () => {
           <ToastProvider>
             <Settings />
           </ToastProvider>
-        </OperatorPrefsProvider>
+        </OperatorPrefsProvider>,
       );
       await Promise.resolve();
     });
 
     const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
-      (tab) => tab.textContent?.includes('API 모델') || tab.textContent?.includes('API Model')
+      (tab) =>
+        tab.textContent?.includes('API 모델') ||
+        tab.textContent?.includes('API Model'),
     );
-    await act(async () => apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await act(async () =>
+      apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true })),
+    );
 
     const applyButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+      (button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(
+          button.textContent?.trim() ?? '',
+        ),
     ) as HTMLButtonElement;
-    const keyInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    const keyInput = container.querySelector(
+      'input[type="password"]',
+    ) as HTMLInputElement;
     expect(applyButton).toBeDisabled();
 
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        keyInput,
-        'temporary-key'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(keyInput, 'temporary-key');
       keyInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(applyButton).toBeEnabled();
 
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        keyInput,
-        ''
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(keyInput, '');
       keyInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(applyButton).toBeDisabled();
@@ -614,18 +693,22 @@ describe('Settings save flow', () => {
           <ToastProvider>
             <Settings />
           </ToastProvider>
-        </OperatorPrefsProvider>
+        </OperatorPrefsProvider>,
       );
       await Promise.resolve();
     });
 
-    const appearanceTab = container.querySelector('[role="tab"][aria-selected="true"]');
+    const appearanceTab = container.querySelector(
+      '[role="tab"][aria-selected="true"]',
+    );
     expect(appearanceTab).not.toBeNull();
     expect(appearanceTab?.textContent).toContain('화면');
     expect(container.textContent).toContain('언어');
 
     const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
-      (button) => button.textContent?.includes('API Model') || button.textContent?.includes('API 모델')
+      (button) =>
+        button.textContent?.includes('API Model') ||
+        button.textContent?.includes('API 모델'),
     );
     expect(apiTab).not.toBeNull();
 
@@ -636,14 +719,18 @@ describe('Settings save flow', () => {
     expect(container.textContent).toContain('API KEY');
 
     const backButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.includes('Back') || button.textContent?.includes('뒤로')
+      (button) =>
+        button.textContent?.includes('Back') ||
+        button.textContent?.includes('뒤로'),
     );
     expect(backButton).not.toBeNull();
     await act(async () => {
       backButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(mockNavigate).toHaveBeenCalledWith('/operator/broadcast', { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith('/operator/broadcast', {
+      replace: true,
+    });
 
     await act(async () => {
       root.unmount();
@@ -658,7 +745,12 @@ describe('Settings save flow', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [
-          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+          {
+            index: 0,
+            name: 'Built-in microphone',
+            input_channels: 1,
+            default_sample_rate: 44100,
+          },
         ],
       })
       .mockResolvedValueOnce({
@@ -710,42 +802,53 @@ describe('Settings save flow', () => {
           <ToastProvider>
             <Settings />
           </ToastProvider>
-        </OperatorPrefsProvider>
+        </OperatorPrefsProvider>,
       );
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    const safetyTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
-      (button) => button.textContent?.includes('안전 설정') || button.textContent?.includes('Safety')
+    const safetyTab = Array.from(
+      container.querySelectorAll('[role="tab"]'),
+    ).find(
+      (button) =>
+        button.textContent?.includes('안전 설정') ||
+        button.textContent?.includes('Safety'),
     );
     await act(async () => {
       safetyTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     const autoStopInput = container.querySelector(
-      'input[name="translation_session_auto_stop_minutes"]'
+      'input[name="translation_session_auto_stop_minutes"]',
     ) as HTMLInputElement;
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        autoStopInput,
-        '45'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(autoStopInput, '45');
       autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     const safetySave = Array.from(container.querySelectorAll('button')).find(
-      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+      (button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(
+          button.textContent?.trim() ?? '',
+        ),
     );
     await act(async () => {
       safetySave?.click();
     });
 
     const safetyPutCall = fetchMock.mock.calls.find(
-      ([url, init]) => url === '/api/v1/operator/settings' && (init as RequestInit | undefined)?.method === 'PUT'
+      ([url, init]) =>
+        url === '/api/v1/operator/settings' &&
+        (init as RequestInit | undefined)?.method === 'PUT',
     );
     expect(safetyPutCall).toBeDefined();
-    const safetyPayload = JSON.parse((safetyPutCall?.[1] as RequestInit | undefined)?.body as string);
+    const safetyPayload = JSON.parse(
+      (safetyPutCall?.[1] as RequestInit | undefined)?.body as string,
+    );
     expect(safetyPayload).toMatchObject({
       interpreter: 'echo',
       translation_session_auto_stop_minutes: 45,
@@ -754,56 +857,77 @@ describe('Settings save flow', () => {
     expect(safetyPayload).not.toHaveProperty('audio_device');
 
     const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
-      (button) => button.textContent?.includes('API Model') || button.textContent?.includes('API 모델')
+      (button) =>
+        button.textContent?.includes('API Model') ||
+        button.textContent?.includes('API 모델'),
     );
     await act(async () => {
       apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     const interpreterButton = Array.from(
-      container.querySelectorAll('button[aria-haspopup="listbox"]')
+      container.querySelectorAll('button[aria-haspopup="listbox"]'),
     )[0] as HTMLButtonElement;
     await act(async () => {
       interpreterButton.click();
     });
-    const openAiOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
-      (option) => option.getAttribute('aria-label') === 'OpenAI'
-    ) as HTMLButtonElement | undefined;
+    const openAiOption = Array.from(
+      document.body.querySelectorAll('[role="option"]'),
+    ).find((option) => option.getAttribute('aria-label') === 'OpenAI') as
+      | HTMLButtonElement
+      | undefined;
     expect(openAiOption).not.toBeUndefined();
     await act(async () => {
       openAiOption?.click();
     });
 
-    const apiInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    const apiInput = container.querySelector(
+      'input[type="password"]',
+    ) as HTMLInputElement;
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        apiInput,
-        'sk-test-1234'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(apiInput, 'sk-test-1234');
       apiInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     const apiSave = Array.from(container.querySelectorAll('button')).find(
-      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+      (button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(
+          button.textContent?.trim() ?? '',
+        ),
     );
     await act(async () => {
       apiSave?.click();
     });
 
     const apiPutCall = fetchMock.mock.calls.filter(
-      ([url, init]) => url === '/api/v1/operator/settings' && (init as RequestInit | undefined)?.method === 'PUT'
+      ([url, init]) =>
+        url === '/api/v1/operator/settings' &&
+        (init as RequestInit | undefined)?.method === 'PUT',
     )[1];
     expect(apiPutCall).toBeDefined();
-    const apiPayload = JSON.parse((apiPutCall?.[1] as RequestInit | undefined)?.body as string);
+    const apiPayload = JSON.parse(
+      (apiPutCall?.[1] as RequestInit | undefined)?.body as string,
+    );
     expect(apiPayload).toMatchObject({
       interpreter: 'openai',
       openai_api_key: 'sk-test-1234',
     });
     expect(apiPayload).not.toHaveProperty('audio_device');
-    expect(apiPayload).not.toHaveProperty('translation_session_auto_stop_minutes');
-    expect(apiPayload).not.toHaveProperty('translation_session_warning_minutes');
-    expect(apiPayload).not.toHaveProperty('translation_session_extension_minutes');
-    expect(apiPayload).not.toHaveProperty('translation_session_hard_limit_minutes');
+    expect(apiPayload).not.toHaveProperty(
+      'translation_session_auto_stop_minutes',
+    );
+    expect(apiPayload).not.toHaveProperty(
+      'translation_session_warning_minutes',
+    );
+    expect(apiPayload).not.toHaveProperty(
+      'translation_session_extension_minutes',
+    );
+    expect(apiPayload).not.toHaveProperty(
+      'translation_session_hard_limit_minutes',
+    );
 
     await act(async () => {
       root.unmount();
@@ -823,32 +947,44 @@ describe('Settings save flow', () => {
       openai_key_set: false,
     };
     const savePayloads: Array<Record<string, unknown>> = [];
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      if (url === '/api/v1/audio/devices') {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url === '/api/v1/audio/devices') {
+          return {
+            ok: true,
+            json: async () => [
+              {
+                index: 0,
+                name: 'Built-in microphone',
+                input_channels: 1,
+                default_sample_rate: 44100,
+              },
+            ],
+          };
+        }
+        if (init?.method === 'PUT') {
+          const payload = JSON.parse(String(init.body)) as Record<
+            string,
+            unknown
+          >;
+          savePayloads.push(payload);
+          Object.assign(savedSettings, payload);
+          if (payload.openai_api_key) {
+            savedSettings.openai_key_set = true;
+          }
+        }
         return {
           ok: true,
-          json: async () => [
-            { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
-          ],
+          json: async () => ({
+            ...savedSettings,
+            openai_key_masked: savedSettings.openai_key_set
+              ? 'test...1234'
+              : '',
+          }),
         };
-      }
-      if (init?.method === 'PUT') {
-        const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
-        savePayloads.push(payload);
-        Object.assign(savedSettings, payload);
-        if (payload.openai_api_key) {
-          savedSettings.openai_key_set = true;
-        }
-      }
-      return {
-        ok: true,
-        json: async () => ({
-          ...savedSettings,
-          openai_key_masked: savedSettings.openai_key_set ? 'test...1234' : '',
-        }),
-      };
-    });
+      },
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     const container = document.createElement('div');
@@ -860,7 +996,7 @@ describe('Settings save flow', () => {
           <ToastProvider>
             <Settings />
           </ToastProvider>
-        </OperatorPrefsProvider>
+        </OperatorPrefsProvider>,
       );
       await Promise.resolve();
       await Promise.resolve();
@@ -868,7 +1004,7 @@ describe('Settings save flow', () => {
 
     const findTab = (name: string) =>
       Array.from(container.querySelectorAll('[role="tab"]')).find((tab) =>
-        tab.textContent?.includes(name)
+        tab.textContent?.includes(name),
       ) as HTMLButtonElement | undefined;
     const apiTab = findTab('API 모델');
     const safetyTab = findTab('안전 설정');
@@ -877,21 +1013,29 @@ describe('Settings save flow', () => {
       apiTab?.click();
     });
     await act(async () => {
-      (container.querySelector('button[aria-haspopup="listbox"]') as HTMLButtonElement).click();
+      (
+        container.querySelector(
+          'button[aria-haspopup="listbox"]',
+        ) as HTMLButtonElement
+      ).click();
     });
-    const openAiOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
-      (option) => option.getAttribute('aria-label') === 'OpenAI'
+    const openAiOption = Array.from(
+      document.body.querySelectorAll('[role="option"]'),
+    ).find(
+      (option) => option.getAttribute('aria-label') === 'OpenAI',
     ) as HTMLButtonElement;
     await act(async () => {
       openAiOption.click();
     });
 
-    const apiKeyInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    const apiKeyInput = container.querySelector(
+      'input[type="password"]',
+    ) as HTMLInputElement;
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        apiKeyInput,
-        'test-key-1234'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(apiKeyInput, 'test-key-1234');
       apiKeyInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
@@ -899,18 +1043,20 @@ describe('Settings save flow', () => {
       safetyTab?.click();
     });
     const autoStopInput = container.querySelector(
-      'input[name="translation_session_auto_stop_minutes"]'
+      'input[name="translation_session_auto_stop_minutes"]',
     ) as HTMLInputElement;
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        autoStopInput,
-        '45'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(autoStopInput, '45');
       autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     const applyButton = () =>
-      Array.from(container.querySelectorAll('button')).find(
-        (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+      Array.from(container.querySelectorAll('button')).find((button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(
+          button.textContent?.trim() ?? '',
+        ),
       );
     await act(async () => {
       applyButton()?.click();
@@ -927,10 +1073,16 @@ describe('Settings save flow', () => {
       appearanceTab?.click();
     });
     await act(async () => {
-      (container.querySelector('button[aria-haspopup="listbox"]') as HTMLButtonElement).click();
+      (
+        container.querySelector(
+          'button[aria-haspopup="listbox"]',
+        ) as HTMLButtonElement
+      ).click();
     });
-    const englishOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
-      (option) => option.getAttribute('aria-label') === '영어'
+    const englishOption = Array.from(
+      document.body.querySelectorAll('[role="option"]'),
+    ).find(
+      (option) => option.getAttribute('aria-label') === '영어',
     ) as HTMLButtonElement;
     await act(async () => {
       englishOption.click();
@@ -939,29 +1091,31 @@ describe('Settings save flow', () => {
     await act(async () => {
       apiTab?.click();
     });
-    expect((container.querySelector('input[type="password"]') as HTMLInputElement).value).toBe(
-      'test-key-1234'
-    );
-    expect(container.querySelector('button[aria-haspopup="listbox"]')?.textContent).toContain(
-      'OpenAI'
-    );
+    expect(
+      (container.querySelector('input[type="password"]') as HTMLInputElement)
+        .value,
+    ).toBe('test-key-1234');
+    expect(
+      container.querySelector('button[aria-haspopup="listbox"]')?.textContent,
+    ).toContain('OpenAI');
     expect(
       fetchMock.mock.calls.filter(
-        ([url, init]) => url === '/api/v1/operator/settings' && init?.method !== 'PUT'
-      )
+        ([url, init]) =>
+          url === '/api/v1/operator/settings' && init?.method !== 'PUT',
+      ),
     ).toHaveLength(1);
 
     await act(async () => {
       safetyTab?.click();
     });
     const warningInput = container.querySelector(
-      'input[name="translation_session_warning_minutes"]'
+      'input[name="translation_session_warning_minutes"]',
     ) as HTMLInputElement;
     await act(async () => {
-      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
-        warningInput,
-        '4'
-      );
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(warningInput, '4');
       warningInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
@@ -975,14 +1129,19 @@ describe('Settings save flow', () => {
       interpreter: 'openai',
       openai_api_key: 'test-key-1234',
     });
-    expect(savePayloads[1]).not.toHaveProperty('translation_session_warning_minutes');
+    expect(savePayloads[1]).not.toHaveProperty(
+      'translation_session_warning_minutes',
+    );
 
     await act(async () => {
       safetyTab?.click();
     });
     expect(
-      (container.querySelector('input[name="translation_session_warning_minutes"]') as HTMLInputElement)
-        .value
+      (
+        container.querySelector(
+          'input[name="translation_session_warning_minutes"]',
+        ) as HTMLInputElement
+      ).value,
     ).toBe('4');
 
     await act(async () => {
@@ -993,36 +1152,46 @@ describe('Settings save flow', () => {
 
   it('rolls back a rejected device selection and explains the live-session conflict', async () => {
     installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      if (url === '/api/v1/audio/devices') {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url === '/api/v1/audio/devices') {
+          return {
+            ok: true,
+            json: async () => [
+              {
+                index: 0,
+                name: 'Built-in microphone',
+                input_channels: 1,
+                default_sample_rate: 44100,
+              },
+            ],
+          };
+        }
+        if (init?.method === 'PUT') {
+          return {
+            ok: false,
+            status: 409,
+            json: async () => ({
+              detail:
+                'Stop the translation session before changing the input device',
+            }),
+          };
+        }
         return {
           ok: true,
-          json: async () => [
-            { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
-          ],
+          json: async () => ({
+            interpreter: 'echo',
+            audio_device: '0',
+            translation_session_auto_stop_minutes: 90,
+            translation_session_warning_minutes: 5,
+            translation_session_extension_minutes: 10,
+            translation_session_hard_limit_minutes: 120,
+            openai_key_set: false,
+          }),
         };
-      }
-      if (init?.method === 'PUT') {
-        return {
-          ok: false,
-          status: 409,
-          json: async () => ({ detail: 'Stop the translation session before changing the input device' }),
-        };
-      }
-      return {
-        ok: true,
-        json: async () => ({
-          interpreter: 'echo',
-          audio_device: '0',
-          translation_session_auto_stop_minutes: 90,
-          translation_session_warning_minutes: 5,
-          translation_session_extension_minutes: 10,
-          translation_session_hard_limit_minutes: 120,
-          openai_key_set: false,
-        }),
-      };
-    });
+      },
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     const container = document.createElement('div');
@@ -1034,37 +1203,51 @@ describe('Settings save flow', () => {
           <ToastProvider>
             <Settings />
           </ToastProvider>
-        </OperatorPrefsProvider>
+        </OperatorPrefsProvider>,
       );
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    const devicesTab = Array.from(container.querySelectorAll('[role="tab"]')).find((tab) =>
-      tab.textContent?.includes('입력 장치')
-    ) as HTMLButtonElement | undefined;
+    const devicesTab = Array.from(
+      container.querySelectorAll('[role="tab"]'),
+    ).find((tab) => tab.textContent?.includes('입력 장치')) as
+      | HTMLButtonElement
+      | undefined;
     await act(async () => {
       devicesTab?.click();
     });
     await act(async () => {
-      (container.querySelector('button[aria-haspopup="listbox"]') as HTMLButtonElement).click();
+      (
+        container.querySelector(
+          'button[aria-haspopup="listbox"]',
+        ) as HTMLButtonElement
+      ).click();
     });
-    const defaultOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
-      (option) => option.getAttribute('aria-label') === '시스템 기본 장치'
+    const defaultOption = Array.from(
+      document.body.querySelectorAll('[role="option"]'),
+    ).find(
+      (option) => option.getAttribute('aria-label') === '시스템 기본 장치',
     ) as HTMLButtonElement;
     await act(async () => {
       defaultOption.click();
     });
 
-    const putCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT');
+    const putCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === 'PUT',
+    );
     expect(JSON.parse(String(putCall?.[1]?.body))).toMatchObject({
       interpreter: 'echo',
       audio_device: 'default',
     });
-    expect(container.textContent).toContain('통역 세션을 중지한 뒤 입력 장치를 변경하세요.');
-    expect(container.querySelector('button[aria-haspopup="listbox"]')?.getAttribute('aria-label')).toContain(
-      'Built-in microphone'
+    expect(container.textContent).toContain(
+      '통역 세션을 중지한 뒤 입력 장치를 바꾸거나 테스트하세요.',
     );
+    expect(
+      container
+        .querySelector('button[aria-haspopup="listbox"]')
+        ?.getAttribute('aria-label'),
+    ).toContain('Built-in microphone');
 
     await act(async () => {
       root.unmount();
@@ -1079,7 +1262,7 @@ describe('Settings save flow', () => {
       vi
         .fn()
         .mockRejectedValueOnce(new Error('device network'))
-        .mockRejectedValue(new Error('network'))
+        .mockRejectedValue(new Error('network')),
     );
 
     const container = document.createElement('div');
@@ -1092,7 +1275,7 @@ describe('Settings save flow', () => {
           <ToastProvider>
             <Settings />
           </ToastProvider>
-        </OperatorPrefsProvider>
+        </OperatorPrefsProvider>,
       );
       await Promise.resolve();
     });

@@ -158,10 +158,16 @@ export default function Settings() {
             values={timerValues}
             onChange={setTimerValue}
             validation={timerValidation}
+            disabled={isSessionBusy}
           />
           <div className={styles.applyActions}>
             <Button
-              disabled={isSaving || timerValidation.hasErrors || !isSafetyDirty}
+              disabled={
+                isSessionBusy ||
+                isSaving ||
+                timerValidation.hasErrors ||
+                !isSafetyDirty
+              }
               onClick={async () => {
                 const saved = await saveSafety();
                 if (saved.success) {
@@ -192,10 +198,11 @@ export default function Settings() {
           keyStatus={currentKeyStatus}
           savedKeyPreview={openaiKeyMasked}
           keyWarning={keyWarning}
+          disabled={isSessionBusy}
         />
         <div className={styles.applyActions}>
           <Button
-            disabled={isSaving || !isApiModelDirty}
+            disabled={isSessionBusy || isSaving || !isApiModelDirty}
             onClick={async () => {
               const saved = await saveApiModel();
               if (saved.success) {

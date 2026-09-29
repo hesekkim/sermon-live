@@ -1,6 +1,9 @@
 import InputField from '../../../../shared/components/InputField/InputField';
 import type { OperatorCopy } from '../../translations';
-import type { TimerDraftState, TimerValidationState } from '../hooks/useOperatorSettings';
+import type {
+  TimerDraftState,
+  TimerValidationState,
+} from '../hooks/useOperatorSettings';
 import styles from '../Settings.module.css';
 
 interface SafetySectionProps {
@@ -8,6 +11,7 @@ interface SafetySectionProps {
   values: TimerDraftState;
   onChange: (field: keyof TimerDraftState, value: string) => void;
   validation: TimerValidationState;
+  disabled: boolean;
 }
 
 export default function SafetySection({
@@ -15,6 +19,7 @@ export default function SafetySection({
   values,
   onChange,
   validation,
+  disabled,
 }: SafetySectionProps) {
   const fields = [
     {
@@ -59,6 +64,7 @@ export default function SafetySection({
             inputMode="numeric"
             name={field.name}
             value={field.value}
+            disabled={disabled}
             error={Boolean(field.error)}
             errorMessage={field.error ?? ''}
             onChange={(nextValue) => onChange(field.key, nextValue)}
