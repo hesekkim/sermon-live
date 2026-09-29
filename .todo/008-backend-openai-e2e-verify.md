@@ -1,6 +1,13 @@
 # 008 OpenAI 및 Translation Session end-to-end 검증
 
-상태: 대기
+상태: 자동화 검증 완료 / 수동 e2e 대기
+
+## 구현 기록
+
+- `test_session_events.py`에 mock OpenAI interpreter 기반 start → 오디오 청크 전송 → stop 테스트를 추가했다. stop 중 생성되는 마지막 오디오와 자막이 `session_ended`보다 먼저 브로드캐스트되고, Translation Session 종료 후에도 AudioCapture 상태가 유지되는 것을 검증한다.
+- OpenAI key 검증 실패 시 `invalid` 상태 기록과 session 미시작을 검증한다. 기존 lifecycle 테스트의 키 누락, 장치 오류, interpreter 오류, 중복 전환 검증도 유지한다.
+- 자동화 테스트는 실제 OpenAI API와 마이크를 사용하지 않는다. 아래 수동 체크리스트는 실제 계정 및 장비 검증 전까지 미완료다.
+- 검증: `backend/tests/unit/` 전체 140개 통과.
 
 ## Goal
 
