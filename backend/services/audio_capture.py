@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from collections.abc import AsyncIterator
 
 import pyaudio
@@ -13,13 +14,32 @@ logger = logging.getLogger(__name__)
 
 
 class AudioCapture:
+    _QUEUE_MAX_DURATION_SECONDS = 1.0
+    _MIN_SAMPLE_RATE = 8000
+
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._pyaudio: pyaudio.PyAudio | None = None
         self._stream: pyaudio.Stream | None = None
-        self._queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+        max_chunks = max(
+            1,
+            int(
+                self._MIN_SAMPLE_RATE
+                * self._QUEUE_MAX_DURATION_SECONDS
+                / settings.audio_chunk_frames
+            ),
+        )
+        self._queue: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=max_chunks)
         self._loop: asyncio.AbstractEventLoop | None = None
         self._input_format: tuple[int, int, int] | None = None
+        self._accept_chunks = False
+        self._dropped_chunks = 0
+        self._dropped_bytes = 0
+        self._pending_chunk_lock = threading.Lock()
+        self._pending_chunk: bytes | None = None
+        self._pending_dropped_chunks = 0
+        self._pending_dropped_bytes = 0
+        self._delivery_scheduled = False
 
     @property
     def native_format(self) -> tuple[int, int, int] | None:
@@ -40,6 +60,17 @@ class AudioCapture:
     @property
     def input_format(self) -> tuple[int, int, int] | None:
         return self.native_format
+
+    @property
+    def dropped_chunks(self) -> int:
+        return self._dropped_chunks
+
+    @property
+    def dropped_duration_seconds(self) -> float:
+        if self._input_format is None:
+            return 0.0
+        sample_rate, channels, sample_width = self._input_format
+        return self._dropped_bytes / (sample_rate * channels * sample_width)
 
     def _resolve_device_index(self, audio: pyaudio.PyAudio) -> int | None:
         raw = self._settings.audio_device.strip()
@@ -146,12 +177,57 @@ class AudioCapture:
         _time_info: object,
         _status: int,
     ) -> tuple[None, int]:
-        if in_data and self._loop is not None:
-            self._loop.call_soon_threadsafe(self._queue.put_nowait, in_data)
+        loop = self._loop
+        if in_data and loop is not None and self._accept_chunks:
+            with self._pending_chunk_lock:
+                if self._pending_chunk is not None:
+                    self._pending_dropped_chunks += 1
+                    self._pending_dropped_bytes += len(self._pending_chunk)
+                self._pending_chunk = in_data
+                schedule_delivery = not self._delivery_scheduled
+                self._delivery_scheduled = True
+            if schedule_delivery:
+                try:
+                    loop.call_soon_threadsafe(self._flush_pending_chunk)
+                except RuntimeError:
+                    with self._pending_chunk_lock:
+                        self._delivery_scheduled = False
+                        self._pending_chunk = None
+                        self._pending_dropped_chunks = 0
+                        self._pending_dropped_bytes = 0
         return (None, pyaudio.paContinue)
+
+    def _flush_pending_chunk(self) -> None:
+        with self._pending_chunk_lock:
+            chunk = self._pending_chunk
+            dropped_chunks = self._pending_dropped_chunks
+            dropped_bytes = self._pending_dropped_bytes
+            self._pending_chunk = None
+            self._pending_dropped_chunks = 0
+            self._pending_dropped_bytes = 0
+            self._delivery_scheduled = False
+        if not self._accept_chunks or chunk is None:
+            return
+        self._dropped_chunks += dropped_chunks
+        self._dropped_bytes += dropped_bytes
+        self._enqueue_chunk(chunk)
+
+    def _enqueue_chunk(self, chunk: bytes) -> None:
+        if not self._accept_chunks:
+            return
+        if self._queue.full():
+            try:
+                dropped = self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                dropped = None
+            if dropped is not None:
+                self._dropped_chunks += 1
+                self._dropped_bytes += len(dropped)
+        self._queue.put_nowait(chunk)
 
     async def start(self) -> None:
         self._loop = asyncio.get_running_loop()
+        self._accept_chunks = True
         audio = pyaudio.PyAudio()
         self._pyaudio = audio
         try:
@@ -217,6 +293,11 @@ class AudioCapture:
             yield item
 
     async def stop(self) -> None:
+        self._accept_chunks = False
+        with self._pending_chunk_lock:
+            self._pending_chunk = None
+            self._pending_dropped_chunks = 0
+            self._pending_dropped_bytes = 0
         if self._stream is not None:
             try:
                 if self._stream.is_active():
@@ -232,5 +313,10 @@ class AudioCapture:
             except Exception:
                 pass
             self._pyaudio = None
-        await self._queue.put(None)
+        while self._queue.full():
+            try:
+                self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        self._queue.put_nowait(None)
         self._loop = None

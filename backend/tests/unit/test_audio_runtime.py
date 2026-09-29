@@ -26,6 +26,8 @@ class FakeCapture:
     def __init__(self, _settings):
         self.input_format = (16000, 1, 2)
         self.chunks_queue = asyncio.Queue()
+        self.dropped_chunks = 0
+        self.dropped_duration_seconds = 0.0
 
     async def start(self):
         return None
@@ -257,6 +259,32 @@ async def test_translation_queue_caps_audio_duration_and_keeps_latest_chunks(mon
             break
         await asyncio.sleep(0)
     assert [event["type"] for event in hub.session_events].count("audio_queue_overflow") == 2
+    await runtime.stop()
+
+
+@pytest.mark.asyncio
+async def test_capture_queue_drops_are_included_in_session_overflow(monkeypatch):
+    runtime, capture, hub = make_runtime(monkeypatch)
+    await runtime.start()
+    queue = runtime.attach_translation(FakeInterpreter())
+    capture.dropped_chunks = 2
+    capture.dropped_duration_seconds = 0.128
+    await capture.chunks_queue.put(b"\x01\x00")
+
+    await asyncio.wait_for(hub.overflow_events.get(), timeout=1)
+
+    assert runtime.dropped_chunks == 2
+    assert runtime.dropped_duration_seconds == pytest.approx(0.128)
+    assert queue.get_nowait() == b"\x01\x00"
+    capture.dropped_chunks += 1
+    capture.dropped_duration_seconds += 0.064
+
+    finished_queue = await runtime.finish_translation()
+
+    assert finished_queue is queue
+    assert runtime.dropped_chunks == 3
+    assert runtime.dropped_duration_seconds == pytest.approx(0.192)
+    assert queue.get_nowait() is None
     await runtime.stop()
 
 

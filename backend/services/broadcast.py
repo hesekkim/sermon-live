@@ -15,6 +15,8 @@ ClientKind = Literal["listen", "operator"]
 class BroadcastHub:
     _OPERATOR_SEND_TIMEOUT_SECONDS = 1.0
     _OPERATOR_CLOSE_TIMEOUT_SECONDS = 0.1
+    _LISTEN_SEND_TIMEOUT_SECONDS = 1.0
+    _LISTEN_CLOSE_TIMEOUT_SECONDS = 0.1
 
     def __init__(self) -> None:
         self._listen_clients: set[WebSocket] = set()
@@ -64,18 +66,11 @@ class BroadcastHub:
         if sample_rate != self._sample_rate:
             self._sample_rate = sample_rate
             await self._broadcast_listen_json({"sampleRate": sample_rate})
-        stale: list[WebSocket] = []
-        for client in list(self._listen_clients):
-            try:
-                await client.send_bytes(pcm)
-            except Exception:
-                stale.append(client)
-        for client in stale:
-            self.unregister(client)
-        if stale:
-            await self.broadcast_operator(
-                {"type": "listener_count", "listener_count": self.listener_count}
-            )
+        clients = list(self._listen_clients)
+        results = await asyncio.gather(
+            *(self._send_listen_bytes(client, pcm) for client in clients)
+        )
+        await self._remove_stale_listeners(clients, results)
 
     async def broadcast_text(self, text: str) -> None:
         await self._broadcast_listen_json({"text": text})
@@ -113,7 +108,26 @@ class BroadcastHub:
 
     async def broadcast_session(self, payload: dict[str, Any]) -> None:
         await self.broadcast_operator(payload)
-        await self._broadcast_listen_json(payload)
+        event_type = payload.get("type")
+        if event_type == "translation_status":
+            listen_payload = {
+                key: payload[key]
+                for key in ("type", "session_status", "last_termination_reason")
+                if key in payload
+            }
+        elif event_type == "session_ended":
+            listen_payload = {
+                key: payload[key]
+                for key in ("type", "reason")
+                if key in payload
+            }
+        elif event_type == "error":
+            listen_payload = {"type": "error"}
+            if "session_status" in payload:
+                listen_payload["session_status"] = payload["session_status"]
+        else:
+            return
+        await self._broadcast_listen_json(listen_payload)
 
     async def close_all(self) -> None:
         for client in list(self._listen_clients | self._operator_clients):
@@ -125,11 +139,50 @@ class BroadcastHub:
             self.unregister(client)
 
     async def _broadcast_listen_json(self, payload: dict[str, Any]) -> None:
-        stale: list[WebSocket] = []
-        for client in list(self._listen_clients):
-            ok = await self._safe_send_json(client, payload)
-            if not ok:
-                stale.append(client)
+        clients = list(self._listen_clients)
+        results = await asyncio.gather(
+            *(self._send_listen_json(client, payload) for client in clients)
+        )
+        await self._remove_stale_listeners(clients, results)
+
+    async def _send_listen_json(
+        self, client: WebSocket, payload: dict[str, Any]
+    ) -> bool:
+        try:
+            return await asyncio.wait_for(
+                self._safe_send_json(client, payload),
+                timeout=self._LISTEN_SEND_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            await self._close_slow_listener(client)
+            return False
+
+    async def _send_listen_bytes(self, client: WebSocket, pcm: bytes) -> bool:
+        try:
+            await asyncio.wait_for(
+                client.send_bytes(pcm),
+                timeout=self._LISTEN_SEND_TIMEOUT_SECONDS,
+            )
+            return True
+        except asyncio.TimeoutError:
+            await self._close_slow_listener(client)
+        except Exception:
+            return False
+        return False
+
+    async def _close_slow_listener(self, client: WebSocket) -> None:
+        try:
+            await asyncio.wait_for(
+                client.close(code=1013, reason="Listen connection is too slow"),
+                timeout=self._LISTEN_CLOSE_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            pass
+
+    async def _remove_stale_listeners(
+        self, clients: list[WebSocket], results: list[bool]
+    ) -> None:
+        stale = [client for client, ok in zip(clients, results) if not ok]
         for client in stale:
             self.unregister(client)
         if stale:

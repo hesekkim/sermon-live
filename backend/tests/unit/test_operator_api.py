@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 from fastapi.routing import APIRoute
 
+from api.v1.endpoints import operator as operator_endpoint
 from main import app
 from services.operator_store import store
 
@@ -47,6 +48,12 @@ def test_sermon_session_routes_are_not_registered(operator_client):
 
 
 def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
+    async def skip_key_validation(*_args):
+        return None
+
+    monkeypatch.setattr(
+        operator_endpoint, "validate_operator_key", skip_key_validation
+    )
     monkeypatch.setattr(store, "_path", tmp_path / "operator.json")
     empty = operator_client.get("/api/v1/operator/settings")
     assert empty.status_code == 200
@@ -73,6 +80,28 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     assert body["openai_key_set"] is True
     assert body["openai_key_masked"] == "unit...-key"
     assert "unit-test-key" not in str(body)
+
+
+def test_session_start_error_response_redacts_api_key(operator_client, monkeypatch):
+    from services.runtime import session
+
+    api_key = "test-secret-value"
+
+    async def fail_start():
+        raise RuntimeError(f"Upstream error for {api_key}")
+
+    monkeypatch.setattr(session, "start", fail_start)
+    monkeypatch.setattr(
+        session,
+        "safe_error_message",
+        lambda message: message.replace(api_key, "[REDACTED]"),
+    )
+
+    response = operator_client.post("/api/v1/session/start")
+
+    assert response.status_code == 400
+    assert api_key not in response.text
+    assert "[REDACTED]" in response.text
 
 
 def test_operator_settings_reject_invalid_timer_ranges(operator_client, tmp_path):

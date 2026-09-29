@@ -306,6 +306,9 @@ export function useBroadcastSession(
             const isLiveStatus =
               sessionStatus === 'live' ||
               (!sessionStatus && payload.running === true);
+            if (sessionStatus === 'starting') {
+              sessionEndedRef.current = false;
+            }
             if (sessionEndedRef.current && isLiveStatus) return;
             if (typeof payload.running === 'boolean') {
               setRunning(payload.running);

@@ -12,9 +12,9 @@
 
 개인 예배용 실시간 통역 운영 기능. Server는 계속 실행할 수 있고, 비용이 발생하는 Translation Session만 필요할 때 실행한다.
 
-### 기존 후속 기능
+### 지금
 
-3. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
+1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증 (051 완료 후)
 
 ## 보류 (`hold/`)
 
@@ -69,6 +69,7 @@
 41. `048-frontend-listen-qr-sharing.md` — Operator에서 동적 Listen QR 공유
 42. `049-frontend-remove-unused-components.md` — 미사용 Frontend 공용 컴포넌트 제거
 43. `050-operator-websocket-audio-isolation.md` — 운영자 WebSocket 지연 격리와 재연결 상태 처리
+44. `051-openai-live-readiness-audit.md` — OpenAI 실장 전 전체 구현 점검 및 핵심 하드닝
 
 ## 결정 사항
 

@@ -54,6 +54,7 @@ class _TranslationSessionService:
         self._timer_warning_sent = False
         self._timer_extension_count = 0
         self._active_settings: Settings | None = None
+        self._start_task: asyncio.Task[object] | None = None
         self._clock = time.monotonic
         self._transition_lock = asyncio.Lock()
         self._audio.on_device_error = self._handle_device_error
@@ -194,6 +195,7 @@ class _TranslationSessionService:
                 await self._publish_error(message)
                 raise RuntimeError(message)
             self._state = "starting"
+            self._start_task = asyncio.current_task()
             self._error = None
             self._last_termination_reason = None
             self._timer_started_at = None
@@ -249,13 +251,19 @@ class _TranslationSessionService:
             queue = await self._audio.finish_translation()
             if queue is not None:
                 await self._drain_audio_queue(queue, None)
-            message = str(exc) or "Translation session failed to start"
+            message = self._safe_error_message(
+                str(exc) or "Translation session failed to start"
+            )
             async with self._transition_lock:
                 self._state = "error"
                 self._error = message
                 await self._publish_error(message)
                 await self._publish_status()
             raise
+        finally:
+            async with self._transition_lock:
+                if self._start_task is asyncio.current_task():
+                    self._start_task = None
 
     async def stop(self, reason: TerminationReason = "manual") -> None:
         async with self._transition_lock:
@@ -305,6 +313,12 @@ class _TranslationSessionService:
             return timer or {}
 
     async def shutdown(self) -> None:
+        async with self._transition_lock:
+            start_task = self._start_task if self._state == "starting" else None
+            if start_task is not None:
+                start_task.cancel()
+        if start_task is not None:
+            await asyncio.gather(start_task, return_exceptions=True)
         if self._state == "live":
             await self.stop("server_shutdown")
 
@@ -336,6 +350,8 @@ class _TranslationSessionService:
         error: str | None = None,
         current_task: asyncio.Task[object] | None = None,
     ) -> None:
+        if error is not None:
+            error = self._safe_error_message(error)
         discard_pending = current_task is self._audio_task or reason in (
             "interpreter_error",
             "device_error",
@@ -439,16 +455,18 @@ class _TranslationSessionService:
                         {"type": "transcript", "role": "input", "text": event.text}
                     )
                 elif event.kind == "error" and event.text:
-                    logger.error("Interpreter error: %s", event.text)
+                    message = self._safe_error_message(event.text)
+                    logger.error("Interpreter error: %s", message)
                     await self._finish_from_task(
-                        "interpreter_error", event.text
+                        "interpreter_error", message
                     )
                     return
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            logger.exception("Interpreter event pump failed")
-            await self._finish_from_task("interpreter_error", str(exc))
+            message = self._safe_error_message(str(exc))
+            logger.error("Interpreter event pump failed: %s", message)
+            await self._finish_from_task("interpreter_error", message)
             return
         if self._state == "live":
             await self._finish_from_task(
@@ -495,6 +513,7 @@ class _TranslationSessionService:
             await broadcaster(payload)
 
     async def _publish_error(self, message: str) -> None:
+        message = self._safe_error_message(message)
         payload = {
             "type": "error",
             "text": message,
@@ -505,6 +524,18 @@ class _TranslationSessionService:
             await self._hub.broadcast_operator(payload)
         else:
             await broadcaster(payload)
+
+    def _safe_error_message(self, message: str) -> str:
+        settings = self._active_settings or self._settings
+        try:
+            settings = self._store.overlay_settings(settings)
+        except Exception:
+            pass
+        api_key = settings.openai_api_key
+        return message.replace(api_key, "[REDACTED]") if api_key else message
+
+    def safe_error_message(self, message: str) -> str:
+        return self._safe_error_message(message)
 
     async def _publish_ended(self, reason: TerminationReason) -> None:
         payload = {
@@ -554,8 +585,9 @@ class SessionService(_TranslationSessionService):
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            logger.exception("Translation audio pump failed")
-            await self._finish_from_task("interpreter_error", str(exc))
+            message = self._safe_error_message(str(exc))
+            logger.error("Translation audio pump failed: %s", message)
+            await self._finish_from_task("interpreter_error", message)
 
     async def _pump_events(self, interpreter: LiveInterpreter) -> None:
         loop = asyncio.get_running_loop()
@@ -588,13 +620,16 @@ class SessionService(_TranslationSessionService):
                         {"type": "transcript", "role": "input", "text": event.text}
                     )
                 elif event.kind == "error" and event.text:
-                    await self._finish_from_task("interpreter_error", event.text)
+                    await self._finish_from_task(
+                        "interpreter_error", self._safe_error_message(event.text)
+                    )
                     return
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            logger.exception("Interpreter event pump failed")
-            await self._finish_from_task("interpreter_error", str(exc))
+            message = self._safe_error_message(str(exc))
+            logger.error("Interpreter event pump failed: %s", message)
+            await self._finish_from_task("interpreter_error", message)
             return
         if self._state == "live":
             await self._finish_from_task(

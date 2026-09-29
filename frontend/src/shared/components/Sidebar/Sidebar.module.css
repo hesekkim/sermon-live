@@ -60,7 +60,7 @@
 .brandStatic {
   display: flex;
   align-items: center;
-  gap: var(--cf-space-20);
+  gap: var(--cf-space-16);
   min-width: 0;
   overflow: hidden;
   padding-left: var(--cf-space-8);

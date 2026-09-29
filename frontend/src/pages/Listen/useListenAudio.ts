@@ -3,6 +3,12 @@ import { mergeOddPcmByte, pcm16ToFloat32 } from '../../shared/audio/pcm';
 
 const DEFAULT_SAMPLE_RATE = 24000;
 const RECONNECT_DELAY_MS = 1200;
+const MAX_SCHEDULED_AUDIO_SECONDS = 2;
+
+interface ScheduledAudioSource {
+  startAt: number;
+  endAt: number;
+}
 
 type ConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting';
 type SessionStatus =
@@ -33,7 +39,9 @@ export function useListenAudio() {
   const [audioError, setAudioError] = useState('');
   const audioContextRef = useRef<AudioContext | null>(null);
   const nextPlayTimeRef = useRef(0);
-  const playingSourcesRef = useRef(new Set<AudioBufferSourceNode>());
+  const playingSourcesRef = useRef(
+    new Map<AudioBufferSourceNode, ScheduledAudioSource>(),
+  );
   const listenGenerationRef = useRef(0);
   const socketRef = useRef<WebSocket | null>(null);
   const pendingPcmRef = useRef<Uint8Array | null>(null);
@@ -118,7 +126,6 @@ export function useListenAudio() {
     const source = context.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(context.destination);
-    playingSourcesRef.current.add(source);
     source.addEventListener(
       'ended',
       () => {
@@ -128,12 +135,33 @@ export function useListenAudio() {
       { once: true },
     );
 
+    if (
+      nextPlayTimeRef.current - context.currentTime >
+      MAX_SCHEDULED_AUDIO_SECONDS
+    ) {
+      let activeAudioEnd = context.currentTime;
+      for (const [scheduledSource, scheduledAudio] of playingSourcesRef.current) {
+        if (scheduledAudio.startAt > context.currentTime) {
+          scheduledSource.stop();
+          scheduledSource.disconnect();
+          playingSourcesRef.current.delete(scheduledSource);
+        } else {
+          activeAudioEnd = Math.max(activeAudioEnd, scheduledAudio.endAt);
+        }
+      }
+      nextPlayTimeRef.current = activeAudioEnd;
+    }
+
     const startAt = Math.max(
       context.currentTime + 0.05,
       nextPlayTimeRef.current,
     );
     source.start(startAt);
     nextPlayTimeRef.current = startAt + audioBuffer.duration;
+    playingSourcesRef.current.set(source, {
+      startAt,
+      endAt: nextPlayTimeRef.current,
+    });
   }, []);
 
   const connectSocket = useCallback(
@@ -178,6 +206,9 @@ export function useListenAudio() {
           if (payload.type === 'translation_status' && payload.session_status) {
             setHasSessionStatus(true);
             setSessionStatus(payload.session_status);
+            if (payload.session_status === 'starting') {
+              setSubtitle('');
+            }
             setSessionEnded(
               payload.session_status === 'off' &&
                 Boolean(payload.last_termination_reason),
@@ -191,7 +222,18 @@ export function useListenAudio() {
           } else if (payload.type === 'error') {
             setSessionStatus('error');
           } else if (payload.text) {
-            setSubtitle(payload.text);
+            setSubtitle((current) => {
+              const nextText = payload.text ?? '';
+              const startsNewSentence = /[.!?]\s*["'”’»›)\]}]*\s*$/.test(
+                current,
+              );
+              const isClosingPunctuation = /^[\s"'”’»›)\]}]+$/.test(
+                nextText,
+              );
+              return startsNewSentence && !isClosingPunctuation
+                ? nextText.trimStart()
+                : current + nextText;
+            });
           }
           return;
         }
@@ -267,7 +309,7 @@ export function useListenAudio() {
     setIsListening(false);
     pendingPcmRef.current = null;
     nextPlayTimeRef.current = audioContextRef.current?.currentTime ?? 0;
-    for (const source of playingSourcesRef.current) {
+    for (const source of playingSourcesRef.current.keys()) {
       source.stop();
       source.disconnect();
     }

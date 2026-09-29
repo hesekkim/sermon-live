@@ -363,6 +363,20 @@ describe('useBroadcastSession', () => {
 
     expect(latestSession.current?.running).toBe(false);
     expect(latestSession.current?.sessionStatus).toBe('off');
+
+    await act(async () => {
+      socket?.emit(
+        'message',
+        JSON.stringify({ type: 'status', running: false, session_status: 'starting' }),
+      );
+      socket?.emit(
+        'message',
+        JSON.stringify({ type: 'status', running: true, session_status: 'live' }),
+      );
+    });
+
+    expect(latestSession.current?.running).toBe(true);
+    expect(latestSession.current?.sessionStatus).toBe('live');
     act(() => root.unmount());
   });
 

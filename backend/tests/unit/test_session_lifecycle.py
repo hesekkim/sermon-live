@@ -138,6 +138,52 @@ async def test_start_stop_keeps_server_audio_ready_and_rejects_duplicate_transit
 
 
 @pytest.mark.asyncio
+async def test_shutdown_cancels_and_cleans_up_session_start_in_progress(
+    tmp_path, monkeypatch
+):
+    started = asyncio.Event()
+    closed = asyncio.Event()
+
+    class BlockingStartInterpreter:
+        required_sample_rate = 24000
+        required_channels = 1
+        required_sample_width = 2
+
+        async def validate_key(self):
+            return None
+
+        async def start(self):
+            started.set()
+            await asyncio.Event().wait()
+
+        async def send_pcm(self, _chunk):
+            return None
+
+        async def events(self):
+            await asyncio.Event().wait()
+            yield InterpreterEvent(kind="error", text="unreachable")
+
+        async def close(self):
+            closed.set()
+
+    interpreter = BlockingStartInterpreter()
+    monkeypatch.setattr(
+        session_service_module, "create_interpreter", lambda _settings: interpreter
+    )
+    service, _hub = make_service(tmp_path)
+    start_task = asyncio.create_task(service.start())
+    await asyncio.wait_for(started.wait(), timeout=1)
+
+    await asyncio.wait_for(service.shutdown(), timeout=1)
+
+    assert start_task.done()
+    assert service.state == "off"
+    assert closed.is_set()
+    assert service._start_task is None
+    assert_session_released(service)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("reason", ["manual", "auto_stop"])
 async def test_normal_stop_bounds_audio_drain_and_reports_discarded_chunks(
     tmp_path, monkeypatch, reason
@@ -530,6 +576,92 @@ def test_broadcast_hub_sends_identical_lifecycle_event_to_both_client_groups():
     assert listener.messages == [payload]
 
 
+def test_broadcast_hub_hides_error_details_from_public_listeners():
+    class FakeWebSocket:
+        def __init__(self):
+            self.messages = []
+
+        async def send_json(self, payload):
+            self.messages.append(payload)
+
+    hub = BroadcastHub()
+    operator = FakeWebSocket()
+    listener = FakeWebSocket()
+    hub._operator_clients.add(operator)
+    hub._listen_clients.add(listener)
+    payload = {
+        "type": "error",
+        "text": "Provider rejected the configured credential",
+        "session_status": "error",
+    }
+
+    asyncio.run(hub.broadcast_session(payload))
+
+    assert operator.messages == [payload]
+    assert listener.messages == [{"type": "error", "session_status": "error"}]
+
+
+def test_broadcast_hub_limits_public_session_status_fields():
+    class FakeWebSocket:
+        def __init__(self):
+            self.messages = []
+
+        async def send_json(self, payload):
+            self.messages.append(payload)
+
+    hub = BroadcastHub()
+    operator = FakeWebSocket()
+    listener = FakeWebSocket()
+    hub._operator_clients.add(operator)
+    hub._listen_clients.add(listener)
+    payload = {
+        "type": "translation_status",
+        "session_status": "error",
+        "last_termination_reason": "interpreter_error",
+        "error": "upstream diagnostic",
+        "audio_error": "device path",
+        "start_block_reason": "private operator detail",
+        "audio_dropped_chunks": 12,
+    }
+
+    asyncio.run(hub.broadcast_session(payload))
+
+    assert operator.messages == [payload]
+    assert listener.messages == [
+        {
+            "type": "translation_status",
+            "session_status": "error",
+            "last_termination_reason": "interpreter_error",
+        }
+    ]
+
+
+def test_broadcast_hub_does_not_send_operator_only_events_to_listeners():
+    class FakeWebSocket:
+        def __init__(self):
+            self.messages = []
+
+        async def send_json(self, payload):
+            self.messages.append(payload)
+
+    hub = BroadcastHub()
+    operator = FakeWebSocket()
+    listener = FakeWebSocket()
+    hub._operator_clients.add(operator)
+    hub._listen_clients.add(listener)
+
+    asyncio.run(
+        hub.broadcast_session(
+            {"type": "audio_status", "ready": False, "error": "device detail"}
+        )
+    )
+
+    assert operator.messages == [
+        {"type": "audio_status", "ready": False, "error": "device detail"}
+    ]
+    assert listener.messages == []
+
+
 @pytest.mark.asyncio
 async def test_broadcast_hub_times_out_slow_operator_without_blocking_healthy_clients(
     monkeypatch,
@@ -564,3 +696,51 @@ async def test_broadcast_hub_times_out_slow_operator_without_blocking_healthy_cl
     assert slow.closed is True
     assert slow not in hub._operator_clients
     assert healthy in hub._operator_clients
+
+
+@pytest.mark.parametrize("send_audio", [False, True])
+@pytest.mark.asyncio
+async def test_broadcast_hub_disconnects_slow_listen_without_blocking_healthy_clients(
+    monkeypatch, send_audio
+):
+    class SlowWebSocket:
+        def __init__(self):
+            self.closed = False
+
+        async def send_json(self, _payload):
+            await asyncio.Event().wait()
+
+        async def send_bytes(self, _payload):
+            await asyncio.Event().wait()
+
+        async def close(self, **_kwargs):
+            self.closed = True
+
+    class HealthyWebSocket:
+        def __init__(self):
+            self.messages = []
+
+        async def send_json(self, payload):
+            self.messages.append(payload)
+
+        async def send_bytes(self, payload):
+            self.messages.append(payload)
+
+    monkeypatch.setattr(BroadcastHub, "_LISTEN_SEND_TIMEOUT_SECONDS", 0.01)
+    hub = BroadcastHub()
+    hub._sample_rate = 24000
+    slow = SlowWebSocket()
+    healthy = HealthyWebSocket()
+    hub._listen_clients.update((slow, healthy))
+
+    if send_audio:
+        await asyncio.wait_for(hub.broadcast_audio(b"pcm", 24000), timeout=0.2)
+        expected = b"pcm"
+    else:
+        await asyncio.wait_for(hub.broadcast_text("Hallo"), timeout=0.2)
+        expected = {"text": "Hallo"}
+
+    assert healthy.messages == [expected]
+    assert slow.closed is True
+    assert slow not in hub._listen_clients
+    assert healthy in hub._listen_clients

@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from core.config import Settings
@@ -148,6 +150,52 @@ async def test_audio_capture_selects_supported_stereo_pcm24_format(monkeypatch):
     assert audio.open_kwargs["input_device_index"] == 0
     assert capture.input_format == (16000, 2, 3)
 
+    await capture.stop()
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_bounds_queue_and_keeps_latest_chunks():
+    settings = Settings(input_sample_rate=16000, audio_chunk_frames=1024)
+    capture = AudioCapture(settings)
+    capture._input_format = (16000, 1, 2)
+    capture._loop = asyncio.get_running_loop()
+    capture._accept_chunks = True
+    chunk_count = capture._queue.maxsize + 3
+    chunks = [value.to_bytes(2, "little") * settings.audio_chunk_frames for value in range(chunk_count)]
+
+    for chunk in chunks:
+        capture._on_chunk(chunk, settings.audio_chunk_frames, None, 0)
+        await asyncio.sleep(0)
+
+    retained = [capture._queue.get_nowait() for _ in range(capture._queue.qsize())]
+    assert capture._queue.maxsize == 7
+    assert retained == chunks[-capture._queue.maxsize :]
+    assert capture.dropped_chunks == 3
+    assert capture.dropped_duration_seconds == pytest.approx(3 * 1024 / 16000)
+
+    await capture.stop()
+    assert capture._queue.get_nowait() is None
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_coalesces_callbacks_while_event_loop_is_busy():
+    settings = Settings(input_sample_rate=16000, audio_chunk_frames=1024)
+    capture = AudioCapture(settings)
+    capture._input_format = (16000, 1, 2)
+    capture._loop = asyncio.get_running_loop()
+    capture._accept_chunks = True
+    chunks = [value.to_bytes(2, "little") * settings.audio_chunk_frames for value in range(8)]
+
+    for chunk in chunks:
+        capture._on_chunk(chunk, settings.audio_chunk_frames, None, 0)
+    await asyncio.sleep(0)
+
+    assert capture._queue.qsize() == 1
+    assert capture._queue.get_nowait() == chunks[-1]
+    assert capture.dropped_chunks == len(chunks) - 1
+    assert capture.dropped_duration_seconds == pytest.approx(
+        (len(chunks) - 1) * settings.audio_chunk_frames / 16000
+    )
     await capture.stop()
 
 

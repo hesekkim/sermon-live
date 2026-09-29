@@ -211,9 +211,43 @@ describe('Listener experience', () => {
 
     expect(container).toHaveTextContent('WARTEN AUF ÜBERSETZUNG');
 
-    act(() => socket.message({ text: 'Guten Morgen.' }));
+    act(() => {
+      socket.message({ text: 'Guten ' });
+      socket.message({ text: 'Morgen.' });
+    });
     expect(container).toHaveTextContent('Guten Morgen.');
     expect(container).toHaveTextContent('SESSION LIVE · DEUTSCH');
+
+    act(() => {
+      socket.message({ text: 'Wie ' });
+      socket.message({ text: 'geht es?' });
+    });
+    expect(container).toHaveTextContent('Wie geht es?');
+    expect(container).not.toHaveTextContent('Guten Morgen.');
+
+    act(() => {
+      socket.message({ text: 'Guten Morgen.' });
+      socket.message({ text: '”' });
+    });
+    expect(container).toHaveTextContent('Guten Morgen.”');
+
+    act(() => {
+      socket.message({ text: 'Nächste Sendung' });
+    });
+    expect(container).toHaveTextContent('Nächste Sendung');
+    expect(container).not.toHaveTextContent('Guten Morgen.');
+
+    act(() =>
+      socket.message({ type: 'translation_status', session_status: 'starting' }),
+    );
+    expect(container).not.toHaveTextContent('Guten Morgen.');
+    act(() => {
+      socket.message({ type: 'translation_status', session_status: 'live' });
+      socket.message({ text: 'Neue ' });
+      socket.message({ text: 'Sendung.' });
+    });
+    expect(container).toHaveTextContent('Neue Sendung.');
+    expect(container).not.toHaveTextContent('Guten Morgen.');
   });
 
   it('keeps interpreter failures distinct from a normally ended broadcast', () => {
@@ -286,6 +320,33 @@ describe('Listener experience', () => {
       await Promise.resolve();
     });
     expect(MockAudioContext.sources).toHaveLength(1);
+  });
+
+  it('drops scheduled audio backlog and keeps the newest chunk', async () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+    const chunk = new Uint8Array(24000 * 2 * 2).buffer;
+
+    await act(async () => {
+      for (let index = 0; index < 3; index += 1) {
+        socket.dispatchEvent(new MessageEvent('message', { data: chunk }));
+        await Promise.resolve();
+      }
+      await Promise.resolve();
+    });
+
+    expect(MockAudioContext.sources).toHaveLength(3);
+    expect(MockAudioContext.sources[0].stop).toHaveBeenCalledOnce();
+    expect(MockAudioContext.sources[1].stop).toHaveBeenCalledOnce();
+    expect(MockAudioContext.sources[2].stop).not.toHaveBeenCalled();
+    expect(MockAudioContext.sources[2].start).toHaveBeenCalledWith(0.05);
   });
 
   it('shows Translation OFF separately from a broadcast that has ended', async () => {

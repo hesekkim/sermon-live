@@ -68,6 +68,8 @@ class AudioRuntime:
         self._clock = time.monotonic
         self._dropped_chunks = 0
         self._dropped_duration_seconds = 0.0
+        self._capture_dropped_chunks_seen = 0
+        self._capture_dropped_duration_seen = 0.0
         self._last_overflow_warning: float | None = None
         self._target_sample_rate: int | None = None
         self._target_frame_size: int | None = None
@@ -246,6 +248,12 @@ class AudioRuntime:
         self._target_frame_size = target_format[1] * target_format[2]
         self._dropped_chunks = 0
         self._dropped_duration_seconds = 0.0
+        self._capture_dropped_chunks_seen = int(
+            getattr(self._capture, "dropped_chunks", 0)
+        )
+        self._capture_dropped_duration_seen = float(
+            getattr(self._capture, "dropped_duration_seconds", 0.0)
+        )
         self._last_overflow_warning = None
         self._translation_queue = _DurationTrackedQueue(
             self._target_sample_rate, self._target_frame_size
@@ -258,6 +266,7 @@ class AudioRuntime:
         queue = self._translation_queue
         if queue is None:
             return None
+        await self._record_capture_drops()
         self._translation_queue = None
         processor = self._processor
         if discard_pending:
@@ -302,6 +311,7 @@ class AudioRuntime:
         assert self._processor is not None
         try:
             async for chunk in self._capture.chunks():
+                await self._record_capture_drops()
                 self._broadcast_test_chunk(chunk)
                 processed = self._processor.process(chunk)
                 self._queue_audio_level()
@@ -432,10 +442,29 @@ class AudioRuntime:
         frame_size = self._target_frame_size
         if sample_rate is None or frame_size is None:
             return
-        self._dropped_chunks += len(chunks)
-        self._dropped_duration_seconds += sum(
+        duration_seconds = sum(
             len(chunk) / (sample_rate * frame_size) for chunk in chunks
         )
+        await self._record_dropped_audio(len(chunks), duration_seconds)
+
+    async def _record_capture_drops(self) -> None:
+        capture = self._capture
+        if capture is None or self._translation_queue is None:
+            return
+        dropped_chunks = int(getattr(capture, "dropped_chunks", 0))
+        dropped_duration = float(getattr(capture, "dropped_duration_seconds", 0.0))
+        chunk_delta = dropped_chunks - self._capture_dropped_chunks_seen
+        duration_delta = dropped_duration - self._capture_dropped_duration_seen
+        self._capture_dropped_chunks_seen = dropped_chunks
+        self._capture_dropped_duration_seen = dropped_duration
+        if chunk_delta > 0 or duration_delta > 0:
+            await self._record_dropped_audio(chunk_delta, max(0.0, duration_delta))
+
+    async def _record_dropped_audio(
+        self, chunks: int, duration_seconds: float
+    ) -> None:
+        self._dropped_chunks += chunks
+        self._dropped_duration_seconds += duration_seconds
         now = self._clock()
         if (
             self._last_overflow_warning is not None

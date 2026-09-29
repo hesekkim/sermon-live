@@ -126,11 +126,17 @@ async def start_session() -> dict[str, object]:
     except SessionTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except NotImplementedError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=400, detail=session.safe_error_message(str(exc))
+        ) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=400, detail=session.safe_error_message(str(exc))
+        ) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=500, detail=session.safe_error_message(str(exc))
+        ) from exc
     return session.status()
 
 

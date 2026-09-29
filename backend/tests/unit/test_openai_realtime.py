@@ -154,7 +154,8 @@ async def test_events_map_translation_audio_and_transcripts():
                 "delta": base64.b64encode(audio).decode("ascii"),
                 "sample_rate": 24000,
             },
-            {"type": "session.output_transcript.delta", "delta": "Hallo"},
+            {"type": "session.output_transcript.delta", "delta": "Hallo "},
+            {"type": "session.output_transcript.delta", "delta": "Welt"},
             {"type": "session.input_transcript.delta", "delta": "안녕"},
             {"type": "error", "error": {"message": "bad audio"}},
         ]
@@ -168,14 +169,15 @@ async def test_events_map_translation_audio_and_transcripts():
     events = []
     async for event in adapter.events():
         events.append(event)
-        if len(events) == 4:
+        if len(events) == 5:
             break
 
     await adapter.close()
 
     assert [(event.kind, event.pcm, event.text) for event in events] == [
         ("audio", audio, None),
-        ("output_text", None, "Hallo"),
+        ("output_text", None, "Hallo "),
+        ("output_text", None, "Welt"),
         ("input_text", None, "안녕"),
         ("error", None, "bad audio"),
     ]
@@ -239,6 +241,21 @@ async def test_validate_key_rejects_missing_key_without_connecting():
         await adapter.validate_key()
 
     assert called is False
+
+
+def test_error_event_redacts_configured_api_key():
+    api_key = "test-secret-value"
+    adapter = OpenAIRealtimeInterpreter(
+        Settings(interpreter="openai", openai_api_key=api_key)
+    )
+
+    event = adapter._to_interpreter_event(
+        {"type": "error", "error": {"message": f"Rejected {api_key}"}}
+    )
+
+    assert event is not None
+    assert event.text == "Rejected [REDACTED]"
+    assert api_key not in event.text
 
 
 async def collect_events(adapter: OpenAIRealtimeInterpreter):

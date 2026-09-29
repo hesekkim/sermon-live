@@ -58,13 +58,13 @@ class OpenAIRealtimeInterpreter:
             raise RuntimeError("OpenAI Realtime returned an invalid event")
         return event
 
-    @staticmethod
-    def _error_message(event: dict[str, Any]) -> str:
+    def _error_message(self, event: dict[str, Any]) -> str:
         error = event.get("error")
         if isinstance(error, dict):
             message = error.get("message")
             if isinstance(message, str) and message:
-                return message
+                api_key = self._settings.openai_api_key
+                return message.replace(api_key, "[REDACTED]") if api_key else message
         return "OpenAI Realtime rejected the session"
 
     async def validate_key(self) -> None:
