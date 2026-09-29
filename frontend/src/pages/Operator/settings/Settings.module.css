@@ -33,7 +33,9 @@
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: color 160ms ease, border-color 160ms ease;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease;
 }
 
 .tab:hover {
@@ -43,6 +45,15 @@
 .tabActive {
   border-color: var(--cms-primary);
   color: var(--cms-primary);
+}
+
+.tab:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--cf-focus-color);
+  outline-offset: var(--cf-focus-offset);
 }
 
 .stack {
@@ -122,7 +133,9 @@
   border: 1px solid var(--cms-border);
   border-radius: var(--cf-radius-input);
   background: var(--cms-surface);
-  transition: opacity 0.2s ease, filter 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    filter 0.2s ease;
 }
 
 .audioTestPanelTesting {

@@ -26,8 +26,13 @@ export default function Settings() {
     error: deviceLoadError,
     refresh: refreshDevices,
   } = useAudioDevices();
-  const { result, liveInputLevel, error: audioTestError, isTesting, runTest } =
-    useAudioTest(selectedDevice);
+  const {
+    result,
+    liveInputLevel,
+    error: audioTestError,
+    isTesting,
+    runTest,
+  } = useAudioTest(selectedDevice);
   const { error, info } = useToast();
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [deviceSaveError, setDeviceSaveError] = useState<string | null>(null);
@@ -45,6 +50,8 @@ export default function Settings() {
     setTimerValue,
     timerValidation,
     isSaving,
+    isSafetyDirty,
+    isApiModelDirty,
     saveDevice,
     saveSafety,
     saveApiModel,
@@ -60,11 +67,14 @@ export default function Settings() {
       { value: 'en', label: labels.languageEn },
       { value: 'de', label: labels.languageDe },
     ],
-    [labels]
+    [labels],
   );
   const allDeviceOptions = useMemo(
-    () => [{ value: 'default', label: labels.audioDeviceDefault }, ...deviceOptions],
-    [deviceOptions, labels.audioDeviceDefault]
+    () => [
+      { value: 'default', label: labels.audioDeviceDefault },
+      ...deviceOptions,
+    ],
+    [deviceOptions, labels.audioDeviceDefault],
   );
 
   const currentKeyStatus =
@@ -85,7 +95,9 @@ export default function Settings() {
     if (!result.success) {
       setSelectedDevice(previousDevice);
       setDeviceSaveError(
-        result.status === 409 ? labels.audioDeviceSessionConflict : result.message
+        result.status === 409
+          ? labels.audioDeviceSessionConflict
+          : result.message,
       );
     }
   };
@@ -141,7 +153,7 @@ export default function Settings() {
           />
           <div className={styles.applyActions}>
             <Button
-              disabled={isSaving}
+              disabled={isSaving || timerValidation.hasErrors || !isSafetyDirty}
               onClick={async () => {
                 const saved = await saveSafety();
                 if (saved.success) {
@@ -175,7 +187,7 @@ export default function Settings() {
         />
         <div className={styles.applyActions}>
           <Button
-            disabled={isSaving}
+            disabled={isSaving || !isApiModelDirty}
             onClick={async () => {
               const saved = await saveApiModel();
               if (saved.success) {
@@ -206,7 +218,11 @@ export default function Settings() {
         </Button>
       </div>
       <h1>{labels.navSettings}</h1>
-      <div role="tablist" className={styles.tabList} aria-label={labels.navSettings}>
+      <div
+        role="tablist"
+        className={styles.tabList}
+        aria-label={labels.navSettings}
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -230,7 +246,9 @@ export default function Settings() {
             role="tabpanel"
             aria-labelledby={`settings-tab-${tab.id}`}
             hidden={activeTab !== tab.id}
-            className={activeTab === tab.id ? styles.panelVisible : styles.panelHidden}
+            className={
+              activeTab === tab.id ? styles.panelVisible : styles.panelHidden
+            }
           >
             {activeTab === tab.id ? renderContent() : null}
           </div>

@@ -106,7 +106,10 @@
   box-shadow: 0 0 0 1px var(--cms-border, var(--cf-neutral-300));
   opacity: 0;
   pointer-events: auto;
-  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .collapseToggle:hover {
@@ -140,7 +143,6 @@
   padding: var(--cf-space-16) var(--cf-space-12);
   display: flex;
   flex-direction: column;
-  gap: var(--cf-space-20);
 }
 
 .collapsed .sections {
@@ -186,7 +188,9 @@
   text-align: left;
   cursor: pointer;
   box-sizing: border-box;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .collapsed .link {

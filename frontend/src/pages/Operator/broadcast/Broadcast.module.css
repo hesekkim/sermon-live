@@ -93,7 +93,8 @@
   background-color: rgba(15, 23, 42, 0.24);
 }
 
-:global(body[data-cms-theme='dark']) .warningDialogOverlay.warningDialogOverlay {
+:global(body[data-cms-theme='dark'])
+  .warningDialogOverlay.warningDialogOverlay {
   background-color: rgba(0, 0, 0, 0.32);
 }
 
@@ -134,9 +135,17 @@
 .paneHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--cf-space-8);
   padding: var(--cf-space-8) var(--cf-space-16);
+}
+
+.paneHeader .downloadButton {
+  width: 2.5rem;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border-radius: 50%;
 }
 
 .scroll {
@@ -168,5 +177,7 @@
 }
 
 @media (max-width: 520px) {
-  .levelMeter { max-width: 100%; }
+  .levelMeter {
+    max-width: 100%;
+  }
 }

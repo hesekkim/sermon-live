@@ -1,6 +1,9 @@
 import { LiaFileDownloadSolid } from 'react-icons/lia';
 import Button from '../../../../shared/components/Button/Button';
-import { buildTranscriptPaneDownload, downloadTextFile } from '../utils/transcriptFile';
+import {
+  buildTranscriptPaneDownload,
+  downloadTextFile,
+} from '../utils/transcriptFile';
 import styles from '../Broadcast.module.css';
 
 interface TranscriptPaneProps {
@@ -18,16 +21,22 @@ export default function TranscriptPane({
   downloadLabel,
   filename,
 }: TranscriptPaneProps) {
+  const hasTranscript = lines.some((line) => line.trim().length > 0);
+
   return (
     <section className={styles.pane}>
       <div className={styles.paneHeader}>
         <h2>{title}</h2>
         <Button
           variant="ghost"
+          className={styles.downloadButton}
           icon={<LiaFileDownloadSolid size={20} />}
           aria-label={downloadLabel}
           title={downloadLabel}
-          onClick={() => downloadTextFile(filename, buildTranscriptPaneDownload(lines))}
+          disabled={!hasTranscript}
+          onClick={() =>
+            downloadTextFile(filename, buildTranscriptPaneDownload(lines))
+          }
         />
       </div>
       <div className={styles.scroll}>
@@ -37,7 +46,9 @@ export default function TranscriptPane({
           lines.map((line, index) => (
             <p
               key={`${index}-${line.slice(0, 24)}`}
-              className={index === lines.length - 1 ? styles.current : styles.past}
+              className={
+                index === lines.length - 1 ? styles.current : styles.past
+              }
             >
               {line}
             </p>

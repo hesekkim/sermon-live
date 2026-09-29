@@ -62,9 +62,11 @@ export function useOperatorSettings({
 		hardLimitMinutes: '120',
 	});
 	const [isSaving, setIsSaving] = useState(false);
+	const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
 	const { warning, error } = useToast();
 	const settingsLoadStartedRef = useRef(false);
 	const savedInterpreterRef = useRef<InterpreterName>('echo');
+	const savedTimerValuesRef = useRef<TimerDraftState | null>(null);
 	const setSelectedDeviceRef = useRef(setSelectedDevice);
 	setSelectedDeviceRef.current = setSelectedDevice;
 
@@ -79,12 +81,10 @@ export function useOperatorSettings({
 	const applySettingsResponse = (data: SettingsResponse) => {
 		applyApiModelResponse(data);
 		setSelectedDeviceRef.current(data.audio_device || 'default');
-		setTimerValues({
-			autoStopMinutes: String(data.translation_session_auto_stop_minutes ?? 90),
-			warningMinutes: String(data.translation_session_warning_minutes ?? 5),
-			extensionMinutes: String(data.translation_session_extension_minutes ?? 10),
-			hardLimitMinutes: String(data.translation_session_hard_limit_minutes ?? 120),
-		});
+		const values = getTimerDraftValues(data);
+		setTimerValues(values);
+		savedTimerValuesRef.current = values;
+		setHasLoadedSettings(true);
 	};
 
 	useEffect(() => {
@@ -142,14 +142,12 @@ export function useOperatorSettings({
 			if (scope === 'device') {
 				setSelectedDeviceRef.current(data.audio_device || 'default');
 			} else if (scope === 'safety') {
-				setTimerValues({
-					autoStopMinutes: String(data.translation_session_auto_stop_minutes ?? 90),
-					warningMinutes: String(data.translation_session_warning_minutes ?? 5),
-					extensionMinutes: String(data.translation_session_extension_minutes ?? 10),
-					hardLimitMinutes: String(data.translation_session_hard_limit_minutes ?? 120),
-				});
+				const values = getTimerDraftValues(data);
+				setTimerValues(values);
+				savedTimerValuesRef.current = values;
 			} else {
 				applyApiModelResponse(data);
+				setHasLoadedSettings(true);
 				setApiKey('');
 				const responseWarning = getSelectedWarning(data);
 				if (responseWarning && data.interpreter !== 'echo') {
@@ -196,6 +194,15 @@ export function useOperatorSettings({
 		}
 		return submitSettings(body, 'api');
 	};
+	const isSafetyDirty =
+		savedTimerValuesRef.current !== null &&
+		Object.keys(timerValues).some((key) => {
+			const timerKey = key as TimerValueKey;
+			return timerValues[timerKey] !== savedTimerValuesRef.current?.[timerKey];
+		});
+	const isApiModelDirty =
+		hasLoadedSettings &&
+		(interpreter !== savedInterpreterRef.current || Boolean(apiKey.trim()));
 
 	return {
 		interpreter,
@@ -211,9 +218,20 @@ export function useOperatorSettings({
 		setTimerValue,
 		timerValidation,
 		isSaving,
+		isSafetyDirty,
+		isApiModelDirty,
 		saveDevice,
 		saveSafety,
 		saveApiModel,
+	};
+}
+
+function getTimerDraftValues(data: SettingsResponse): TimerDraftState {
+	return {
+		autoStopMinutes: String(data.translation_session_auto_stop_minutes ?? 90),
+		warningMinutes: String(data.translation_session_warning_minutes ?? 5),
+		extensionMinutes: String(data.translation_session_extension_minutes ?? 10),
+		hardLimitMinutes: String(data.translation_session_hard_limit_minutes ?? 120),
 	};
 }
 

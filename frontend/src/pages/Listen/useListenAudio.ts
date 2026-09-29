@@ -5,7 +5,13 @@ const DEFAULT_SAMPLE_RATE = 24000;
 const RECONNECT_DELAY_MS = 1200;
 
 type ConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting';
-type SessionStatus = 'unknown' | 'off' | 'starting' | 'live' | 'stopping' | 'error';
+type SessionStatus =
+  | 'unknown'
+  | 'off'
+  | 'starting'
+  | 'live'
+  | 'stopping'
+  | 'error';
 
 interface SessionEvent {
   type?: string;
@@ -17,24 +23,33 @@ interface SessionEvent {
 }
 
 export function useListenAudio() {
-  const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>('idle');
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('unknown');
+  const [hasSessionStatus, setHasSessionStatus] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [subtitle, setSubtitle] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [audioError, setAudioError] = useState('');
   const audioContextRef = useRef<AudioContext | null>(null);
   const nextPlayTimeRef = useRef(0);
+  const playingSourcesRef = useRef(new Set<AudioBufferSourceNode>());
+  const listenGenerationRef = useRef(0);
   const socketRef = useRef<WebSocket | null>(null);
   const pendingPcmRef = useRef<Uint8Array | null>(null);
   const sampleRateRef = useRef(DEFAULT_SAMPLE_RATE);
   const wantsListenRef = useRef(false);
+  const isListeningRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
-  const connectSocketRef = useRef<((isReconnect: boolean) => void) | null>(null);
+  const connectSocketRef = useRef<((isReconnect: boolean) => void) | null>(
+    null,
+  );
 
   useEffect(() => {
     return () => {
       wantsListenRef.current = false;
+      isListeningRef.current = false;
+      listenGenerationRef.current += 1;
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
       }
@@ -66,6 +81,10 @@ export function useListenAudio() {
   }, []);
 
   const queueAudioChunk = useCallback(async (chunkBuffer: ArrayBuffer) => {
+    const generation = listenGenerationRef.current;
+    if (!isListeningRef.current) {
+      return;
+    }
     const context = audioContextRef.current;
     if (!context) {
       return;
@@ -73,10 +92,11 @@ export function useListenAudio() {
     if (context.state === 'suspended') {
       await context.resume();
     }
-    if (context.state !== 'running') {
-      return;
-    }
-    if (context.state !== 'running') {
+    if (
+      !isListeningRef.current ||
+      generation !== listenGenerationRef.current ||
+      context.state !== 'running'
+    ) {
       return;
     }
 
@@ -88,108 +108,129 @@ export function useListenAudio() {
       return;
     }
 
-    const audioBuffer = context.createBuffer(1, monoFloat.length, sampleRateRef.current);
+    const audioBuffer = context.createBuffer(
+      1,
+      monoFloat.length,
+      sampleRateRef.current,
+    );
     audioBuffer.getChannelData(0).set(monoFloat);
 
     const source = context.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(context.destination);
+    playingSourcesRef.current.add(source);
+    source.addEventListener(
+      'ended',
+      () => {
+        source.disconnect();
+        playingSourcesRef.current.delete(source);
+      },
+      { once: true },
+    );
 
-    const startAt = Math.max(context.currentTime + 0.05, nextPlayTimeRef.current);
+    const startAt = Math.max(
+      context.currentTime + 0.05,
+      nextPlayTimeRef.current,
+    );
     source.start(startAt);
     nextPlayTimeRef.current = startAt + audioBuffer.duration;
   }, []);
 
-  const connectSocket = useCallback((isReconnect: boolean) => {
-    if (!wantsListenRef.current) {
-      return;
-    }
-    const currentSocket = socketRef.current;
-    if (
-      currentSocket &&
-      (currentSocket.readyState === WebSocket.CONNECTING ||
-        currentSocket.readyState === WebSocket.OPEN)
-    ) {
-      return;
-    }
-
-    setConnectionState(isReconnect ? 'reconnecting' : 'connecting');
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${protocol}//${location.host}/ws/listen`);
-    socket.binaryType = 'arraybuffer';
-    socketRef.current = socket;
-
-    socket.addEventListener('open', () => {
-      if (socketRef.current !== socket) {
-        return;
-      }
-      setConnectionState('connected');
-    });
-
-    socket.addEventListener('message', (event) => {
-      if (typeof event.data === 'string') {
-        let payload: SessionEvent;
-        try {
-          payload = JSON.parse(event.data) as SessionEvent;
-        } catch {
-          return;
-        }
-        if (payload.sampleRate) {
-          sampleRateRef.current = payload.sampleRate;
-        }
-        if (payload.type === 'translation_status' && payload.session_status) {
-          setSessionStatus(payload.session_status);
-          setSessionEnded(
-            payload.session_status === 'off' &&
-              Boolean(payload.last_termination_reason),
-          );
-        } else if (payload.type === 'session_ended') {
-          const endedWithError =
-            payload.reason === 'interpreter_error' ||
-            payload.reason === 'device_error';
-          setSessionEnded(!endedWithError);
-          setSessionStatus(endedWithError ? 'error' : 'off');
-        } else if (payload.type === 'error') {
-          setSessionStatus('error');
-        } else if (payload.text) {
-          setSubtitle(payload.text);
-        }
-        return;
-      }
-
-      const chunk = new Uint8Array(event.data as ArrayBuffer);
-      if (chunk.length === 0) {
-        return;
-      }
-      const buffer = chunk.buffer.slice(
-        chunk.byteOffset,
-        chunk.byteOffset + chunk.byteLength,
-      );
-      void queueAudioChunk(buffer).catch((error: unknown) => {
-        setAudioError(error instanceof Error ? error.message : String(error));
-      });
-    });
-
-    socket.addEventListener('close', () => {
-      if (socketRef.current !== socket) {
-        return;
-      }
-      socketRef.current = null;
+  const connectSocket = useCallback(
+    (isReconnect: boolean) => {
       if (!wantsListenRef.current) {
         return;
       }
-      setConnectionState('reconnecting');
-      reconnectTimerRef.current = window.setTimeout(() => {
-        connectSocketRef.current?.(true);
-      }, RECONNECT_DELAY_MS);
-    });
-
-    socket.addEventListener('error', () => {
-      if (socketRef.current === socket) {
-        socket.close();
+      const currentSocket = socketRef.current;
+      if (
+        currentSocket &&
+        (currentSocket.readyState === WebSocket.CONNECTING ||
+          currentSocket.readyState === WebSocket.OPEN)
+      ) {
+        return;
       }
-    });
-  }, [queueAudioChunk]);
+
+      setConnectionState(isReconnect ? 'reconnecting' : 'connecting');
+      setHasSessionStatus(false);
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const socket = new WebSocket(`${protocol}//${location.host}/ws/listen`);
+      socket.binaryType = 'arraybuffer';
+      socketRef.current = socket;
+
+      socket.addEventListener('open', () => {
+        if (socketRef.current !== socket) {
+          return;
+        }
+        setConnectionState('connected');
+      });
+
+      socket.addEventListener('message', (event) => {
+        if (typeof event.data === 'string') {
+          let payload: SessionEvent;
+          try {
+            payload = JSON.parse(event.data) as SessionEvent;
+          } catch {
+            return;
+          }
+          if (payload.sampleRate) {
+            sampleRateRef.current = payload.sampleRate;
+          }
+          if (payload.type === 'translation_status' && payload.session_status) {
+            setHasSessionStatus(true);
+            setSessionStatus(payload.session_status);
+            setSessionEnded(
+              payload.session_status === 'off' &&
+                Boolean(payload.last_termination_reason),
+            );
+          } else if (payload.type === 'session_ended') {
+            const endedWithError =
+              payload.reason === 'interpreter_error' ||
+              payload.reason === 'device_error';
+            setSessionEnded(!endedWithError);
+            setSessionStatus(endedWithError ? 'error' : 'off');
+          } else if (payload.type === 'error') {
+            setSessionStatus('error');
+          } else if (payload.text) {
+            setSubtitle(payload.text);
+          }
+          return;
+        }
+
+        const chunk = new Uint8Array(event.data as ArrayBuffer);
+        if (chunk.length === 0) {
+          return;
+        }
+        const buffer = chunk.buffer.slice(
+          chunk.byteOffset,
+          chunk.byteOffset + chunk.byteLength,
+        );
+        void queueAudioChunk(buffer).catch((error: unknown) => {
+          setAudioError(error instanceof Error ? error.message : String(error));
+        });
+      });
+
+      socket.addEventListener('close', () => {
+        if (socketRef.current !== socket) {
+          return;
+        }
+        socketRef.current = null;
+        if (!wantsListenRef.current) {
+          return;
+        }
+        setConnectionState('reconnecting');
+        reconnectTimerRef.current = window.setTimeout(() => {
+          connectSocketRef.current?.(true);
+        }, RECONNECT_DELAY_MS);
+      });
+
+      socket.addEventListener('error', () => {
+        if (socketRef.current === socket) {
+          socket.close();
+        }
+      });
+    },
+    [queueAudioChunk],
+  );
   connectSocketRef.current = connectSocket;
 
   useEffect(() => {
@@ -197,19 +238,41 @@ export function useListenAudio() {
     connectSocket(false);
   }, [connectSocket]);
 
+  const canStartListening =
+    connectionState === 'connected' &&
+    hasSessionStatus &&
+    sessionStatus === 'live';
+
   const startListening = useCallback(async () => {
+    if (!canStartListening || isListeningRef.current) {
+      return;
+    }
     try {
       await ensureAudioContext();
       setAudioError('');
       setSessionEnded(false);
       wantsListenRef.current = true;
+      listenGenerationRef.current += 1;
+      isListeningRef.current = true;
       setIsListening(true);
-      connectSocketRef.current?.(false);
     } catch (error) {
       setAudioError(error instanceof Error ? error.message : String(error));
       setIsListening(false);
     }
-  }, [ensureAudioContext]);
+  }, [canStartListening, ensureAudioContext]);
+
+  const stopListening = useCallback(() => {
+    listenGenerationRef.current += 1;
+    isListeningRef.current = false;
+    setIsListening(false);
+    pendingPcmRef.current = null;
+    nextPlayTimeRef.current = audioContextRef.current?.currentTime ?? 0;
+    for (const source of playingSourcesRef.current) {
+      source.stop();
+      source.disconnect();
+    }
+    playingSourcesRef.current.clear();
+  }, []);
 
   const connectionLabel = {
     idle: 'Not connected',
@@ -231,6 +294,7 @@ export function useListenAudio() {
 
   return {
     audioError,
+    canStartListening,
     connectionLabel,
     connectionState,
     isListening,
@@ -238,6 +302,7 @@ export function useListenAudio() {
     sessionLabel,
     sessionStatus,
     startListening,
+    stopListening,
     subtitle,
   };
 }

@@ -1,6 +1,6 @@
 # 044 Frontend Listen 및 Settings UX 보정
 
-상태: 대기
+상태: 완료
 우선순위: 중간
 
 ## Goal
@@ -36,8 +36,8 @@ Listener의 듣기 동작과 transcript 다운로드 affordance를 명확하게 
 ### Listen 연결 및 듣기 제어
 
 - WebSocket은 기존대로 화면 진입 시 연결하고 예기치 않은 종료 시 자동 재연결한다. 버튼으로 WebSocket 연결 수명주기를 바꾸지 않는다.
-- 연결 상태가 `connected`가 아니면 듣기 시작 버튼을 비활성화한다. 이미 듣는 중이면 연결이 끊겨도 중지 동작은 가능해야 한다.
-- 연결된 상태에서 버튼을 누르면 AudioContext를 사용자 제스처로 활성화하고 듣기를 시작한다. 다시 누르면 로컬 오디오 재생을 중지한다.
+- 연결 상태가 `connected`가 아니거나 번역 세션 상태가 `live`가 아니면 듣기 시작 버튼을 비활성화한다. 이미 듣는 중이면 연결 또는 세션이 종료되어도 중지 동작은 가능해야 한다.
+- 연결과 번역 세션이 모두 활성화된 상태에서 버튼을 누르면 AudioContext를 사용자 제스처로 활성화하고 듣기를 시작한다. 다시 누르면 로컬 오디오 재생을 중지한다.
 - 중지 시 예약되거나 대기 중인 오디오가 계속 재생되지 않게 정리한다. WebSocket 연결과 기존 자막/상태 표시 및 재연결 처리는 유지한다.
 - 버튼의 accessible name과 표시 문구는 듣기 시작/중지 상태를 구분하고, 기존 연결/Translation 상태 표시와 혼동되지 않게 한다.
 
@@ -64,7 +64,7 @@ Listener의 듣기 동작과 transcript 다운로드 affordance를 명확하게 
 
 ## Acceptance criteria
 
-- WebSocket이 `idle`, `connecting`, `reconnecting`일 때 듣기 시작은 불가능하고, `connected`일 때 시작할 수 있다.
+- WebSocket이 `idle`, `connecting`, `reconnecting`이거나 번역 세션이 `live`가 아닐 때 듣기 시작은 불가능하다. WebSocket이 `connected`이고 번역 세션이 `live`일 때 시작할 수 있다.
 - 듣기 중 버튼은 중지 동작을 제공하고, 연결이 끊긴 상태에서도 중지할 수 있다. 중지 후 예약 오디오가 재생되지 않으며 자동 재연결은 계속 동작한다.
 - 내용이 없는 transcript는 다운로드할 수 없고, transcript 내용이 생기면 다운로드할 수 있다.
 - 다운로드 아이콘은 pane title 바로 옆에 있고 hover/focus 상태에서도 원형 hit area 및 접근성이 유지된다.
@@ -75,7 +75,7 @@ Listener의 듣기 동작과 transcript 다운로드 affordance를 명확하게 
 
 ## Tests
 
-- `Listen.test.tsx`: 연결 전/중/재연결 중 disabled 상태, 연결 후 시작, 시작 후 중지, 재시작 및 예기치 않은 연결 종료 후 자동 재연결을 검증한다. WebSocket과 AudioContext는 기존 mock을 사용한다.
+- `Listen.test.tsx`: 연결 전/중/재연결 중 및 세션 비활성 상태의 disabled 상태, 연결과 세션 활성 후 시작, 시작 후 중지, 재시작, stop 중 AudioContext 재개가 완료되는 이전 chunk 폐기, 예기치 않은 연결 종료 후 자동 재연결을 검증한다. WebSocket과 AudioContext는 기존 mock을 사용한다.
 - Settings save flow: pristine/dirty/reverted/invalid/saving/success 상태에서 Apply 활성 조건과 성공 후 baseline 갱신을 검증한다. Safety와 API Model draft의 독립성을 유지한다.
 - TranscriptPane: 빈 transcript는 다운로드할 수 없고 내용이 있는 경우 다운로드 함수가 호출되는지 검증한다. 스타일이나 snapshot 테스트는 추가하지 않는다.
 - `frontend`에서 `npm test -- tests/unit/Listen.test.tsx tests/unit/OperatorPrefs.test.tsx tests/unit/TranscriptPane.test.tsx` 실행 후 `npm run build`를 실행한다.

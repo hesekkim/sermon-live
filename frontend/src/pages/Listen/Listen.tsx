@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { FiChevronDown, FiGlobe, FiHeadphones, FiMoon, FiSun } from 'react-icons/fi';
+import { FiHeadphones, FiMoon, FiSun } from 'react-icons/fi';
 import styles from './Listen.module.css';
 import { useListenAudio } from './useListenAudio';
 import { useListenerPreferences } from './useListenerPreferences';
@@ -7,10 +7,12 @@ import { useListenerPreferences } from './useListenerPreferences';
 export default function Listen() {
   const {
     audioError,
+    canStartListening,
     connectionState,
     isListening,
     sessionEnded,
     sessionStatus,
+    stopListening,
     startListening,
     subtitle,
   } = useListenAudio();
@@ -36,7 +38,7 @@ export default function Listen() {
                     ? connectionState === 'connected'
                       ? 'VERBUNDEN · ÜBERSETZUNG AUS'
                       : 'ÜBERSETZUNG AUS'
-                    : 'BEREIT ZUM HÖREN';
+                    : 'WARTEN AUF SENDUNGSSTART';
   const subtitlePlaceholder =
     sessionStatus === 'live'
       ? 'Warten auf Übersetzung...'
@@ -89,12 +91,12 @@ export default function Listen() {
           <button
             type="button"
             className={styles.listenButton}
-            aria-label={isListening ? 'Listening' : 'Listen'}
-            onClick={() => void startListening()}
-            disabled={isListening}
+            aria-label={isListening ? 'Stop listening' : 'Start listening'}
+            onClick={() => (isListening ? stopListening() : void startListening())}
+            disabled={!isListening && !canStartListening}
           >
             <FiHeadphones aria-hidden="true" />
-            <span>{isListening ? 'wird angehört' : 'anhören'}</span>
+            <span>{isListening ? 'stoppen' : 'anhören'}</span>
           </button>
           <div className={styles.fontControl} role="group" aria-label="Schriftgröße">
             <button
@@ -121,10 +123,6 @@ export default function Listen() {
             >
               <span className={styles.largeA}>A</span>
             </button>
-          </div>
-          <div className={styles.languageDisplay} aria-label="Subtitle language: Deutsch">
-            <FiGlobe aria-hidden="true" />
-            <FiChevronDown aria-hidden="true" />
           </div>
         </div>
         {audioError && <p className={styles.audioError}>{audioError}</p>}

@@ -3,16 +3,32 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Listen from '../../src/pages/Listen/Listen';
 
-(globalThis as typeof globalThis & {
-  IS_REACT_ACT_ENVIRONMENT: boolean;
-}).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 class MockAudioContext {
+  static instances: MockAudioContext[] = [];
+  static resumeGates: Promise<void>[] = [];
+  static sources: Array<{
+    start: ReturnType<typeof vi.fn>;
+    stop: ReturnType<typeof vi.fn>;
+    disconnect: ReturnType<typeof vi.fn>;
+  }> = [];
+
   state: AudioContextState = 'suspended';
   currentTime = 0;
   destination = {} as AudioDestinationNode;
 
+  constructor() {
+    MockAudioContext.instances.push(this);
+  }
+
   async resume() {
+    const gate = MockAudioContext.resumeGates.shift();
+    if (gate) await gate;
     this.state = 'running';
   }
 
@@ -28,10 +44,15 @@ class MockAudioContext {
   }
 
   createBufferSource() {
-    return {
+    const source = {
       connect: vi.fn(),
       start: vi.fn(),
-    } as unknown as AudioBufferSourceNode;
+      stop: vi.fn(),
+      disconnect: vi.fn(),
+      addEventListener: vi.fn(),
+    };
+    MockAudioContext.sources.push(source);
+    return source as unknown as AudioBufferSourceNode;
   }
 }
 
@@ -58,6 +79,12 @@ class MockWebSocket extends EventTarget {
   message(payload: object) {
     this.dispatchEvent(
       new MessageEvent('message', { data: JSON.stringify(payload) }),
+    );
+  }
+
+  audio(bytes: number[]) {
+    this.dispatchEvent(
+      new MessageEvent('message', { data: new Uint8Array(bytes).buffer }),
     );
   }
 
@@ -98,6 +125,9 @@ async function click(element: HTMLElement | null) {
 
 beforeEach(() => {
   MockWebSocket.instances = [];
+  MockAudioContext.instances = [];
+  MockAudioContext.resumeGates = [];
+  MockAudioContext.sources = [];
   storedValues.clear();
   Object.defineProperty(window, 'localStorage', {
     configurable: true,
@@ -112,33 +142,73 @@ afterEach(() => {
   roots = [];
   document.body.replaceChildren();
   window.localStorage.clear();
+  MockAudioContext.resumeGates = [];
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 describe('Listener experience', () => {
-  it('unlocks audio from Listen and distinguishes translation waiting from live captions', async () => {
+  it('starts and stops local audio while keeping translation status independent', async () => {
     const container = renderListener();
     expect(MockWebSocket.instances).toHaveLength(1);
     const socket = MockWebSocket.instances[0];
+    expect(
+      container.querySelector('button[aria-label="Start listening"]'),
+    ).toBeDisabled();
     act(() => {
       socket.open();
       socket.message({ type: 'translation_status', session_status: 'off' });
     });
     expect(container).toHaveTextContent('VERBUNDEN · ÜBERSETZUNG AUS');
-    expect(container.querySelector('button[aria-label="Listen"]')).toBeEnabled();
+    expect(
+      container.querySelector('button[aria-label="Start listening"]'),
+    ).toBeDisabled();
 
-    await click(container.querySelector('button[aria-label="Listen"]'));
+    act(() =>
+      socket.message({ type: 'translation_status', session_status: 'live' }),
+    );
+    expect(
+      container.querySelector('button[aria-label="Start listening"]'),
+    ).toBeEnabled();
+
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
 
     expect(MockWebSocket.instances).toHaveLength(1);
-    expect(container).toHaveTextContent('wird angehört');
+    expect(container).toHaveTextContent('stoppen');
+    expect(
+      container.querySelector('button[aria-label="Stop listening"]'),
+    ).toBeEnabled();
 
-    act(() => {
-      socket.message({
-        type: 'translation_status',
-        session_status: 'live',
-      });
+    await act(async () => {
+      socket.audio([1, 0, 2, 0]);
+      await Promise.resolve();
     });
+    expect(MockAudioContext.sources).toHaveLength(1);
+    expect(MockAudioContext.sources[0].start).toHaveBeenCalledOnce();
+
+    await click(container.querySelector('button[aria-label="Stop listening"]'));
+    expect(MockAudioContext.sources[0].stop).toHaveBeenCalledOnce();
+    expect(MockAudioContext.sources[0].disconnect).toHaveBeenCalledOnce();
+    expect(
+      container.querySelector('button[aria-label="Start listening"]'),
+    ).toBeEnabled();
+    await act(async () => {
+      socket.audio([3, 0, 4, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(1);
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+    await act(async () => {
+      socket.audio([5, 0, 6, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(2);
+    expect(MockAudioContext.sources[1].start).toHaveBeenCalledOnce();
+
     expect(container).toHaveTextContent('WARTEN AUF ÜBERSETZUNG');
 
     act(() => socket.message({ text: 'Guten Morgen.' }));
@@ -167,13 +237,65 @@ describe('Listener experience', () => {
     expect(container).not.toHaveTextContent('SENDUNG BEENDET');
   });
 
+  it('drops a chunk whose audio-context resume completes after stop', async () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+
+    const context = MockAudioContext.instances[0];
+    context.state = 'suspended';
+    let resolveResume!: () => void;
+    MockAudioContext.resumeGates.push(
+      new Promise<void>((resolve) => {
+        resolveResume = resolve;
+      }),
+      Promise.resolve(),
+    );
+    await act(async () => {
+      socket.audio([1, 0, 2, 0]);
+      await Promise.resolve();
+    });
+
+    await click(container.querySelector('button[aria-label="Stop listening"]'));
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+    expect(
+      container.querySelector('button[aria-label="Stop listening"]'),
+    ).toBeEnabled();
+    await act(async () => {
+      resolveResume();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('button[aria-label="Stop listening"]'),
+    ).toBeEnabled();
+    expect(MockAudioContext.sources).toHaveLength(0);
+
+    MockAudioContext.resumeGates = [];
+    await act(async () => {
+      socket.audio([3, 0, 4, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(1);
+  });
+
   it('shows Translation OFF separately from a broadcast that has ended', async () => {
     vi.useFakeTimers();
     const container = renderListener();
-    await click(container.querySelector('button[aria-label="Listen"]'));
-
     act(() => {
       MockWebSocket.instances[0].open();
+    });
+
+    act(() => {
       MockWebSocket.instances[0].message({
         type: 'translation_status',
         session_status: 'off',
@@ -205,24 +327,40 @@ describe('Listener experience', () => {
   it('reconnects after a dropped listener socket and reports recovery', async () => {
     vi.useFakeTimers();
     const container = renderListener();
-    await click(container.querySelector('button[aria-label="Listen"]'));
     const firstSocket = MockWebSocket.instances[0];
+    expect(
+      container.querySelector('button[aria-label="Start listening"]'),
+    ).toBeDisabled();
     act(() => {
       firstSocket.open();
       firstSocket.message({
         type: 'translation_status',
-        session_status: 'off',
+        session_status: 'live',
       });
     });
-    expect(container).toHaveTextContent('VERBUNDEN · ÜBERSETZUNG AUS');
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
 
     act(() => firstSocket.close());
-    expect(container).toHaveTextContent('VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT');
+    expect(container).toHaveTextContent(
+      'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
+    );
+    expect(
+      container.querySelector('button[aria-label="Stop listening"]'),
+    ).toBeEnabled();
+    await click(container.querySelector('button[aria-label="Stop listening"]'));
+    expect(
+      container.querySelector('button[aria-label="Start listening"]'),
+    ).toBeDisabled();
 
     act(() => vi.advanceTimersByTime(1200));
     expect(MockWebSocket.instances).toHaveLength(2);
+    act(() => MockWebSocket.instances[1].open());
+    expect(
+      container.querySelector('button[aria-label="Start listening"]'),
+    ).toBeDisabled();
     act(() => {
-      MockWebSocket.instances[1].open();
       MockWebSocket.instances[1].message({
         type: 'translation_status',
         session_status: 'off',
@@ -234,18 +372,25 @@ describe('Listener experience', () => {
   it('persists theme and caption size for this listener', async () => {
     const container = renderListener();
 
-    await click(container.querySelector('button[aria-label="Change to dark theme"]'));
+    await click(
+      container.querySelector('button[aria-label="Change to dark theme"]'),
+    );
     await click(container.querySelector('button[aria-label="Larger text"]'));
-    expect(container.querySelector('main')).toHaveAttribute('data-theme', 'dark');
+    expect(container.querySelector('main')).toHaveAttribute(
+      'data-theme',
+      'dark',
+    );
 
     act(() => roots[0].unmount());
     roots = [];
     document.body.replaceChildren();
     const restored = renderListener();
-    expect(restored.querySelector('main')).toHaveAttribute('data-theme', 'dark');
-    expect(restored.querySelector('button[aria-label="Larger text"]')).toHaveAttribute(
-      'aria-pressed',
-      'true',
+    expect(restored.querySelector('main')).toHaveAttribute(
+      'data-theme',
+      'dark',
     );
+    expect(
+      restored.querySelector('button[aria-label="Larger text"]'),
+    ).toHaveAttribute('aria-pressed', 'true');
   });
 });

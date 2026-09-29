@@ -272,6 +272,19 @@ describe('Settings save flow', () => {
       apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
+    const interpreterButton = container.querySelector(
+      'button[aria-haspopup="listbox"]'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      interpreterButton.click();
+    });
+    const openAiOption = Array.from(document.body.querySelectorAll('[role="option"]')).find(
+      (option) => option.getAttribute('aria-label') === 'OpenAI'
+    ) as HTMLButtonElement | undefined;
+    await act(async () => {
+      openAiOption?.click();
+    });
+
     const saveButton = Array.from(container.querySelectorAll('button')).find(
       (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
     );
@@ -404,6 +417,11 @@ describe('Settings save flow', () => {
       safetyTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
+    const saveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+    ) as HTMLButtonElement;
+    expect(saveButton).toBeDisabled();
+
     const autoStopInput = container.querySelector(
       'input[name="translation_session_auto_stop_minutes"]'
     ) as HTMLInputElement;
@@ -421,6 +439,23 @@ describe('Settings save flow', () => {
     expect(warningInput).not.toBeNull();
     expect(extensionInput).not.toBeNull();
     expect(hardLimitInput).not.toBeNull();
+
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        autoStopInput,
+        '45'
+      );
+      autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(saveButton).toBeEnabled();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        autoStopInput,
+        '90'
+      );
+      autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(saveButton).toBeDisabled();
 
     await act(async () => {
       Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
@@ -444,15 +479,14 @@ describe('Settings save flow', () => {
       );
       hardLimitInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
+    expect(saveButton).toBeDisabled();
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
-    );
     await act(async () => {
       saveButton?.click();
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(saveButton).toBeDisabled();
     expect(container.textContent).toContain('자동 종료 시간은 1분 이상의 정수여야 합니다.');
 
     await act(async () => {
@@ -461,8 +495,9 @@ describe('Settings save flow', () => {
         '45'
       );
       autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
-      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
+    expect(saveButton).toBeEnabled();
+    await act(async () => saveButton?.click());
 
     const putCall = fetchMock.mock.calls.find(
       ([url, init]) => url === '/api/v1/operator/settings' && (init as RequestInit | undefined)?.method === 'PUT'
@@ -480,10 +515,74 @@ describe('Settings save flow', () => {
     expect((putCall?.[1] as RequestInit | undefined)?.body).toContain(
       '"translation_session_hard_limit_minutes":90'
     );
+    expect(saveButton).toBeDisabled();
 
     await act(async () => {
       root.unmount();
     });
+    container.remove();
+  });
+
+  it('returns API Model Apply to pristine when a temporary key is cleared', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        interpreter: 'echo',
+        audio_device: '0',
+        translation_session_auto_stop_minutes: 90,
+        translation_session_warning_minutes: 5,
+        translation_session_extension_minutes: 10,
+        translation_session_hard_limit_minutes: 120,
+        openai_key_set: false,
+      }),
+    }));
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>
+      );
+      await Promise.resolve();
+    });
+
+    const apiTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (tab) => tab.textContent?.includes('API 모델') || tab.textContent?.includes('API Model')
+    );
+    await act(async () => apiTab?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+    const applyButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? '')
+    ) as HTMLButtonElement;
+    const keyInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    expect(applyButton).toBeDisabled();
+
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        keyInput,
+        'temporary-key'
+      );
+      keyInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(applyButton).toBeEnabled();
+
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        keyInput,
+        ''
+      );
+      keyInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(applyButton).toBeDisabled();
+
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -556,6 +655,12 @@ describe('Settings save flow', () => {
     installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
     const fetchMock = vi
       .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { index: 0, name: 'Built-in microphone', input_channels: 1, default_sample_rate: 44100 },
+        ],
+      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
