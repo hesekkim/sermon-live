@@ -20,14 +20,14 @@
 ### 기존 후속 기능
 
 3. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
-4. `019-backend-glossary-model.md` — Global + Today's Sermon Glossary 최소 모델
-5. `021-frontend-glossary-ui.md` — Settings의 Global Glossary와 Sermon의 Today's Glossary UI
 
 ## 보류 (`hold/`)
 
-1. `020-backend-glossary-injection.md` — OpenAI 공식 Glossary 지원 여부 확인 (미지원으로 보류)
-2. `022-backend-runtime-instruction-wiring.md` — runtime context 지원 확인 후 주입 경계 구현 (현재 보류)
-3. `023-backend-sermon-session-runtime-context.md` — 실제 Sermon Session 필드 기반 context (현재 보류)
+1. `019-backend-glossary-model.md` — Global + Today's Sermon Glossary 최소 모델
+2. `020-backend-glossary-injection.md` — OpenAI 공식 Glossary 지원 여부 확인 (미지원으로 보류)
+3. `021-frontend-glossary-ui.md` — Settings의 Global Glossary와 Sermon의 Today's Glossary UI
+4. `022-backend-runtime-instruction-wiring.md` — runtime context 지원 확인 후 주입 경계 구현 (현재 보류)
+5. `023-backend-sermon-session-runtime-context.md` — 실제 Sermon Session 필드 기반 context (현재 보류)
 
 ## 완료 및 폐기 기록 (`done/`)
 

@@ -1,6 +1,6 @@
 # 021 Glossary UI
 
-상태: 대기
+상태: 보류
 
 ## Goal
 
