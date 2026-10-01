@@ -15,7 +15,6 @@
 ### 지금
 
 1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증 (052 완료 후)
-2. `056-frontend-listen-broadcast-transcript-ux.md` — Listen 자막 보존·강조와 Broadcast transcript 시작/표시/스크롤 UX 개선
 
 ## 보류 (`hold/`)
 
@@ -75,6 +74,8 @@
 46. `053-backend-luther1912-scripture-corpus.md` — Luther 1912 본문 리소스와 빠른 메모리 조회
 47. `054-backend-german-scripture-reference-events.md` — 독일어 장절 참조 감지와 Listener 정본 이벤트
 48. `055-frontend-listener-scripture-popup.md` — Listener 번역 아래 Luther 1912 구절 표시
+49. `056-frontend-listen-broadcast-transcript-ux.md — Listen 자막 보존·강조와 Broadcast transcript 시작/표시/스크롤 UX 개선`
+50. `057-frontend-listen-autoscroll-scripture.md` — Listen 자막 자동 스크롤, 성경 팝업 재등장 및 위치, 서비스 제목 개선
 
 ## 결정 사항
 

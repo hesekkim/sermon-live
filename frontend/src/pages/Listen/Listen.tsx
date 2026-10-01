@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { FiHeadphones, FiMoon, FiSun } from 'react-icons/fi';
 import styles from './Listen.module.css';
 import { ScripturePopup } from './ScripturePopup/ScripturePopup';
@@ -6,6 +6,7 @@ import { useListenAudio, type ScripturePassage } from './useListenAudio';
 import { useListenerPreferences } from './useListenerPreferences';
 
 export default function Listen() {
+  const latestSubtitleRef = useRef<HTMLParagraphElement>(null);
   const {
     audioError,
     canStartListening,
@@ -22,6 +23,13 @@ export default function Listen() {
   } = useListenAudio();
   const { fontSize, setFontSize, setTheme, theme } = useListenerPreferences();
   const [scriptureCards, setScriptureCards] = useState<ScripturePassage[]>([]);
+  useEffect(() => {
+    if (subtitleLines.length === 0) return;
+    latestSubtitleRef.current?.scrollIntoView?.({
+      behavior: 'smooth',
+      block: 'end',
+    });
+  }, [subtitleLines]);
   useEffect(() => {
     if (sessionStatus === 'starting') setScriptureCards([]);
   }, [sessionStatus]);
@@ -75,7 +83,7 @@ export default function Listen() {
   return (
     <main className={styles.page} data-theme={theme}>
       <header className={styles.header}>
-        <h1>Demo</h1>
+        <h1>Seanuree Live</h1>
         {sessionEnded ? null : (
           <div
             className={`${styles.sessionBadge} ${badgeStateClass}`}
@@ -107,6 +115,7 @@ export default function Listen() {
           subtitleLines.map((line, index) => (
             <p
               key={`${index}-${line.slice(0, 24)}`}
+              ref={index === subtitleLines.length - 1 ? latestSubtitleRef : null}
               className={`${styles.subtitle} ${
                 index === subtitleLines.length - 1
                   ? styles.subtitleCurrent

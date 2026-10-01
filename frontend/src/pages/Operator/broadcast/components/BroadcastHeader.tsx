@@ -250,7 +250,7 @@ export default function BroadcastHeader({
                 <dd
                   title={`${audioDroppedChunks} / ${audioDroppedDurationSeconds.toFixed(1)}`}
                 >
-                  {labels.audioQueueLoss
+                  {labels.audioQueueLossDetails
                     .replace('{chunks}', String(audioDroppedChunks))
                     .replace(
                       '{seconds}',

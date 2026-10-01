@@ -143,6 +143,7 @@
 .subtitleCurrent {
   color: var(--listener-subtitle-highlight);
   font-weight: 600;
+  scroll-margin-bottom: 124px;
 }
 
 .footer {

@@ -148,8 +148,49 @@ afterEach(() => {
 });
 
 describe('Listener experience', () => {
+  it('scrolls the latest subtitle into view as its text grows', () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+      socket.message({ text: 'Guten ' });
+    });
+
+    const scrollIntoView = vi.fn();
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'scrollIntoView',
+    );
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    try {
+      act(() => socket.message({ text: 'Morgen' }));
+
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'end',
+      });
+      expect(container).toHaveTextContent('Guten Morgen');
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          'scrollIntoView',
+          originalDescriptor,
+        );
+      } else {
+        delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+      }
+    }
+  });
+
   it('does not render a scripture card before receiving a scripture event', () => {
     const container = renderListener();
+
+    expect(container.querySelector('h1')).toHaveTextContent('Seanuree Live');
 
     expect(
       container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
@@ -257,7 +298,106 @@ describe('Listener experience', () => {
       '[aria-label^="Bibeltext abdunkeln"]',
     );
     expect(revealedCard).toHaveTextContent('First passage.');
-    expect(container).not.toHaveTextContent('Zum Schließen nach links wischen');
+    expect(container).toHaveTextContent('Zum Schließen nach links wischen');
+  });
+
+  it('shows a new scripture popup after the last card is swiped away', () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+      socket.message({
+        type: 'scripture',
+        reference: 'Römer 3,28',
+        version: 'Lutherbibel 1912',
+        verses: [{ verse: 28, text: 'First passage.' }],
+      });
+    });
+
+    const firstCard = container.querySelector(
+      '[aria-label^="Bibeltext abdunkeln"]',
+    );
+    const pointerEvent = (type: string, clientX: number) => {
+      const event = new Event(type, { bubbles: true });
+      Object.assign(event, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        clientX,
+        clientY: 40,
+      });
+      return event;
+    };
+    act(() => firstCard?.dispatchEvent(pointerEvent('pointerdown', 350)));
+    act(() => firstCard?.dispatchEvent(pointerEvent('pointerup', 100)));
+    act(() => vi.advanceTimersByTime(260));
+    expect(
+      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+    ).toBeNull();
+
+    act(() => {
+      socket.message({
+        type: 'scripture',
+        reference: 'Epheser 1,2',
+        version: 'Lutherbibel 1912',
+        verses: [{ verse: 2, text: 'Next passage.' }],
+      });
+    });
+
+    expect(
+      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+    ).toHaveTextContent('Next passage.');
+    expect(container).toHaveTextContent('Zum Schließen nach links wischen');
+  });
+
+  it('keeps a new scripture when it arrives during the dismiss animation', () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+      socket.message({
+        type: 'scripture',
+        reference: 'Römer 3,28',
+        version: 'Lutherbibel 1912',
+        verses: [{ verse: 28, text: 'First passage.' }],
+      });
+    });
+
+    const firstCard = container.querySelector(
+      '[aria-label^="Bibeltext abdunkeln"]',
+    );
+    const pointerEvent = (type: string, clientX: number) => {
+      const event = new Event(type, { bubbles: true });
+      Object.assign(event, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        clientX,
+        clientY: 40,
+      });
+      return event;
+    };
+    act(() => firstCard?.dispatchEvent(pointerEvent('pointerdown', 350)));
+    act(() => firstCard?.dispatchEvent(pointerEvent('pointerup', 100)));
+
+    act(() => {
+      socket.message({
+        type: 'scripture',
+        reference: 'Epheser 1,2',
+        version: 'Lutherbibel 1912',
+        verses: [{ verse: 2, text: 'Next passage.' }],
+      });
+    });
+    act(() => vi.advanceTimersByTime(260));
+
+    expect(
+      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+    ).toHaveTextContent('Next passage.');
+    expect(container).toHaveTextContent('Zum Schließen nach links wischen');
   });
 
   it('starts and stops local audio while keeping translation status independent', async () => {

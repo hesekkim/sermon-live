@@ -1,7 +1,7 @@
 .scripturePopup {
   position: fixed;
   z-index: 3;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  top: calc(104px + env(safe-area-inset-top, 0px));
   left: 50%;
   display: flex;
   width: min(calc(100% - 24px), 830px);

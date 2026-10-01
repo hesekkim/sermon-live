@@ -22,7 +22,6 @@ export function useScripturePopup(
     x: number;
     y: number;
   } | null>(null);
-  const scriptureSwipeHintShown = useRef(false);
   const scriptureDismissTimer = useRef<number | null>(null);
   const topScripture = scriptures[0];
 
@@ -60,10 +59,8 @@ export function useScripturePopup(
   }, [topScripture]);
 
   useEffect(() => {
-    if (scriptures.length === 0 || scriptureSwipeHintShown.current) return;
-    scriptureSwipeHintShown.current = true;
-    setShowScriptureSwipeHint(true);
-  }, [scriptures.length > 0]);
+    setShowScriptureSwipeHint(Boolean(topScripture));
+  }, [topScripture]);
 
   useEffect(() => {
     if (!showScriptureSwipeHint) return;
