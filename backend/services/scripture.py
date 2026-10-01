@@ -94,14 +94,14 @@ _BOOK_PATTERN = "|".join(
 
 _NUMBER_TOKEN = r"(?:\d{1,3}|[A-Za-zÄÖÜäöüß]+(?:und[A-Za-zÄÖÜäöüß]+)?)"
 _REFERENCE_PATTERN = re.compile(
-    rf"(?<![\w])(?P<book>{_BOOK_PATTERN})\s*"
+    rf"(?<![\w])(?P<book>{_BOOK_PATTERN})\s*,?\s*(?:kapitel\s+)?"
     rf"(?P<chapter>{_NUMBER_TOKEN})\s*[,.:]\s*"
     rf"(?:(?:die\s+)?verse?\s+(?P<plural_start>{_NUMBER_TOKEN})"
     rf"(?:\s+(?:und|bis)\s+(?P<plural_end>{_NUMBER_TOKEN}))?"
     rf"|vers?\s*(?P<single_start>{_NUMBER_TOKEN})"
     rf"(?:\s+(?:und|bis)\s+(?P<single_end>{_NUMBER_TOKEN}))?"
     rf"|(?P<bare_start>\d{{1,3}})"
-    rf"(?:\s*[-–]\s*(?P<bare_end>\d{{1,3}}))?)"
+    rf"(?:\s*(?:[-–]|\b(?:und|bis)\b)\s*(?P<bare_end>\d{{1,3}}))?)"
     rf"(?!\w)",
     re.IGNORECASE,
 )

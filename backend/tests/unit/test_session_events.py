@@ -149,18 +149,37 @@ async def test_scripture_reference_is_broadcast_separately_from_translation(tmp_
         [
             InterpreterEvent(kind="output_text", text="Wir lesen Römer3, Vers"),
             InterpreterEvent(kind="output_text", text="28."),
+            InterpreterEvent(
+                kind="output_text",
+                text="Jesaja, Kapitel 41, Vers 10: Fürchte dich nicht.",
+            ),
+            InterpreterEvent(
+                kind="output_text",
+                text="Philipper 4,6 und 7, werde ich lesen.",
+            ),
             InterpreterEvent(kind="input_text", text="참조는 입력 transcript에서 찾지 않음"),
         ]
     )
 
     await service._pump_events(interpreter)
 
-    assert hub.listen_text == ["Wir lesen Römer3, Vers", "28."]
-    assert len(hub.scripture) == 1
+    assert hub.listen_text == [
+        "Wir lesen Römer3, Vers",
+        "28.",
+        "Jesaja, Kapitel 41, Vers 10: Fürchte dich nicht.",
+        "Philipper 4,6 und 7, werde ich lesen.",
+    ]
+    assert len(hub.scripture) == 3
     assert hub.scripture[0]["type"] == "scripture"
     assert hub.scripture[0]["reference"] == "Römer 3,28"
     assert hub.scripture[0]["version"] == "Lutherbibel 1912"
     assert [verse["verse"] for verse in hub.scripture[0]["verses"]] == [28]
+    assert [event["reference"] for event in hub.scripture[1:]] == [
+        "Jesaja 41,10",
+        "Philipper 4,6-7",
+    ]
+    assert [verse["verse"] for verse in hub.scripture[1]["verses"]] == [10]
+    assert [verse["verse"] for verse in hub.scripture[2]["verses"]] == [6, 7]
 
 
 @pytest.mark.asyncio

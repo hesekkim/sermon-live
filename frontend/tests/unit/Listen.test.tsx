@@ -133,6 +133,7 @@ beforeEach(() => {
     configurable: true,
     value: localStorageMock,
   });
+  vi.stubGlobal('scrollTo', vi.fn());
   vi.stubGlobal('WebSocket', MockWebSocket);
   vi.stubGlobal('AudioContext', MockAudioContext);
 });
@@ -148,7 +149,7 @@ afterEach(() => {
 });
 
 describe('Listener experience', () => {
-  it('scrolls the latest subtitle into view as its text grows', () => {
+  it('scrolls the document to its bottom as subtitle text arrives', () => {
     const container = renderListener();
     const socket = MockWebSocket.instances[0];
     act(() => {
@@ -157,32 +158,83 @@ describe('Listener experience', () => {
       socket.message({ text: 'Guten ' });
     });
 
-    const scrollIntoView = vi.fn();
-    const originalDescriptor = Object.getOwnPropertyDescriptor(
-      HTMLElement.prototype,
-      'scrollIntoView',
+    const scrollTo = vi.fn();
+    const originalScrollTo = Object.getOwnPropertyDescriptor(window, 'scrollTo');
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(
+      document.documentElement,
+      'scrollHeight',
     );
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    Object.defineProperty(window, 'scrollTo', {
       configurable: true,
-      value: scrollIntoView,
+      value: scrollTo,
+    });
+    Object.defineProperty(document.documentElement, 'scrollHeight', {
+      configurable: true,
+      value: 1600,
     });
     try {
       act(() => socket.message({ text: 'Morgen' }));
 
-      expect(scrollIntoView).toHaveBeenCalledWith({
-        behavior: 'smooth',
-        block: 'end',
-      });
+      expect(scrollTo).toHaveBeenLastCalledWith(0, 1600);
       expect(container).toHaveTextContent('Guten Morgen');
     } finally {
-      if (originalDescriptor) {
+      if (originalScrollTo) {
+        Object.defineProperty(window, 'scrollTo', originalScrollTo);
+      } else {
+        delete (window as Partial<Window>).scrollTo;
+      }
+      if (originalScrollHeight) {
         Object.defineProperty(
-          HTMLElement.prototype,
-          'scrollIntoView',
-          originalDescriptor,
+          document.documentElement,
+          'scrollHeight',
+          originalScrollHeight,
         );
       } else {
-        delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+        Reflect.deleteProperty(document.documentElement, 'scrollHeight');
+      }
+    }
+  });
+
+  it('keeps the screen awake while listening and releases the lock on stop', async () => {
+    const originalWakeLock = Object.getOwnPropertyDescriptor(
+      navigator,
+      'wakeLock',
+    );
+    const release = vi.fn(async () => undefined);
+    const wakeLock = {
+      released: false,
+      release,
+      addEventListener: vi.fn(),
+    };
+    const request = vi.fn(async () => wakeLock);
+    Object.defineProperty(navigator, 'wakeLock', {
+      configurable: true,
+      value: { request },
+    });
+
+    try {
+      const container = renderListener();
+      const socket = MockWebSocket.instances[0];
+      act(() => {
+        socket.open();
+        socket.message({ type: 'translation_status', session_status: 'live' });
+      });
+      await click(
+        container.querySelector('button[aria-label="Start listening"]'),
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(request).toHaveBeenCalledWith('screen');
+
+      await click(container.querySelector('button[aria-label="Stop listening"]'));
+      expect(release).toHaveBeenCalledOnce();
+    } finally {
+      if (originalWakeLock) {
+        Object.defineProperty(navigator, 'wakeLock', originalWakeLock);
+      } else {
+        Reflect.deleteProperty(navigator, 'wakeLock');
       }
     }
   });

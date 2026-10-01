@@ -54,6 +54,8 @@ def test_real_luther_corpus_contains_reported_references():
         ScriptureReference("ROM", 3, 28, 28),
         ScriptureReference("JHN", 3, 16, 16),
         ScriptureReference("ROM", 5, 8, 8),
+        ScriptureReference("ISA", 41, 10, 10),
+        ScriptureReference("PHP", 4, 6, 7),
     ):
         assert corpus.lookup(reference)
 
@@ -77,6 +79,34 @@ def test_stream_detects_numeric_reference_without_space():
 
     assert [reference for _, reference in detected] == [
         ScriptureReference("JHN", 3, 16, 16)
+    ]
+
+
+def test_stream_detects_references_with_explicit_chapter_wording():
+    detector = GermanScriptureReferenceStream()
+
+    isaiah = detector.feed(
+        "Jesaja, Kapitel 41, Vers 10: Fürchte dich nicht, denn ich bin bei dir."
+    )
+    philippians = detector.feed(
+        "Philipper, Kapitel 4, die Verse 6 und 7: Sorgt euch um nichts."
+    )
+
+    assert [reference for _, reference in isaiah] == [
+        ScriptureReference("ISA", 41, 10, 10)
+    ]
+    assert [reference for _, reference in philippians] == [
+        ScriptureReference("PHP", 4, 6, 7)
+    ]
+
+
+def test_stream_detects_numeric_verse_range_joined_by_und():
+    detector = GermanScriptureReferenceStream()
+
+    detected = detector.feed("Philipper 4,6 und 7, werde ich lesen.")
+
+    assert [reference for _, reference in detected] == [
+        ScriptureReference("PHP", 4, 6, 7)
     ]
 
 

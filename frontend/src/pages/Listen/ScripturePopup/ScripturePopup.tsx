@@ -30,6 +30,18 @@ export function ScripturePopup({
 
   return (
     <div className={styles.scripturePopup}>
+      <p
+        className={`${styles.scriptureSwipeHint} ${
+          showScriptureSwipeHint ? '' : styles.scriptureSwipeHintHidden
+        }`}
+        aria-hidden={!showScriptureSwipeHint}
+      >
+        {showScriptureSwipeHint ? (
+          <span className={styles.scriptureSwipeHintText}>
+            Zum Schließen nach links wischen
+          </span>
+        ) : null}
+      </p>
       <div className={styles.scriptureCardStack}>
         {scriptures.map((scripture, index) => {
           const isInteractive = index === 0;
@@ -96,18 +108,6 @@ export function ScripturePopup({
           );
         })}
       </div>
-      <p
-        className={`${styles.scriptureSwipeHint} ${
-          showScriptureSwipeHint ? '' : styles.scriptureSwipeHintHidden
-        }`}
-        aria-hidden={!showScriptureSwipeHint}
-      >
-        {showScriptureSwipeHint ? (
-          <span className={styles.scriptureSwipeHintText}>
-            Zum Schließen nach links wischen
-          </span>
-        ) : null}
-      </p>
     </div>
   );
 }

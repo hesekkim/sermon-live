@@ -1,7 +1,7 @@
 .scripturePopup {
   position: fixed;
   z-index: 3;
-  top: calc(104px + env(safe-area-inset-top, 0px));
+  top: calc(12px + env(safe-area-inset-top, 0px));
   left: 50%;
   display: flex;
   width: min(calc(100% - 24px), 830px);
@@ -49,7 +49,7 @@
   border: 1px solid var(--listener-line);
   background: var(--listener-scripture-background);
   box-shadow: 0 5px 18px rgb(23 25 22 / 12%);
-  transform: translateY(calc(-1 * var(--scripture-stack-offset, 0px)));
+  transform: translateY(var(--scripture-stack-offset, 0px));
   pointer-events: none;
 }
 
@@ -67,11 +67,11 @@
 
 .scriptureSwipeHint {
   position: relative;
-  z-index: 5;
+  z-index: 7;
   max-width: calc(100% - 32px);
   min-height: calc(1.35em + 10px);
   box-sizing: border-box;
-  margin: 8px 0 0;
+  margin: 0 0 8px;
   padding: 5px 10px 3px;
   border: 1px solid var(--listener-scripture-hint-line);
   border-radius: 6px;
