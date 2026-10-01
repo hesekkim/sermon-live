@@ -1,7 +1,8 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { FiHeadphones, FiMoon, FiSun } from 'react-icons/fi';
 import styles from './Listen.module.css';
-import { useListenAudio } from './useListenAudio';
+import { ScripturePopup } from './ScripturePopup/ScripturePopup';
+import { useListenAudio, type ScripturePassage } from './useListenAudio';
 import { useListenerPreferences } from './useListenerPreferences';
 
 export default function Listen() {
@@ -9,14 +10,32 @@ export default function Listen() {
     audioError,
     canStartListening,
     connectionState,
+    dismissScripture,
     isListening,
     sessionEnded,
     sessionStatus,
+    scripture,
     stopListening,
     startListening,
     subtitle,
   } = useListenAudio();
   const { fontSize, setFontSize, setTheme, theme } = useListenerPreferences();
+  const [scriptureCards, setScriptureCards] = useState<ScripturePassage[]>([]);
+  useEffect(() => {
+    if (sessionStatus === 'starting') setScriptureCards([]);
+  }, [sessionStatus]);
+  useEffect(() => {
+    if (scripture) setScriptureCards((current) => [scripture, ...current]);
+  }, [scripture]);
+  const scriptureCardsForDisplay = scriptureCards;
+  const dismissTopScriptureCard = () => {
+    dismissScripture();
+    setScriptureCards((current) => current.slice(1));
+  };
+  const dismissAllScriptureCards = () => {
+    dismissScripture();
+    setScriptureCards([]);
+  };
   const statusLabel =
     connectionState === 'connecting'
       ? 'VERBINDET...'
@@ -67,16 +86,26 @@ export default function Listen() {
         <button
           type="button"
           className={styles.themeButton}
-          aria-label={theme === 'light' ? 'Change to dark theme' : 'Change to light theme'}
+          aria-label={
+            theme === 'light' ? 'Change to dark theme' : 'Change to light theme'
+          }
           onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         >
-          {theme === 'light' ? <FiMoon aria-hidden="true" /> : <FiSun aria-hidden="true" />}
+          {theme === 'light' ? (
+            <FiMoon aria-hidden="true" />
+          ) : (
+            <FiSun aria-hidden="true" />
+          )}
         </button>
       </header>
 
       <section className={styles.transcript} aria-label="German translation">
         <p
-          className={subtitle ? styles.subtitle : `${styles.subtitle} ${styles.placeholder}`}
+          className={
+            subtitle
+              ? styles.subtitle
+              : `${styles.subtitle} ${styles.placeholder}`
+          }
           style={{ '--subtitle-font-size': `${fontSize}px` } as CSSProperties}
           aria-live="polite"
         >
@@ -84,6 +113,13 @@ export default function Listen() {
             ? 'Die Sendung ist beendet.'
             : subtitle || subtitlePlaceholder}
         </p>
+        {scriptureCardsForDisplay.length > 0 ? (
+          <ScripturePopup
+            scriptures={scriptureCardsForDisplay}
+            onDismiss={dismissTopScriptureCard}
+            onDismissAll={dismissAllScriptureCards}
+          />
+        ) : null}
       </section>
 
       <footer className={styles.footer}>
@@ -92,13 +128,19 @@ export default function Listen() {
             type="button"
             className={styles.listenButton}
             aria-label={isListening ? 'Stop listening' : 'Start listening'}
-            onClick={() => (isListening ? stopListening() : void startListening())}
+            onClick={() =>
+              isListening ? stopListening() : void startListening()
+            }
             disabled={!isListening && !canStartListening}
           >
             <FiHeadphones aria-hidden="true" />
             <span>{isListening ? 'stoppen' : 'anhören'}</span>
           </button>
-          <div className={styles.fontControl} role="group" aria-label="Schriftgröße">
+          <div
+            className={styles.fontControl}
+            role="group"
+            aria-label="Schriftgröße"
+          >
             <button
               type="button"
               aria-label="Smaller text"

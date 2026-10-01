@@ -71,6 +71,9 @@
 43. `050-operator-websocket-audio-isolation.md` — 운영자 WebSocket 지연 격리와 재연결 상태 처리
 44. `051-openai-live-readiness-audit.md` — OpenAI 실장 전 전체 구현 점검 및 핵심 하드닝
 45. `052-optional-openai-input-transcript.md` — OpenAI 입력 transcript 선택 설정과 비용 절감 기본값
+46. `053-backend-luther1912-scripture-corpus.md` — Luther 1912 본문 리소스와 빠른 메모리 조회
+47. `054-backend-german-scripture-reference-events.md` — 독일어 장절 참조 감지와 Listener 정본 이벤트
+48. `055-frontend-listener-scripture-popup.md` — Listener 번역 아래 Luther 1912 구절 표시
 
 ## 결정 사항
 

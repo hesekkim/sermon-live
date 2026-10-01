@@ -1,0 +1,154 @@
+.scripturePopup {
+  position: fixed;
+  z-index: 3;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  display: flex;
+  width: min(calc(100% - 24px), 830px);
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.scriptureCardStack {
+  position: relative;
+  z-index: 6;
+  width: 100%;
+}
+
+.scripture {
+  position: relative;
+  isolation: isolate;
+  z-index: var(--scripture-stack-z, 1);
+  width: 100%;
+  max-height: min(30vh, 240px);
+  overflow-y: auto;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  border: 1px solid var(--listener-line);
+  border-left: 3px solid var(--listener-scripture-accent);
+  border-radius: 6px;
+  background: var(--listener-scripture-background);
+  box-shadow: 0 8px 28px rgb(23 25 22 / 18%);
+  cursor: pointer;
+  transform: translateX(var(--scripture-drag-x, 0px));
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 220ms ease,
+    background-color 180ms ease,
+    filter 180ms ease;
+  touch-action: pan-y;
+  pointer-events: auto;
+}
+
+.scriptureBack {
+  position: absolute;
+  z-index: var(--scripture-stack-z, 1);
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid var(--listener-line);
+  background: var(--listener-scripture-background);
+  box-shadow: 0 5px 18px rgb(23 25 22 / 12%);
+  transform: translateY(calc(-1 * var(--scripture-stack-offset, 0px)));
+  pointer-events: none;
+}
+
+.scriptureDimmed {
+  background: var(--listener-scripture-dimmed-background);
+}
+
+.scriptureDragging {
+  transition: none;
+}
+
+.scriptureSwipingOut {
+  opacity: 0;
+}
+
+.scriptureSwipeHint {
+  position: relative;
+  z-index: 5;
+  max-width: calc(100% - 32px);
+  min-height: calc(1.35em + 10px);
+  box-sizing: border-box;
+  margin: 8px 0 0;
+  padding: 5px 10px 3px;
+  border: 1px solid var(--listener-scripture-hint-line);
+  border-radius: 6px;
+  background: var(--listener-scripture-hint-background);
+  color: var(--listener-scripture-hint-ink);
+  font-family: sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.scriptureSwipeHintHidden {
+  visibility: hidden;
+}
+
+.scriptureSwipeHintText {
+  animation: scripture-hint-pulse 850ms ease-in-out 4;
+}
+
+@keyframes scripture-hint-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.scripture:focus-visible {
+  outline: 2px solid var(--listener-scripture-accent);
+  outline-offset: 3px;
+}
+
+.scriptureHeader {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-bottom: 7px;
+}
+
+.scriptureReference {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.scriptureVersion {
+  color: var(--listener-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.scriptureVerses {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.scriptureVerse {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.verseNumber {
+  margin-right: 5px;
+  color: var(--listener-muted);
+  font-family: sans-serif;
+  font-size: 10px;
+  vertical-align: baseline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scripture,
+  .scriptureBack,
+  .scriptureSwipeHintText {
+    transition: none;
+    animation: none;
+  }
+}

@@ -19,13 +19,56 @@ type SessionStatus =
   | 'stopping'
   | 'error';
 
+interface ScriptureVersePayload {
+  verse?: number;
+  text?: string;
+}
+
+export interface ScripturePassage {
+  reference: string;
+  version: string;
+  verses: { verse: number; text: string }[];
+}
+
 interface SessionEvent {
   type?: string;
   text?: string;
+  reference?: string;
+  version?: string;
+  verses?: ScriptureVersePayload[];
   sampleRate?: number;
   session_status?: SessionStatus;
   last_termination_reason?: string | null;
   reason?: string;
+}
+
+function parseScripturePayload(payload: SessionEvent): ScripturePassage | null {
+  if (
+    typeof payload.reference !== 'string' ||
+    typeof payload.version !== 'string' ||
+    !Array.isArray(payload.verses) ||
+    payload.verses.length === 0
+  ) {
+    return null;
+  }
+
+  const verses: ScripturePassage['verses'] = [];
+  for (const verse of payload.verses) {
+    if (
+      typeof verse.verse !== 'number' ||
+      !Number.isInteger(verse.verse) ||
+      typeof verse.text !== 'string'
+    ) {
+      return null;
+    }
+    verses.push({ verse: verse.verse, text: verse.text });
+  }
+
+  return {
+    reference: payload.reference,
+    version: payload.version,
+    verses,
+  };
 }
 
 export function useListenAudio() {
@@ -35,6 +78,7 @@ export function useListenAudio() {
   const [hasSessionStatus, setHasSessionStatus] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [subtitle, setSubtitle] = useState('');
+  const [scripture, setScripture] = useState<ScripturePassage | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [audioError, setAudioError] = useState('');
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -140,7 +184,10 @@ export function useListenAudio() {
       MAX_SCHEDULED_AUDIO_SECONDS
     ) {
       let activeAudioEnd = context.currentTime;
-      for (const [scheduledSource, scheduledAudio] of playingSourcesRef.current) {
+      for (const [
+        scheduledSource,
+        scheduledAudio,
+      ] of playingSourcesRef.current) {
         if (scheduledAudio.startAt > context.currentTime) {
           scheduledSource.stop();
           scheduledSource.disconnect();
@@ -208,6 +255,7 @@ export function useListenAudio() {
             setSessionStatus(payload.session_status);
             if (payload.session_status === 'starting') {
               setSubtitle('');
+              setScripture(null);
             }
             setSessionEnded(
               payload.session_status === 'off' &&
@@ -221,15 +269,16 @@ export function useListenAudio() {
             setSessionStatus(endedWithError ? 'error' : 'off');
           } else if (payload.type === 'error') {
             setSessionStatus('error');
+          } else if (payload.type === 'scripture') {
+            const passage = parseScripturePayload(payload);
+            if (passage) setScripture(passage);
           } else if (payload.text) {
             setSubtitle((current) => {
               const nextText = payload.text ?? '';
               const startsNewSentence = /[.!?]\s*["'”’»›)\]}]*\s*$/.test(
                 current,
               );
-              const isClosingPunctuation = /^[\s"'”’»›)\]}]+$/.test(
-                nextText,
-              );
+              const isClosingPunctuation = /^[\s"'”’»›)\]}]+$/.test(nextText);
               return startsNewSentence && !isClosingPunctuation
                 ? nextText.trimStart()
                 : current + nextText;
@@ -316,6 +365,10 @@ export function useListenAudio() {
     playingSourcesRef.current.clear();
   }, []);
 
+  const dismissScripture = useCallback(() => {
+    setScripture(null);
+  }, []);
+
   const connectionLabel = {
     idle: 'Not connected',
     connecting: 'Connecting',
@@ -339,10 +392,12 @@ export function useListenAudio() {
     canStartListening,
     connectionLabel,
     connectionState,
+    dismissScripture,
     isListening,
     sessionEnded,
     sessionLabel,
     sessionStatus,
+    scripture,
     startListening,
     stopListening,
     subtitle,

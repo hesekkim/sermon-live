@@ -14,6 +14,7 @@ class FakeHub:
         self.listen_text: list[str] = []
         self.operator: list[dict[str, object]] = []
         self.audio: list[tuple[bytes, int]] = []
+        self.scripture: list[dict[str, object]] = []
         self.listener_count = 0
 
     async def broadcast_audio(self, pcm: bytes, sample_rate: int) -> None:
@@ -21,6 +22,9 @@ class FakeHub:
 
     async def broadcast_text(self, text: str) -> None:
         self.listen_text.append(text)
+
+    async def broadcast_scripture(self, payload: dict[str, object]) -> None:
+        self.scripture.append(payload)
 
     async def broadcast_operator(self, payload: dict[str, object]) -> None:
         self.operator.append(payload)
@@ -134,6 +138,29 @@ async def test_active_session_routes_interpreter_events(tmp_path):
     assert hub.operator[0] == {"type": "transcript", "role": "input", "text": "안녕하세요"}
     assert hub.operator[1]["milliseconds"] >= 275
     assert hub.operator[2] == {"type": "transcript", "role": "output", "text": "Guten Tag"}
+
+
+@pytest.mark.asyncio
+async def test_scripture_reference_is_broadcast_separately_from_translation(tmp_path):
+    hub = FakeHub()
+    store = OperatorSettingsStore(tmp_path / "scripture.json")
+    service = SessionService(Settings(interpreter="echo"), hub, FakeAudioRuntime(), store)
+    interpreter = FakeInterpreter(
+        [
+            InterpreterEvent(kind="output_text", text="Wir lesen Römer3, Vers"),
+            InterpreterEvent(kind="output_text", text="28."),
+            InterpreterEvent(kind="input_text", text="참조는 입력 transcript에서 찾지 않음"),
+        ]
+    )
+
+    await service._pump_events(interpreter)
+
+    assert hub.listen_text == ["Wir lesen Römer3, Vers", "28."]
+    assert len(hub.scripture) == 1
+    assert hub.scripture[0]["type"] == "scripture"
+    assert hub.scripture[0]["reference"] == "Römer 3,28"
+    assert hub.scripture[0]["version"] == "Lutherbibel 1912"
+    assert [verse["verse"] for verse in hub.scripture[0]["verses"]] == [28]
 
 
 @pytest.mark.asyncio

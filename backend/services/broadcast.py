@@ -75,6 +75,9 @@ class BroadcastHub:
     async def broadcast_text(self, text: str) -> None:
         await self._broadcast_listen_json({"text": text})
 
+    async def broadcast_scripture(self, payload: dict[str, Any]) -> None:
+        await self._broadcast_listen_json(payload)
+
     async def broadcast_operator(self, payload: dict[str, Any]) -> None:
         async def send(client: WebSocket) -> tuple[WebSocket, bool]:
             try:

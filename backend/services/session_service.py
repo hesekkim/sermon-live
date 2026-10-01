@@ -11,6 +11,10 @@ from services.broadcast import BroadcastHub
 from services.interpreters.factory import create_interpreter
 from services.interpreters.protocol import KeyValidationError, LiveInterpreter
 from services.operator_store import OperatorSettingsStore, store as default_store
+from services.scripture import (
+    GermanScriptureReferenceStream,
+    get_luther_1912_corpus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +62,8 @@ class _TranslationSessionService:
         self._clock = time.monotonic
         self._transition_lock = asyncio.Lock()
         self._audio.on_device_error = self._handle_device_error
+        self._scripture_stream = GermanScriptureReferenceStream()
+        self._scripture_corpus = get_luther_1912_corpus()
 
     @property
     def running(self) -> bool:
@@ -230,6 +236,7 @@ class _TranslationSessionService:
             if runtime.interpreter == "openai":
                 self._store.set_key_status(runtime.interpreter, "valid")
 
+            self._scripture_stream.reset()
             audio_queue = self._audio.attach_translation(interpreter)
             async with self._transition_lock:
                 self._interpreter = interpreter
@@ -447,16 +454,43 @@ class _TranslationSessionService:
             finally:
                 self._audio_in_flight = None
 
+    async def _broadcast_output_text(self, text: str) -> None:
+        await self._hub.broadcast_text(text)
+        await self._hub.broadcast_operator(
+            {"type": "transcript", "role": "output", "text": text}
+        )
+        for _, reference in self._scripture_stream.feed(text):
+            await self._broadcast_scripture_reference(reference)
+
+    async def _flush_scripture_references(self) -> None:
+        for _, reference in self._scripture_stream.flush():
+            await self._broadcast_scripture_reference(reference)
+
+    async def _broadcast_scripture_reference(self, reference) -> None:
+        if self._scripture_corpus is None:
+            return
+        verses = self._scripture_corpus.lookup(reference)
+        if verses is None:
+            return
+        await self._hub.broadcast_scripture(
+            {
+                "type": "scripture",
+                "reference": reference.label,
+                "version": "Lutherbibel 1912",
+                "verses": [
+                    {"verse": verse.verse, "text": verse.text}
+                    for verse in verses
+                ],
+            }
+        )
+
     async def _pump_events(self, interpreter: LiveInterpreter) -> None:
         try:
             async for event in interpreter.events():
                 if event.kind == "audio" and event.pcm:
                     await self._hub.broadcast_audio(event.pcm, event.sample_rate)
                 elif event.kind in ("text", "output_text") and event.text:
-                    await self._hub.broadcast_text(event.text)
-                    await self._hub.broadcast_operator(
-                        {"type": "transcript", "role": "output", "text": event.text}
-                    )
+                    await self._broadcast_output_text(event.text)
                 elif event.kind == "input_text" and event.text:
                     await self._hub.broadcast_operator(
                         {"type": "transcript", "role": "input", "text": event.text}
@@ -475,6 +509,7 @@ class _TranslationSessionService:
             logger.error("Interpreter event pump failed: %s", message)
             await self._finish_from_task("interpreter_error", message)
             return
+        await self._flush_scripture_references()
         if self._state == "live":
             await self._finish_from_task(
                 "interpreter_error", "Interpreter event stream ended unexpectedly"
@@ -618,10 +653,7 @@ class SessionService(_TranslationSessionService):
                         await self._hub.broadcast_operator(
                             {"type": "latency", "milliseconds": latency_ms}
                         )
-                    await self._hub.broadcast_text(event.text)
-                    await self._hub.broadcast_operator(
-                        {"type": "transcript", "role": "output", "text": event.text}
-                    )
+                    await self._broadcast_output_text(event.text)
                 elif event.kind == "input_text" and event.text:
                     await self._hub.broadcast_operator(
                         {"type": "transcript", "role": "input", "text": event.text}
@@ -638,6 +670,7 @@ class SessionService(_TranslationSessionService):
             logger.error("Interpreter event pump failed: %s", message)
             await self._finish_from_task("interpreter_error", message)
             return
+        await self._flush_scripture_references()
         if self._state == "live":
             await self._finish_from_task(
                 "interpreter_error", "Interpreter event stream ended unexpectedly"

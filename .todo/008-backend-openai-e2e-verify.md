@@ -53,6 +53,20 @@ adapter 단위 테스트만으로는 실제 운영 lifecycle(Translation Session
 
 테스트 기록에는 API key를 넣지 않는다. 실제 번역 품질, 자막 경계, chunk/timeout 제한 또는 장비별 변환 문제는 확인한 증상과 환경을 남기고 별도 수정 범위를 만든다.
 
+## Luther 1912 scripture popup 수동 확인 (053-055)
+
+이 항목은 자동화 테스트에서 실제 OpenAI API를 호출하지 않고, 새/유효한 API key와 실제 Listener를 사용할 수 있을 때 수행한다.
+
+- [ ] Operator에서 OpenAI Translation Session을 시작하고 Listener를 연결한다.
+- [ ] `Epheser 2, die Verse acht und neun`, `Römer 3, Vers 28`, `Johannes 3,16`처럼 출력에 명시 장절이 생기는 발화를 시험한다. 인식된 참조마다 Listener 번역 아래에 해당 Lutherbibel 1912 구절과 reference가 표시되는지 확인한다.
+- [ ] 독일어 output text가 여러 delta로 나뉘어도 reference popup이 한 번 나타나는지 확인하고, 별도 문장으로 같은 참조를 반복했을 때 다시 갱신되는지 확인한다.
+- [ ] 성경 장절 참조가 없는 일반 설교 문장에는 popup이 나타나지 않고 OpenAI 번역만 보이는지 확인한다.
+- [ ] reference 언급만으로 정본 텍스트가 표시될 수 있음을 구분한다. 이 기능은 원문 음성에서 성경 본문 낭독 여부를 검증하지 않는다.
+- [ ] popup이 생겨도 OpenAI 번역 자막은 유지되고, Listener의 독일어 음성은 기존 OpenAI PCM과 동일하게 재생되는지 확인한다.
+- [ ] 모바일/desktop Listener, 단일 절 및 multi-verse 범위에서 자막과 popup의 겹침/잘림을 확인한다.
+
+키 값이나 credential이 보이는 화면/로그를 테스트 기록에 첨부하지 않는다. 기록에는 사용한 장치, browser viewport, 표시된 reference와 결과만 남긴다.
+
 ## Acceptance criteria
 
 - 자동화 테스트는 전부 mock 기반으로 그린.
