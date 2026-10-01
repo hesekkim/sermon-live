@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   appendTranscriptLine,
+  appendTranscriptSentence,
   buildTranscriptDownload,
   buildTranscriptPaneDownload,
 } from '../../src/pages/Operator/broadcast/utils/transcriptFile';
@@ -38,6 +39,45 @@ describe('transcriptFile', () => {
 
     expect(lines).toEqual([
       '안녕하세요. 안녕하세요. 현재 잘 작동 하는지 검사 중 입니다.',
+    ]);
+  });
+
+  it('keeps output sentences on separate lines across provider fragments', () => {
+    const fragments = [
+      'Guten ',
+      'Morgen. ',
+      'Wie geht ',
+      'es Ihnen?”',
+      ' Gut, danke.',
+    ];
+
+    const lines = fragments.reduce(
+      (current, fragment) => appendTranscriptSentence(current, fragment),
+      [] as string[],
+    );
+
+    expect(lines).toEqual([
+      'Guten Morgen.',
+      'Wie geht es Ihnen?”',
+      'Gut, danke.',
+    ]);
+  });
+
+  it('keeps German abbreviations and ordinal numbers inside the sentence', () => {
+    const fragments = [
+      'Das ist z. ',
+      'B. laut d. h. einer Quelle der 1. Mose.',
+      ' Danach kommt ein neuer Satz.',
+    ];
+
+    const lines = fragments.reduce(
+      (current, fragment) => appendTranscriptSentence(current, fragment),
+      [] as string[],
+    );
+
+    expect(lines).toEqual([
+      'Das ist z. B. laut d. h. einer Quelle der 1. Mose.',
+      'Danach kommt ein neuer Satz.',
     ]);
   });
 

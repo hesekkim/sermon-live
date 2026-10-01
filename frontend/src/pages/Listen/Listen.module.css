@@ -5,6 +5,7 @@
   --listener-surface: #ece7de;
   --listener-line: #e4ded4;
   --listener-accent: #dcebdc;
+  --listener-subtitle-highlight: #315f3d;
   --listener-scripture-accent: #648354;
   --listener-scripture-background: #f8f6f1;
   --listener-scripture-dimmed-background: #e7e4dc;
@@ -27,6 +28,7 @@
   --listener-surface: #292c2a;
   --listener-line: #373a37;
   --listener-accent: #3a6149;
+  --listener-subtitle-highlight: #a8d4ad;
   --listener-scripture-accent: #95c49c;
   --listener-scripture-background: #252825;
   --listener-scripture-dimmed-background: #353935;
@@ -134,6 +136,15 @@
   color: var(--listener-muted);
 }
 
+.subtitlePast {
+  color: var(--listener-muted);
+}
+
+.subtitleCurrent {
+  color: var(--listener-subtitle-highlight);
+  font-weight: 600;
+}
+
 .footer {
   position: fixed;
   z-index: 2;
@@ -178,8 +189,16 @@
 }
 
 .listenButton:disabled {
+  border-color: var(--listener-muted);
+  background: transparent;
   color: var(--listener-muted);
+  opacity: 0.58;
   cursor: default;
+}
+
+.page[data-theme='dark'] .listenButton:disabled {
+  border-color: #737871;
+  color: #aaa;
 }
 
 .fontControl {

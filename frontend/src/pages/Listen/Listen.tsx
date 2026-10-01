@@ -18,6 +18,7 @@ export default function Listen() {
     stopListening,
     startListening,
     subtitle,
+    subtitleLines,
   } = useListenAudio();
   const { fontSize, setFontSize, setTheme, theme } = useListenerPreferences();
   const [scriptureCards, setScriptureCards] = useState<ScripturePassage[]>([]);
@@ -75,14 +76,16 @@ export default function Listen() {
     <main className={styles.page} data-theme={theme}>
       <header className={styles.header}>
         <h1>Demo</h1>
-        <div
-          className={`${styles.sessionBadge} ${badgeStateClass}`}
-          role="status"
-          aria-live="polite"
-        >
-          <span className={styles.statusDot} />
-          {statusLabel}
-        </div>
+        {sessionEnded ? null : (
+          <div
+            className={`${styles.sessionBadge} ${badgeStateClass}`}
+            role="status"
+            aria-live="polite"
+          >
+            <span className={styles.statusDot} />
+            {statusLabel}
+          </div>
+        )}
         <button
           type="button"
           className={styles.themeButton}
@@ -100,19 +103,32 @@ export default function Listen() {
       </header>
 
       <section className={styles.transcript} aria-label="German translation">
-        <p
-          className={
-            subtitle
-              ? styles.subtitle
-              : `${styles.subtitle} ${styles.placeholder}`
-          }
-          style={{ '--subtitle-font-size': `${fontSize}px` } as CSSProperties}
-          aria-live="polite"
-        >
-          {sessionEnded
-            ? 'Die Sendung ist beendet.'
-            : subtitle || subtitlePlaceholder}
-        </p>
+        {subtitleLines.length > 0 ? (
+          subtitleLines.map((line, index) => (
+            <p
+              key={`${index}-${line.slice(0, 24)}`}
+              className={`${styles.subtitle} ${
+                index === subtitleLines.length - 1
+                  ? styles.subtitleCurrent
+                  : styles.subtitlePast
+              }`}
+              style={
+                { '--subtitle-font-size': `${fontSize}px` } as CSSProperties
+              }
+              aria-live="polite"
+            >
+              {line}
+            </p>
+          ))
+        ) : (
+          <p
+            className={`${styles.subtitle} ${styles.placeholder}`}
+            style={{ '--subtitle-font-size': `${fontSize}px` } as CSSProperties}
+            aria-live="polite"
+          >
+            {subtitle || subtitlePlaceholder}
+          </p>
+        )}
         {scriptureCardsForDisplay.length > 0 ? (
           <ScripturePopup
             scriptures={scriptureCardsForDisplay}
@@ -127,7 +143,14 @@ export default function Listen() {
           <button
             type="button"
             className={styles.listenButton}
-            aria-label={isListening ? 'Stop listening' : 'Start listening'}
+            aria-label={
+              sessionEnded
+                ? 'Sendung beendet'
+                : isListening
+                  ? 'Stop listening'
+                  : 'Start listening'
+            }
+            title={sessionEnded ? 'Sendung beendet' : undefined}
             onClick={() =>
               isListening ? stopListening() : void startListening()
             }

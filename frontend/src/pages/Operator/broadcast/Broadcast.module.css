@@ -1,7 +1,8 @@
 .page {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   gap: var(--cf-space-16);
 }
 
@@ -163,7 +164,7 @@
   flex: 1;
   overflow: auto;
   padding: var(--cf-space-16);
-  min-height: 24rem;
+  min-height: 0;
   border: 1px solid var(--cms-border);
   border-radius: var(--cf-radius-card);
   background: var(--cms-surface);
@@ -201,6 +202,16 @@
 }
 
 @media (max-width: 520px) {
+  .panes {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+
+  .panesSingle {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
   .levelMeter {
     max-width: 100%;
   }

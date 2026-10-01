@@ -15,6 +15,7 @@
 ### 지금
 
 1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증 (052 완료 후)
+2. `056-frontend-listen-broadcast-transcript-ux.md` — Listen 자막 보존·강조와 Broadcast transcript 시작/표시/스크롤 UX 개선
 
 ## 보류 (`hold/`)
 

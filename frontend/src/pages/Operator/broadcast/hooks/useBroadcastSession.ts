@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { operatorFetch } from '../../auth/operatorAuthApi';
 import type { OperatorCopy } from '../../translations';
-import { appendTranscriptLine } from '../utils/transcriptFile';
+import {
+  appendTranscriptLine,
+  appendTranscriptSentence,
+} from '../utils/transcriptFile';
 
 export type ServerStatus = 'connecting' | 'online' | 'offline';
 export type OperatorConnectionStatus =
@@ -181,6 +184,10 @@ export function useBroadcastSession(
       AUDIO_LEVEL_STALE_TIMEOUT_MS,
     );
   }, [clearAudioLevel]);
+  const clearTranscripts = useCallback(() => {
+    setInputLines([]);
+    setOutputLines([]);
+  }, []);
 
   useEffect(() => {
     onSessionErrorRef.current = onSessionError;
@@ -457,8 +464,7 @@ export function useBroadcastSession(
               if (!payload.ready) {
                 setStartAvailable(false);
                 clearAudioLevel();
-              }
-              else void refreshStatus();
+              } else void refreshStatus();
             }
             if (typeof payload.error === 'string' || payload.error === null) {
               setAudioError(payload.error ?? null);
@@ -483,7 +489,7 @@ export function useBroadcastSession(
               );
             } else if (payload.role === 'output') {
               setOutputLines((lines) =>
-                appendTranscriptLine(lines, payload.text ?? ''),
+                appendTranscriptSentence(lines, payload.text ?? ''),
               );
             }
           }
@@ -608,6 +614,7 @@ export function useBroadcastSession(
     setInputTranscriptEnabled,
     inputLines,
     outputLines,
+    clearTranscripts,
     start,
     stop,
     extend,

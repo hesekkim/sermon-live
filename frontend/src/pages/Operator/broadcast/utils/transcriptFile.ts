@@ -1,3 +1,5 @@
+import { appendSentenceDelta } from '../../../../utils/appendSentenceDelta';
+
 export function appendTranscriptLine(lines: string[], next: string): string[] {
   const text = next.replace(/\r?\n/g, ' ').trimEnd();
   if (!text.trim()) return lines;
@@ -6,6 +8,13 @@ export function appendTranscriptLine(lines: string[], next: string): string[] {
   const previous = lines[lastIndex];
   const separator = /[.!?。！？]$/.test(previous) && !/^\s/.test(text) ? ' ' : '';
   return [...lines.slice(0, lastIndex), `${previous}${separator}${text}`];
+}
+
+export function appendTranscriptSentence(
+  lines: string[],
+  next: string,
+): string[] {
+  return appendSentenceDelta(lines, next.replace(/\r?\n/g, ' '));
 }
 
 export function buildTranscriptDownload(inputLines: string[], outputLines: string[]): string {

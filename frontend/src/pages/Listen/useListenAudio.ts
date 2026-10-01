@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { mergeOddPcmByte, pcm16ToFloat32 } from '../../shared/audio/pcm';
+import { appendSentenceDelta } from '../../utils/appendSentenceDelta';
 
 const DEFAULT_SAMPLE_RATE = 24000;
 const RECONNECT_DELAY_MS = 1200;
@@ -77,7 +78,7 @@ export function useListenAudio() {
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('unknown');
   const [hasSessionStatus, setHasSessionStatus] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
-  const [subtitle, setSubtitle] = useState('');
+  const [subtitleLines, setSubtitleLines] = useState<string[]>([]);
   const [scripture, setScripture] = useState<ScripturePassage | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [audioError, setAudioError] = useState('');
@@ -211,6 +212,19 @@ export function useListenAudio() {
     });
   }, []);
 
+  const stopListening = useCallback(() => {
+    listenGenerationRef.current += 1;
+    isListeningRef.current = false;
+    setIsListening(false);
+    pendingPcmRef.current = null;
+    nextPlayTimeRef.current = audioContextRef.current?.currentTime ?? 0;
+    for (const source of playingSourcesRef.current.keys()) {
+      source.stop();
+      source.disconnect();
+    }
+    playingSourcesRef.current.clear();
+  }, []);
+
   const connectSocket = useCallback(
     (isReconnect: boolean) => {
       if (!wantsListenRef.current) {
@@ -254,8 +268,14 @@ export function useListenAudio() {
             setHasSessionStatus(true);
             setSessionStatus(payload.session_status);
             if (payload.session_status === 'starting') {
-              setSubtitle('');
+              setSubtitleLines([]);
               setScripture(null);
+              setSessionEnded(false);
+            } else if (
+              payload.session_status === 'off' ||
+              payload.session_status === 'error'
+            ) {
+              stopListening();
             }
             setSessionEnded(
               payload.session_status === 'off' &&
@@ -267,22 +287,17 @@ export function useListenAudio() {
               payload.reason === 'device_error';
             setSessionEnded(!endedWithError);
             setSessionStatus(endedWithError ? 'error' : 'off');
+            stopListening();
           } else if (payload.type === 'error') {
             setSessionStatus('error');
+            stopListening();
           } else if (payload.type === 'scripture') {
             const passage = parseScripturePayload(payload);
             if (passage) setScripture(passage);
           } else if (payload.text) {
-            setSubtitle((current) => {
-              const nextText = payload.text ?? '';
-              const startsNewSentence = /[.!?]\s*["'”’»›)\]}]*\s*$/.test(
-                current,
-              );
-              const isClosingPunctuation = /^[\s"'”’»›)\]}]+$/.test(nextText);
-              return startsNewSentence && !isClosingPunctuation
-                ? nextText.trimStart()
-                : current + nextText;
-            });
+            setSubtitleLines((current) =>
+              appendSentenceDelta(current, payload.text ?? ''),
+            );
           }
           return;
         }
@@ -320,7 +335,7 @@ export function useListenAudio() {
         }
       });
     },
-    [queueAudioChunk],
+    [queueAudioChunk, stopListening],
   );
   connectSocketRef.current = connectSocket;
 
@@ -329,6 +344,7 @@ export function useListenAudio() {
     connectSocket(false);
   }, [connectSocket]);
 
+  const subtitle = subtitleLines.at(-1) ?? '';
   const canStartListening =
     connectionState === 'connected' &&
     hasSessionStatus &&
@@ -351,19 +367,6 @@ export function useListenAudio() {
       setIsListening(false);
     }
   }, [canStartListening, ensureAudioContext]);
-
-  const stopListening = useCallback(() => {
-    listenGenerationRef.current += 1;
-    isListeningRef.current = false;
-    setIsListening(false);
-    pendingPcmRef.current = null;
-    nextPlayTimeRef.current = audioContextRef.current?.currentTime ?? 0;
-    for (const source of playingSourcesRef.current.keys()) {
-      source.stop();
-      source.disconnect();
-    }
-    playingSourcesRef.current.clear();
-  }, []);
 
   const dismissScripture = useCallback(() => {
     setScripture(null);
@@ -401,5 +404,6 @@ export function useListenAudio() {
     startListening,
     stopListening,
     subtitle,
+    subtitleLines,
   };
 }

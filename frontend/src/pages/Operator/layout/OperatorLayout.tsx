@@ -7,8 +7,9 @@ import {
   LuSettings,
   LuSun,
 } from 'react-icons/lu';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Button from '../../../shared/components/Button/Button';
+import Dialog from '../../../shared/components/Dialog/Dialog';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import Sidebar from '../../../shared/components/Sidebar/Sidebar';
 import BroadcastHeader from '../broadcast/components/BroadcastHeader';
@@ -18,6 +19,10 @@ import { useOperatorPrefs } from '../OperatorPrefs';
 import { useOperatorLayout } from './useOperatorLayout';
 import ListenQrShare from './ListenQrShare';
 import styles from './OperatorLayout.module.css';
+import {
+  buildTranscriptPaneDownload,
+  downloadTextFile,
+} from '../broadcast/utils/transcriptFile';
 
 export interface OperatorOutletContext {
   audioLevel: number | null;
@@ -38,14 +43,34 @@ export default function OperatorLayout({
   const { labels, theme, setTheme } = useOperatorPrefs();
   const { error: toastError } = useToast();
   const sessionErrorDuringAttemptRef = useRef(false);
+  const pendingStartResolveRef = useRef<((approved: boolean) => void) | null>(
+    null,
+  );
+  const [isTranscriptDialogOpen, setIsTranscriptDialogOpen] = useState(false);
   const session = useBroadcastSession(labels, (message) => {
     sessionErrorDuringAttemptRef.current = true;
     toastError(message);
   });
+  const beforeStart = () => {
+    if (!session.outputLines.some((line) => line.trim())) {
+      return Promise.resolve(true);
+    }
+    setIsTranscriptDialogOpen(true);
+    return new Promise<boolean>((resolve) => {
+      pendingStartResolveRef.current = resolve;
+    });
+  };
+  const resolveStart = (approved: boolean) => {
+    pendingStartResolveRef.current?.(approved);
+    pendingStartResolveRef.current = null;
+    setIsTranscriptDialogOpen(false);
+  };
   const actions = useBroadcastToggle({
     labels,
     sessionStatus: session.sessionStatus,
     start: session.start,
+    beforeStart,
+    clearTranscripts: session.clearTranscripts,
     stop: session.stop,
     extend: session.extend,
     sessionErrorDuringAttemptRef,
@@ -170,6 +195,35 @@ export default function OperatorLayout({
           />
         </div>
       </main>
+      <Dialog
+        isOpen={isTranscriptDialogOpen}
+        title={labels.startWithTranscriptTitle}
+        closeLabel={labels.cancelStart}
+        onClose={() => resolveStart(false)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => resolveStart(false)}>
+              {labels.cancelStart}
+            </Button>
+            <Button variant="secondary" onClick={() => resolveStart(true)}>
+              {labels.discardAndStart}
+            </Button>
+            <Button
+              onClick={() => {
+                downloadTextFile(
+                  'sermon-output-transcript.txt',
+                  buildTranscriptPaneDownload(session.outputLines),
+                );
+                resolveStart(true);
+              }}
+            >
+              {labels.downloadAndStart}
+            </Button>
+          </>
+        }
+      >
+        <p>{labels.startWithTranscriptBody}</p>
+      </Dialog>
     </div>
   );
 }

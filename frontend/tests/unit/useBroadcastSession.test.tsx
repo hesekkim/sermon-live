@@ -236,6 +236,55 @@ describe('useBroadcastSession', () => {
     act(() => root.unmount());
   });
 
+  it('stores output as sentence rows and clears both transcripts on request', async () => {
+    const latestSession: {
+      current: ReturnType<typeof useBroadcastSession> | null;
+    } = { current: null };
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    function StateProbe() {
+      latestSession.current = useBroadcastSession(operatorCopy.ko);
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<StateProbe />);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      FakeWebSocket.latest?.emit(
+        'message',
+        JSON.stringify({
+          type: 'transcript',
+          role: 'input',
+          text: '안녕하세요.',
+        }),
+      );
+      FakeWebSocket.latest?.emit(
+        'message',
+        JSON.stringify({
+          type: 'transcript',
+          role: 'output',
+          text: 'Guten Morgen. Wie geht es?',
+        }),
+      );
+    });
+
+    expect(latestSession.current?.inputLines).toEqual(['안녕하세요.']);
+    expect(latestSession.current?.outputLines).toEqual([
+      'Guten Morgen.',
+      'Wie geht es?',
+    ]);
+
+    act(() => latestSession.current?.clearTranscripts());
+    expect(latestSession.current?.inputLines).toEqual([]);
+    expect(latestSession.current?.outputLines).toEqual([]);
+    act(() => root.unmount());
+  });
+
   it('updates operational status from operator messages and recovers the connection', async () => {
     const latestSession: {
       current: ReturnType<typeof useBroadcastSession> | null;
@@ -367,11 +416,19 @@ describe('useBroadcastSession', () => {
     await act(async () => {
       socket?.emit(
         'message',
-        JSON.stringify({ type: 'status', running: false, session_status: 'starting' }),
+        JSON.stringify({
+          type: 'status',
+          running: false,
+          session_status: 'starting',
+        }),
       );
       socket?.emit(
         'message',
-        JSON.stringify({ type: 'status', running: true, session_status: 'live' }),
+        JSON.stringify({
+          type: 'status',
+          running: true,
+          session_status: 'live',
+        }),
       );
     });
 

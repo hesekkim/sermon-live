@@ -140,6 +140,11 @@ export interface OperatorCopy {
   outputLabel: string;
   inputDownload: string;
   outputDownload: string;
+  startWithTranscriptTitle: string;
+  startWithTranscriptBody: string;
+  downloadAndStart: string;
+  discardAndStart: string;
+  cancelStart: string;
   emptyInput: string;
   emptyOutput: string;
   startFailed: string;
@@ -318,6 +323,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     outputLabel: '출력 (독일어)',
     inputDownload: '한국어 전사 다운로드',
     outputDownload: '독일어 번역 다운로드',
+    startWithTranscriptTitle: '이전 방송 기록',
+    startWithTranscriptBody:
+      '이전 Output을 다운로드할까요? 새 방송을 시작하면 Input과 Output 기록이 삭제됩니다.',
+    downloadAndStart: '다운로드 후 시작',
+    discardAndStart: '다운로드하지 않고 시작',
+    cancelStart: '취소',
     emptyInput: '인식된 한국어가 여기에 나타납니다',
     emptyOutput: '번역된 독일어가 여기에 나타납니다',
     startFailed: '방송을 시작하지 못했습니다',
@@ -499,6 +510,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     outputLabel: 'Output (German)',
     inputDownload: 'Download Korean transcript',
     outputDownload: 'Download German translation',
+    startWithTranscriptTitle: 'Previous broadcast transcript',
+    startWithTranscriptBody:
+      'Download the previous output? Starting a new broadcast clears both input and output transcripts.',
+    downloadAndStart: 'Download and start',
+    discardAndStart: 'Start without downloading',
+    cancelStart: 'Cancel',
     emptyInput: 'Recognized Korean appears here',
     emptyOutput: 'Translated German appears here',
     startFailed: 'Could not start the broadcast',
@@ -681,6 +698,12 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     outputLabel: 'Ausgabe (Deutsch)',
     inputDownload: 'Koreanisches Transkript herunterladen',
     outputDownload: 'Deutsche Übersetzung herunterladen',
+    startWithTranscriptTitle: 'Transkript der vorherigen Sendung',
+    startWithTranscriptBody:
+      'Vorherige Ausgabe herunterladen? Beim Start einer neuen Sendung werden Eingabe und Ausgabe gelöscht.',
+    downloadAndStart: 'Herunterladen und starten',
+    discardAndStart: 'Ohne Download starten',
+    cancelStart: 'Abbrechen',
     emptyInput: 'Erkanntes Koreanisch erscheint hier',
     emptyOutput: 'Übersetztes Deutsch erscheint hier',
     startFailed: 'Sendung konnte nicht gestartet werden',

@@ -1,8 +1,10 @@
 .shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   width: 100%;
   min-width: 0;
+  overflow: hidden;
   background-color: var(--cms-bg);
   color: var(--cms-text);
 }
@@ -21,6 +23,7 @@
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 .topbar {
@@ -69,12 +72,15 @@
 .routeContent {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   padding: 0 var(--cf-space-24) var(--cf-space-24);
+  overflow: auto;
 }
 
 @media (max-width: 760px) {
   .shell {
     flex-direction: column;
+    height: 100vh;
   }
 
   .shell > aside {

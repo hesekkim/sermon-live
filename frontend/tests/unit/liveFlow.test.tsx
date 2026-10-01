@@ -208,7 +208,11 @@ describe('core live broadcast flow', () => {
     expect(operator.sessionRef.current?.lastTerminationReason).toBe(
       operatorCopy.ko.terminationAutoStop,
     );
-    expect(listener.container).toHaveTextContent('SENDUNG BEENDET');
+    expect(listener.container).toHaveTextContent('Guten Morgen.');
+    expect(listener.container).not.toHaveTextContent('SENDUNG BEENDET');
+    expect(
+      listener.container.querySelector('button[aria-label="Sendung beendet"]'),
+    ).toBeDisabled();
 
     act(() => {
       operator.root.unmount();

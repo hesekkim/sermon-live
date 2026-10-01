@@ -335,7 +335,7 @@ describe('Listener experience', () => {
       socket.message({ text: 'geht es?' });
     });
     expect(container).toHaveTextContent('Wie geht es?');
-    expect(container).not.toHaveTextContent('Guten Morgen.');
+    expect(container).toHaveTextContent('Guten Morgen.');
 
     act(() => {
       socket.message({ text: 'Guten Morgen.' });
@@ -347,7 +347,7 @@ describe('Listener experience', () => {
       socket.message({ text: 'Nächste Sendung' });
     });
     expect(container).toHaveTextContent('Nächste Sendung');
-    expect(container).not.toHaveTextContent('Guten Morgen.');
+    expect(container).toHaveTextContent('Guten Morgen.');
 
     act(() =>
       socket.message({
@@ -566,7 +566,10 @@ describe('Listener experience', () => {
         reason: 'manual',
       }),
     );
-    expect(container).toHaveTextContent('SENDUNG BEENDET');
+    expect(container).not.toHaveTextContent('SENDUNG BEENDET');
+    expect(
+      container.querySelector('button[aria-label="Sendung beendet"]'),
+    ).toBeDisabled();
 
     act(() => MockWebSocket.instances[0].close());
     act(() => vi.advanceTimersByTime(1200));
@@ -578,7 +581,58 @@ describe('Listener experience', () => {
         last_termination_reason: 'manual',
       });
     });
-    expect(container).toHaveTextContent('SENDUNG BEENDET');
+    expect(container).not.toHaveTextContent('SENDUNG BEENDET');
+    expect(
+      container.querySelector('button[aria-label="Sendung beendet"]'),
+    ).toBeDisabled();
+  });
+
+  it('preserves transcript and stops audio when the broadcast ends', async () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+      socket.message({ text: 'First sentence.' });
+      socket.message({ text: 'Second sentence.' });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+    await act(async () => {
+      socket.audio([1, 0, 2, 0]);
+      await Promise.resolve();
+    });
+
+    act(() => socket.message({ type: 'session_ended', reason: 'manual' }));
+
+    expect(container).toHaveTextContent('First sentence.');
+    expect(container).toHaveTextContent('Second sentence.');
+    expect(MockAudioContext.sources[0].stop).toHaveBeenCalledOnce();
+    expect(
+      container.querySelector('button[aria-label="Sendung beendet"]'),
+    ).toBeDisabled();
+  });
+
+  it('keeps German abbreviations together in listener captions', () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+      socket.message({ text: 'Das ist z. B. laut d. h. einer Quelle der 1. Mose.' });
+      socket.message({ text: ' Danach kommt ein neuer Satz.' });
+    });
+
+    const transcript = container.querySelector(
+      '[aria-label="German translation"]',
+    );
+    expect(transcript?.querySelectorAll('p')).toHaveLength(2);
+    expect(transcript).toHaveTextContent(
+      'Das ist z. B. laut d. h. einer Quelle der 1. Mose.',
+    );
+    expect(transcript).toHaveTextContent('Danach kommt ein neuer Satz.');
   });
 
   it('reconnects after a dropped listener socket and reports recovery', async () => {
