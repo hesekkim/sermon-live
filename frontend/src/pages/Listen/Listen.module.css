@@ -8,10 +8,6 @@
   --listener-subtitle-highlight: #315f3d;
   --listener-scripture-accent: #648354;
   --listener-scripture-background: #f8f6f1;
-  --listener-scripture-dimmed-background: #e7e4dc;
-  --listener-scripture-hint-background: #e1eadc;
-  --listener-scripture-hint-ink: #35513a;
-  --listener-scripture-hint-line: #b1c4aa;
   min-height: 100vh;
   padding: 0 0 112px;
   background: var(--listener-bg);
@@ -31,10 +27,6 @@
   --listener-subtitle-highlight: #a8d4ad;
   --listener-scripture-accent: #95c49c;
   --listener-scripture-background: #252825;
-  --listener-scripture-dimmed-background: #353935;
-  --listener-scripture-hint-background: #354539;
-  --listener-scripture-hint-ink: #e2f0e0;
-  --listener-scripture-hint-line: #617d64;
 }
 
 .header {
@@ -125,7 +117,7 @@
   margin: 0 0 15px;
   color: var(--listener-ink);
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: var(--subtitle-font-size, 24px);
+  font-size: var(--subtitle-font-size, 20px);
   font-weight: 400;
   line-height: 1.45;
   overflow-wrap: anywhere;

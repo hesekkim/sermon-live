@@ -15,33 +15,13 @@ export function ScripturePopup({
   onDismissAll,
 }: ScripturePopupProps) {
   const {
+    handleDismiss,
     handleKeyDown,
-    handleKeyUp,
-    handlePointerCancel,
-    handlePointerDown,
-    handlePointerMove,
-    handlePointerUp,
-    scriptureDimmed,
-    scriptureDragX,
-    scriptureDragging,
-    scriptureSwipingOut,
-    showScriptureSwipeHint,
+    scriptureDismissing,
   } = useScripturePopup(scriptures, onDismiss, onDismissAll);
 
   return (
     <div className={styles.scripturePopup}>
-      <p
-        className={`${styles.scriptureSwipeHint} ${
-          showScriptureSwipeHint ? '' : styles.scriptureSwipeHintHidden
-        }`}
-        aria-hidden={!showScriptureSwipeHint}
-      >
-        {showScriptureSwipeHint ? (
-          <span className={styles.scriptureSwipeHintText}>
-            Zum Schließen nach links wischen
-          </span>
-        ) : null}
-      </p>
       <div className={styles.scriptureCardStack}>
         {scriptures.map((scripture, index) => {
           const isInteractive = index === 0;
@@ -51,12 +31,8 @@ export function ScripturePopup({
               className={[
                 styles.scripture,
                 isInteractive ? '' : styles.scriptureBack,
-                isInteractive && scriptureDimmed ? styles.scriptureDimmed : '',
-                isInteractive && scriptureDragging
-                  ? styles.scriptureDragging
-                  : '',
-                isInteractive && scriptureSwipingOut
-                  ? styles.scriptureSwipingOut
+                isInteractive && scriptureDismissing
+                  ? styles.scriptureDismissing
                   : '',
               ]
                 .filter(Boolean)
@@ -64,29 +40,16 @@ export function ScripturePopup({
               role={isInteractive ? 'button' : undefined}
               tabIndex={isInteractive ? 0 : -1}
               aria-hidden={isInteractive ? undefined : true}
-              aria-label={
-                isInteractive
-                  ? scriptureDimmed
-                    ? 'Bibeltext einblenden; nach links wischen zum Schließen'
-                    : 'Bibeltext abdunkeln; nach links wischen zum Schließen'
-                  : undefined
-              }
+              aria-label={isInteractive ? 'Bibeltext schließen' : undefined}
               aria-live={isInteractive ? 'polite' : undefined}
               style={
                 {
-                  '--scripture-drag-x': isInteractive
-                    ? `${scriptureDragX}px`
-                    : '0px',
                   '--scripture-stack-offset': `${Math.min(index * 20, 72)}px`,
                   '--scripture-stack-z': scriptures.length - index,
                 } as CSSProperties
               }
-              onPointerDown={isInteractive ? handlePointerDown : undefined}
-              onPointerMove={isInteractive ? handlePointerMove : undefined}
-              onPointerUp={isInteractive ? handlePointerUp : undefined}
-              onPointerCancel={isInteractive ? handlePointerCancel : undefined}
+              onClick={isInteractive ? handleDismiss : undefined}
               onKeyDown={isInteractive ? handleKeyDown : undefined}
-              onKeyUp={isInteractive ? handleKeyUp : undefined}
             >
               <header className={styles.scriptureHeader}>
                 <strong className={styles.scriptureReference}>

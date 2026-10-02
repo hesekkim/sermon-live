@@ -245,11 +245,61 @@ describe('Listener experience', () => {
     expect(container.querySelector('h1')).toHaveTextContent('Seanuree Live');
 
     expect(
-      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+      container.querySelector('[aria-label="Bibeltext schließen"]'),
     ).toBeNull();
   });
 
-  it('tracks a left swipe and closes after the exit animation', () => {
+  it('offers and persists three subtitle sizes with a medium default', async () => {
+    const container = renderListener();
+    const sizes = [
+      [
+        container.querySelector<HTMLButtonElement>(
+          'button[aria-label="Smaller text"]',
+        ),
+        16,
+      ],
+      [
+        container.querySelector<HTMLButtonElement>(
+          'button[aria-label="Default text size"]',
+        ),
+        20,
+      ],
+      [
+        container.querySelector<HTMLButtonElement>(
+          'button[aria-label="Larger text"]',
+        ),
+        24,
+      ],
+    ] as const;
+    const subtitle = container.querySelector('p[style*="--subtitle-font-size"]');
+
+    expect(sizes[1][0]).toHaveAttribute('aria-pressed', 'true');
+    for (const [button, fontSize] of sizes) {
+      await click(button);
+      expect(button).toHaveAttribute('aria-pressed', 'true');
+      expect(subtitle?.getAttribute('style')).toContain(`${fontSize}px`);
+      expect(
+        JSON.parse(storedValues.get('sermon-listener-preferences') ?? '{}'),
+      ).toMatchObject({ fontSize });
+    }
+  });
+
+  it('clamps a previously saved font size to the new maximum', () => {
+    storedValues.set(
+      'sermon-listener-preferences',
+      JSON.stringify({ theme: 'light', fontSize: 32 }),
+    );
+    const container = renderListener();
+
+    expect(
+      container.querySelector('button[aria-label="Larger text"]'),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      JSON.parse(storedValues.get('sermon-listener-preferences') ?? '{}'),
+    ).toMatchObject({ fontSize: 24 });
+  });
+
+  it('closes the top scripture card on click after its exit animation', () => {
     vi.useFakeTimers();
     const container = renderListener();
     const socket = MockWebSocket.instances[0];
@@ -264,42 +314,55 @@ describe('Listener experience', () => {
         verses: [{ verse: 2, text: 'Canonical passage text.' }],
       });
     });
-    expect(container).toHaveTextContent('Zum Schließen nach links wischen');
+    expect(container).not.toHaveTextContent('Zum Schließen nach links wischen');
 
-    const popup = container.querySelector(
-      '[aria-label^="Bibeltext abdunkeln"]',
-    );
-    const pointerEvent = (type: string, clientX: number, clientY: number) => {
-      const event = new Event(type, { bubbles: true });
-      Object.assign(event, {
-        pointerId: 1,
-        pointerType: 'touch',
-        button: 0,
-        clientX,
-        clientY,
-      });
-      return event;
-    };
-
-    act(() => popup?.dispatchEvent(pointerEvent('pointerdown', 350, 40)));
-    act(() => {
-      popup?.dispatchEvent(pointerEvent('pointermove', 250, 42));
-    });
-    expect(popup).toHaveClass(/scriptureDimmed/);
-    expect(popup?.getAttribute('style')).toContain('-100px');
-
-    act(() => popup?.dispatchEvent(pointerEvent('pointerup', 100, 42)));
-    expect(popup).toHaveClass(/scriptureSwipingOut/);
+    const popup = container.querySelector('[aria-label="Bibeltext schließen"]');
+    act(() => popup?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(popup).toHaveClass(/scriptureDismissing/);
     expect(
-      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+      container.querySelector('[aria-label="Bibeltext schließen"]'),
     ).not.toBeNull();
-    act(() => vi.advanceTimersByTime(260));
+    act(() => vi.advanceTimersByTime(420));
     expect(
-      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+      container.querySelector('[aria-label="Bibeltext schließen"]'),
+    ).not.toBeNull();
+    act(() => vi.advanceTimersByTime(40));
+    expect(
+      container.querySelector('[aria-label="Bibeltext schließen"]'),
     ).toBeNull();
   });
 
-  it('reveals the next received scripture when the top card is swiped away', () => {
+  it('closes a scripture card with Enter after its exit animation', () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+      socket.message({
+        type: 'scripture',
+        reference: 'Epheser 1,2',
+        version: 'Lutherbibel 1912',
+        verses: [{ verse: 2, text: 'Canonical passage text.' }],
+      });
+    });
+
+    const card = container.querySelector('[aria-label="Bibeltext schließen"]');
+    act(() =>
+      card?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      ),
+    );
+    expect(card).toHaveClass(/scriptureDismissing/);
+
+    act(() => vi.advanceTimersByTime(460));
+    expect(
+      container.querySelector('[aria-label="Bibeltext schließen"]'),
+    ).toBeNull();
+  });
+
+  it('reveals the next received scripture when the top card is clicked', () => {
     vi.useFakeTimers();
     const container = renderListener();
     const socket = MockWebSocket.instances[0];
@@ -324,36 +387,19 @@ describe('Listener experience', () => {
       });
     });
 
-    const topCard = container.querySelector(
-      '[aria-label^="Bibeltext abdunkeln"]',
-    );
+    const topCard = container.querySelector('[aria-label="Bibeltext schließen"]');
     expect(topCard).toHaveTextContent('Second passage.');
     expect(
       container.querySelectorAll('aside[aria-hidden="true"]'),
     ).toHaveLength(1);
-    const pointerEvent = (type: string, clientX: number) => {
-      const event = new Event(type, { bubbles: true });
-      Object.assign(event, {
-        pointerId: 1,
-        pointerType: 'touch',
-        button: 0,
-        clientX,
-        clientY: 40,
-      });
-      return event;
-    };
-    act(() => topCard?.dispatchEvent(pointerEvent('pointerdown', 350)));
-    act(() => topCard?.dispatchEvent(pointerEvent('pointerup', 100)));
-    act(() => vi.advanceTimersByTime(260));
+    act(() => topCard?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    act(() => vi.advanceTimersByTime(460));
 
-    const revealedCard = container.querySelector(
-      '[aria-label^="Bibeltext abdunkeln"]',
-    );
+    const revealedCard = container.querySelector('[aria-label="Bibeltext schließen"]');
     expect(revealedCard).toHaveTextContent('First passage.');
-    expect(container).toHaveTextContent('Zum Schließen nach links wischen');
   });
 
-  it('shows a new scripture popup after the last card is swiped away', () => {
+  it('shows a new scripture popup after the last card is clicked away', () => {
     vi.useFakeTimers();
     const container = renderListener();
     const socket = MockWebSocket.instances[0];
@@ -368,25 +414,11 @@ describe('Listener experience', () => {
       });
     });
 
-    const firstCard = container.querySelector(
-      '[aria-label^="Bibeltext abdunkeln"]',
-    );
-    const pointerEvent = (type: string, clientX: number) => {
-      const event = new Event(type, { bubbles: true });
-      Object.assign(event, {
-        pointerId: 1,
-        pointerType: 'touch',
-        button: 0,
-        clientX,
-        clientY: 40,
-      });
-      return event;
-    };
-    act(() => firstCard?.dispatchEvent(pointerEvent('pointerdown', 350)));
-    act(() => firstCard?.dispatchEvent(pointerEvent('pointerup', 100)));
-    act(() => vi.advanceTimersByTime(260));
+    const firstCard = container.querySelector('[aria-label="Bibeltext schließen"]');
+    act(() => firstCard?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    act(() => vi.advanceTimersByTime(460));
     expect(
-      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+      container.querySelector('[aria-label="Bibeltext schließen"]'),
     ).toBeNull();
 
     act(() => {
@@ -399,9 +431,8 @@ describe('Listener experience', () => {
     });
 
     expect(
-      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+      container.querySelector('[aria-label="Bibeltext schließen"]'),
     ).toHaveTextContent('Next passage.');
-    expect(container).toHaveTextContent('Zum Schließen nach links wischen');
   });
 
   it('keeps a new scripture when it arrives during the dismiss animation', () => {
@@ -419,22 +450,8 @@ describe('Listener experience', () => {
       });
     });
 
-    const firstCard = container.querySelector(
-      '[aria-label^="Bibeltext abdunkeln"]',
-    );
-    const pointerEvent = (type: string, clientX: number) => {
-      const event = new Event(type, { bubbles: true });
-      Object.assign(event, {
-        pointerId: 1,
-        pointerType: 'touch',
-        button: 0,
-        clientX,
-        clientY: 40,
-      });
-      return event;
-    };
-    act(() => firstCard?.dispatchEvent(pointerEvent('pointerdown', 350)));
-    act(() => firstCard?.dispatchEvent(pointerEvent('pointerup', 100)));
+    const firstCard = container.querySelector('[aria-label="Bibeltext schließen"]');
+    act(() => firstCard?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
 
     act(() => {
       socket.message({
@@ -444,12 +461,11 @@ describe('Listener experience', () => {
         verses: [{ verse: 2, text: 'Next passage.' }],
       });
     });
-    act(() => vi.advanceTimersByTime(260));
+    act(() => vi.advanceTimersByTime(460));
 
     expect(
-      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+      container.querySelector('[aria-label="Bibeltext schließen"]'),
     ).toHaveTextContent('Next passage.');
-    expect(container).toHaveTextContent('Zum Schließen nach links wischen');
   });
 
   it('starts and stops local audio while keeping translation status independent', async () => {
@@ -577,28 +593,12 @@ describe('Listener experience', () => {
       '[aria-label="German translation"]',
     );
     const scripture = container.querySelector(
-      '[aria-label^="Bibeltext abdunkeln"]',
+      '[aria-label="Bibeltext schließen"]',
     );
     expect(transcript).toHaveTextContent('OpenAI translation remains visible.');
     expect(scripture).toHaveTextContent('Römer 3,28');
     expect(scripture).toHaveTextContent('Canonical passage text.');
     expect(scripture).toHaveAttribute('role', 'button');
-
-    const pressEvent = (type: string) => {
-      const event = new Event(type, { bubbles: true });
-      Object.assign(event, {
-        pointerId: 1,
-        pointerType: 'mouse',
-        button: 0,
-        clientX: 240,
-        clientY: 80,
-      });
-      return event;
-    };
-    act(() => scripture?.dispatchEvent(pressEvent('pointerdown')));
-    expect(scripture).toHaveClass(/scriptureDimmed/);
-    act(() => scripture?.dispatchEvent(pressEvent('pointerup')));
-    expect(scripture).not.toHaveClass(/scriptureDimmed/);
 
     act(() => {
       socket.message({
@@ -614,9 +614,8 @@ describe('Listener experience', () => {
       container.querySelectorAll('aside[aria-hidden="true"]'),
     ).toHaveLength(1);
     const currentScripture = container.querySelector(
-      '[aria-label="Bibeltext abdunkeln; nach links wischen zum Schließen"]',
+      '[aria-label="Bibeltext schließen"]',
     );
-    expect(currentScripture).not.toHaveClass(/scriptureDimmed/);
 
     act(() => {
       currentScripture?.dispatchEvent(
@@ -624,7 +623,7 @@ describe('Listener experience', () => {
       );
     });
     expect(
-      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+      container.querySelector('[aria-label="Bibeltext schließen"]'),
     ).toBeNull();
 
     act(() =>
@@ -634,7 +633,7 @@ describe('Listener experience', () => {
       }),
     );
     expect(
-      container.querySelector('[aria-label^="Bibeltext abdunkeln"]'),
+      container.querySelector('[aria-label="Bibeltext schließen"]'),
     ).toBeNull();
   });
 

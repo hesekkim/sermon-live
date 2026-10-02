@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
 const STORAGE_KEY = 'sermon-listener-preferences';
-const DEFAULT_FONT_SIZE = 24;
-const MIN_FONT_SIZE = 20;
-const MAX_FONT_SIZE = 32;
+const DEFAULT_FONT_SIZE = 20;
+const MIN_FONT_SIZE = 16;
+const MAX_FONT_SIZE = 24;
 
 type ListenerTheme = 'light' | 'dark';
 

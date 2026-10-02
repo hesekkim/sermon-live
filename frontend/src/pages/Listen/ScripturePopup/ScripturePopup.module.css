@@ -31,10 +31,10 @@
   background: var(--listener-scripture-background);
   box-shadow: 0 8px 28px rgb(23 25 22 / 18%);
   cursor: pointer;
-  transform: translateX(var(--scripture-drag-x, 0px));
+  transform: translateY(0);
   transition:
-    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 220ms ease,
+    transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 320ms ease-out 100ms,
     background-color 180ms ease,
     filter 180ms ease;
   touch-action: pan-y;
@@ -53,51 +53,9 @@
   pointer-events: none;
 }
 
-.scriptureDimmed {
-  background: var(--listener-scripture-dimmed-background);
-}
-
-.scriptureDragging {
-  transition: none;
-}
-
-.scriptureSwipingOut {
+.scriptureDismissing {
   opacity: 0;
-}
-
-.scriptureSwipeHint {
-  position: relative;
-  z-index: 7;
-  max-width: calc(100% - 32px);
-  min-height: calc(1.35em + 10px);
-  box-sizing: border-box;
-  margin: 0 0 8px;
-  padding: 5px 10px 3px;
-  border: 1px solid var(--listener-scripture-hint-line);
-  border-radius: 6px;
-  background: var(--listener-scripture-hint-background);
-  color: var(--listener-scripture-hint-ink);
-  font-family: sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.35;
-  text-align: center;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.scriptureSwipeHintHidden {
-  visibility: hidden;
-}
-
-.scriptureSwipeHintText {
-  animation: scripture-hint-pulse 850ms ease-in-out 4;
-}
-
-@keyframes scripture-hint-pulse {
-  50% {
-    opacity: 0.25;
-  }
+  transform: translateY(-120%);
 }
 
 .scripture:focus-visible {
@@ -146,9 +104,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .scripture,
-  .scriptureBack,
-  .scriptureSwipeHintText {
+  .scriptureBack {
     transition: none;
-    animation: none;
   }
 }

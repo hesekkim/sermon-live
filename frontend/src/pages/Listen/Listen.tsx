@@ -225,24 +225,24 @@ export default function Listen() {
             <button
               type="button"
               aria-label="Smaller text"
-              aria-pressed={fontSize === 20}
-              onClick={() => setFontSize(20)}
+              aria-pressed={fontSize === 16}
+              onClick={() => setFontSize(16)}
             >
               <span className={styles.smallA}>A</span>
             </button>
             <button
               type="button"
               aria-label="Default text size"
-              aria-pressed={fontSize === 24}
-              onClick={() => setFontSize(24)}
+              aria-pressed={fontSize === 20}
+              onClick={() => setFontSize(20)}
             >
               <span className={styles.mediumA}>A</span>
             </button>
             <button
               type="button"
               aria-label="Larger text"
-              aria-pressed={fontSize === 32}
-              onClick={() => setFontSize(32)}
+              aria-pressed={fontSize === 24}
+              onClick={() => setFontSize(24)}
             >
               <span className={styles.largeA}>A</span>
             </button>
