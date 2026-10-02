@@ -119,6 +119,71 @@ describe('OperatorPrefsProvider', () => {
 });
 
 describe('Settings save flow', () => {
+  it('keeps audio test disabled until settings load a device selection', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    type MockResponse = { ok: boolean; json: () => Promise<unknown> };
+    let resolveSettings!: (response: MockResponse) => void;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (String(input) === '/api/v1/audio/devices?mode=standard') {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      return new Promise<MockResponse>((resolve) => {
+        resolveSettings = resolve;
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const devicesTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('입력 장치'),
+    );
+    await act(async () => {
+      devicesTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const audioTestButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '오디오 테스트',
+    ) as HTMLButtonElement;
+    expect(audioTestButton).toBeDisabled();
+
+    await act(async () => {
+      resolveSettings({
+        ok: true,
+        json: async () => ({
+          interpreter: 'echo',
+          audio_device: 'default',
+          translation_session_auto_stop_minutes: 90,
+          translation_session_warning_minutes: 5,
+          translation_session_extension_minutes: 10,
+          translation_session_hard_limit_minutes: 120,
+          openai_key_set: false,
+        }),
+      });
+      await Promise.resolve();
+    });
+
+    expect(audioTestButton).toBeEnabled();
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
   it('sends the selected provider key in the PUT payload and clears the input after save', async () => {
     installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
     const fetchMock = vi
@@ -1164,16 +1229,23 @@ describe('Settings save flow', () => {
 
   it('rolls back a rejected device selection and explains the live-session conflict', async () => {
     installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    const builtInSelector = JSON.stringify({
+      host_api: 'Core Audio',
+      name: 'Built-in microphone',
+      version: 1,
+    });
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        if (url === '/api/v1/audio/devices') {
+        if (url === '/api/v1/audio/devices?mode=standard') {
           return {
             ok: true,
             json: async () => [
               {
                 index: 0,
                 name: 'Built-in microphone',
+                host_api: 'Core Audio',
+                selector: builtInSelector,
                 input_channels: 1,
                 default_sample_rate: 44100,
               },
@@ -1194,7 +1266,7 @@ describe('Settings save flow', () => {
           ok: true,
           json: async () => ({
             interpreter: 'echo',
-            audio_device: '0',
+            audio_device: builtInSelector,
             translation_session_auto_stop_minutes: 90,
             translation_session_warning_minutes: 5,
             translation_session_extension_minutes: 10,

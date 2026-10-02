@@ -23,6 +23,8 @@ copy .env.example .env
 python main.py
 ```
 
+On macOS, install PyAudio with a PortAudio build that includes CoreAudio support and grant Microphone access to the app or terminal running the backend. Operator device settings use CoreAudio inputs by default; use the all-host-API list if an expected physical input is missing.
+
 Open `http://<LAN-IP>:8080/operator` (or Vite `http://localhost:5173/operator`) to choose the interpreter, save the API key, then start capture. Congregation URL is `/listen`.
 
 Before starting the backend, edit `backend/.env` and set both Operator secrets. Generate independent values with:

@@ -25,6 +25,9 @@ export default function Settings() {
     deviceOptions,
     selectedDevice,
     setSelectedDevice,
+    listMode,
+    setListMode,
+    isSelectionStale,
     isLoading: isLoadingDevices,
     error: deviceLoadError,
     refresh: refreshDevices,
@@ -130,6 +133,8 @@ export default function Settings() {
           labels={labels}
           options={allDeviceOptions}
           selectedDevice={selectedDevice}
+          listMode={listMode}
+          isSelectionStale={isSelectionStale}
           isLoading={isLoadingDevices}
           isSaving={isSaving}
           isSessionBusy={isSessionBusy}
@@ -139,6 +144,7 @@ export default function Settings() {
           onDeviceChange={(value) => {
             void handleDeviceChange(value);
           }}
+          onListModeChange={setListMode}
           onRefresh={() => void refreshDevices()}
           onRetry={() => void refreshDevices()}
           result={result}

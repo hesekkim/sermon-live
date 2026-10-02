@@ -1,8 +1,12 @@
 import Button from '../../../../shared/components/Button/Button';
 import Select from '../../../../shared/components/Select/Select';
+import SlideToggle from '../../../../shared/components/SlideToggle/SlideToggle';
 import { FiRefreshCw } from 'react-icons/fi';
 import type { OperatorCopy } from '../../translations';
-import type { AudioDeviceOption } from '../hooks/useAudioDevices';
+import type {
+  AudioDeviceListMode,
+  AudioDeviceOption,
+} from '../hooks/useAudioDevices';
 import type { AudioTestResult } from '../hooks/useAudioTest';
 import AudioTestPanel from './AudioTestPanel';
 import styles from '../Settings.module.css';
@@ -11,6 +15,8 @@ interface AudioDeviceSectionProps {
   labels: OperatorCopy;
   options: AudioDeviceOption[];
   selectedDevice: string;
+  listMode: AudioDeviceListMode;
+  isSelectionStale: boolean;
   isLoading: boolean;
   isSaving: boolean;
   isSessionBusy: boolean;
@@ -18,6 +24,7 @@ interface AudioDeviceSectionProps {
   hasDevices: boolean;
   deviceSaveError: string | null;
   onDeviceChange: (device: string) => void;
+  onListModeChange: (mode: AudioDeviceListMode) => void;
   onRefresh: () => void;
   onRetry: () => void;
   result: AudioTestResult | null;
@@ -34,6 +41,8 @@ export default function AudioDeviceSection({
   labels,
   options,
   selectedDevice,
+  listMode,
+  isSelectionStale,
   isLoading,
   isSaving,
   isSessionBusy,
@@ -41,6 +50,7 @@ export default function AudioDeviceSection({
   hasDevices,
   deviceSaveError,
   onDeviceChange,
+  onListModeChange,
   onRefresh,
   onRetry,
   result,
@@ -52,22 +62,32 @@ export default function AudioDeviceSection({
   onRunTest,
   onStopTest,
 }: AudioDeviceSectionProps) {
-  const canRun = selectedDevice
-    ? options.some((option) => option.value === selectedDevice)
-    : options.some((option) => option.value === 'default');
+  const canRun =
+    Boolean(selectedDevice) &&
+    options.some((option) => option.value === selectedDevice);
 
   return (
     <section className={styles.section}>
       <div className={styles.sectionTitle}>
         <h2>{labels.audioDevice}</h2>
-        <Button
-          variant="secondary"
-          icon={<FiRefreshCw />}
-          disabled={isLoading || isSaving}
-          onClick={onRefresh}
-        >
-          {labels.audioDeviceRefresh}
-        </Button>
+        <div className={styles.deviceActions}>
+          <SlideToggle
+            label={labels.audioDeviceShowAll}
+            checked={listMode === 'all'}
+            disabled={isLoading || isSaving}
+            onChange={(checked) =>
+              onListModeChange(checked ? 'all' : 'standard')
+            }
+          />
+          <Button
+            variant="secondary"
+            icon={<FiRefreshCw />}
+            disabled={isLoading || isSaving}
+            onClick={onRefresh}
+          >
+            {labels.audioDeviceRefresh}
+          </Button>
+        </div>
       </div>
 
       <Select
@@ -78,6 +98,9 @@ export default function AudioDeviceSection({
         disabled={isLoading || isSaving || isSessionBusy}
         onChange={onDeviceChange}
       />
+      {isSelectionStale ? (
+        <p role="alert">{labels.audioDeviceReselect}</p>
+      ) : null}
 
       {isLoading ? <p role="status">{labels.audioDeviceLoading}</p> : null}
       {!isLoading && hasLoadError ? (

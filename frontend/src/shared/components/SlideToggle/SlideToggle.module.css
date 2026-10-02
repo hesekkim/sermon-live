@@ -1,0 +1,56 @@
+.slideToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-8);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+  transition: opacity 0.15s ease;
+}
+
+.toggle:disabled {
+  opacity: var(--cf-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.toggle:focus {
+  outline: none;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--cf-focus-color);
+  outline-offset: var(--cf-focus-offset);
+  border-radius: 8px;
+}
+
+.icon {
+  display: block;
+}
+
+.trackOn {
+  fill: var(--cms-primary, var(--cf-blue-63));
+}
+
+.trackOff {
+  fill: var(--cms-border, var(--cf-neutral-300));
+}
+
+.thumb {
+  fill: var(--cms-surface, var(--cf-white));
+}
+
+.label {
+  color: var(--cms-text, var(--cf-neutral-700));
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  user-select: none;
+}

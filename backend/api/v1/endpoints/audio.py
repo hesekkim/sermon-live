@@ -3,7 +3,7 @@ import json
 from collections.abc import AsyncIterator, Awaitable
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -45,6 +45,8 @@ async def _collect_audio_until_disconnected(
 class AudioDeviceResponse(BaseModel):
     index: int
     name: str
+    host_api: str
+    selector: str
     input_channels: int
     default_sample_rate: float
 
@@ -117,8 +119,10 @@ def _audio_test_result(
     response_model=list[AudioDeviceResponse],
     dependencies=[Depends(require_http_operator)],
 )
-def get_audio_devices() -> list[dict[str, object]]:
-    return list_input_devices()
+def get_audio_devices(
+    mode: Literal["standard", "all"] = Query(default="standard"),
+) -> list[dict[str, object]]:
+    return list_input_devices(mode)
 
 
 @router.post(

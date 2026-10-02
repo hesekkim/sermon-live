@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from core.config import Settings
 from api.v1.endpoints.audio import _collect_audio_until_disconnected
 from main import app
-from services.audio_devices import list_input_devices
+from services.audio_devices import enumerate_input_devices, list_input_devices
 from services.runtime import session
 
 
@@ -52,6 +52,8 @@ def test_list_input_devices_filters_output_only_devices():
         {
             "index": 1,
             "name": "USB Microphone",
+            "host_api": "Windows WASAPI",
+            "selector": '{"host_api":"Windows WASAPI","name":"USB Microphone","version":1}',
             "input_channels": 2,
             "default_sample_rate": 16000.0,
         }
@@ -89,12 +91,16 @@ def test_list_input_devices_keeps_mixed_input_output_devices_even_when_name_ment
         {
             "index": 0,
             "name": "PC Speaker (Realtek HD Audio output with HAP)",
+            "host_api": "Windows WASAPI",
+            "selector": '{"host_api":"Windows WASAPI","name":"PC Speaker (Realtek HD Audio output with HAP)","version":1}',
             "input_channels": 2,
             "default_sample_rate": 44100.0,
         },
         {
             "index": 1,
             "name": "USB Microphone",
+            "host_api": "Windows WASAPI",
+            "selector": '{"host_api":"Windows WASAPI","name":"USB Microphone","version":1}',
             "input_channels": 2,
             "default_sample_rate": 16000.0,
         },
@@ -131,13 +137,15 @@ def test_list_input_devices_keeps_input_devices_even_when_name_mentions_output()
         {
             "index": 0,
             "name": "USB Speakerphone",
+            "host_api": "Windows WASAPI",
+            "selector": '{"host_api":"Windows WASAPI","name":"USB Speakerphone","version":1}',
             "input_channels": 4,
             "default_sample_rate": 48000.0,
         }
     ]
 
 
-def test_list_input_devices_filters_wdmks_output_endpoint_reported_as_input():
+def test_list_input_devices_keeps_input_capability_when_name_mentions_output():
     audio = FakePyAudio(
         [
             {
@@ -163,7 +171,65 @@ def test_list_input_devices_filters_wdmks_output_endpoint_reported_as_input():
     ):
         devices = list_input_devices()
 
-    assert [device["name"] for device in devices] == ["USB Microphone"]
+    assert [device["name"] for device in devices] == [
+        "PC-Lautsprecher (Realtek HD Audio output with HAP)",
+        "USB Microphone",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("platform_name", "preferred_name"),
+    [("win32", "Windows WASAPI"), ("darwin", "Core Audio")],
+)
+def test_standard_input_devices_use_platform_host_api(platform_name, preferred_name):
+    audio = FakePyAudio(
+        [
+            {
+                "name": "Built-in microphone",
+                "hostApi": 0,
+                "maxInputChannels": 1,
+                "defaultSampleRate": 48000,
+            },
+            {
+                "name": "Built-in microphone",
+                "hostApi": 1,
+                "maxInputChannels": 1,
+                "defaultSampleRate": 48000,
+            },
+        ],
+        host_apis=[{"name": "MME"}, {"name": preferred_name}],
+    )
+
+    devices = enumerate_input_devices(audio, mode="standard", platform_name=platform_name)
+
+    assert len(devices) == 1
+    assert devices[0]["index"] == 1
+    assert devices[0]["host_api"] == preferred_name
+
+
+def test_all_input_devices_preserves_duplicate_host_api_endpoints():
+    audio = FakePyAudio(
+        [
+            {
+                "name": "Built-in microphone",
+                "hostApi": 0,
+                "maxInputChannels": 1,
+                "defaultSampleRate": 48000,
+            },
+            {
+                "name": "Built-in microphone",
+                "hostApi": 1,
+                "maxInputChannels": 1,
+                "defaultSampleRate": 48000,
+            },
+        ],
+        host_apis=[{"name": "MME"}, {"name": "Windows WASAPI"}],
+    )
+
+    devices = enumerate_input_devices(audio, mode="all", platform_name="win32")
+
+    assert [device["host_api"] for device in devices] == ["MME", "Windows WASAPI"]
+    assert devices[0]["selector"] != devices[1]["selector"]
 
 
 @pytest.mark.parametrize("device_name", ["Kopfhörer", "マイク"])
@@ -226,6 +292,34 @@ def test_audio_devices_endpoint_returns_empty_list_when_pyaudio_fails(operator_c
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+@pytest.mark.parametrize("mode", ["standard", "all"])
+def test_audio_devices_endpoint_passes_list_mode(monkeypatch, operator_client, mode):
+    requested_modes: list[str] = []
+    monkeypatch.setattr(
+        "api.v1.endpoints.audio.list_input_devices",
+        lambda requested_mode: requested_modes.append(requested_mode)
+        or [
+            {
+                "index": 3,
+                "name": "USB Mixer",
+                "host_api": "Windows WASAPI",
+                "selector": '{"host_api":"Windows WASAPI","name":"USB Mixer","version":1}',
+                "input_channels": 2,
+                "default_sample_rate": 48000.0,
+            }
+        ],
+    )
+
+    response = operator_client.get(
+        "/api/v1/audio/devices" if mode == "standard" else f"/api/v1/audio/devices?mode={mode}"
+    )
+
+    assert response.status_code == 200
+    assert requested_modes == [mode]
+    assert response.json()[0]["host_api"] == "Windows WASAPI"
+    assert response.json()[0]["selector"].startswith("{")
 
 
 @pytest.mark.parametrize(
@@ -453,15 +547,28 @@ def test_stream_audio_test_reports_live_levels_and_final_result(monkeypatch, ope
 
 
 class FakePyAudio:
-    def __init__(self, devices: list[dict[str, object]]) -> None:
+    def __init__(
+        self,
+        devices: list[dict[str, object]],
+        host_apis: list[dict[str, object]] | None = None,
+    ) -> None:
         self.devices = devices
+        self.host_apis = host_apis or [{"name": "Windows WASAPI"}]
         self.terminated = False
 
     def get_device_count(self) -> int:
         return len(self.devices)
 
     def get_device_info_by_index(self, index: int) -> dict[str, object]:
-        return self.devices[index]
+        info = dict(self.devices[index])
+        info.setdefault("hostApi", 0)
+        return info
+
+    def get_host_api_count(self) -> int:
+        return len(self.host_apis)
+
+    def get_host_api_info_by_index(self, index: int) -> dict[str, object]:
+        return self.host_apis[index]
 
     def terminate(self) -> None:
         self.terminated = True

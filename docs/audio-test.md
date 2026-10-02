@@ -12,6 +12,16 @@
 
 관련 구현은 `backend/api/v1/endpoints/audio.py`와 `backend/services/audio_processor.py`에 있습니다.
 
+**입력 장치 선택**
+
+Operator의 입력 장치 목록은 기본적으로 현재 OS의 표준 capture Host API를 사용한다. Windows는 WASAPI, macOS는 CoreAudio를 우선한다. 원하는 입력이 보이지 않으면 Settings의 전체 오디오 경로 목록으로 전환해 다른 PortAudio Host API도 확인한다. 그 외 운영체제에서는 전체 입력 목록을 표시한다.
+
+장치 선택값은 PyAudio의 숫자 index가 아니라 Host API 이름과 정확한 장치 이름으로 저장하고, 캡처를 시작할 때 현재 index를 다시 찾는다. PyAudio는 OS가 보장하는 영구 device ID를 제공하지 않으므로, 장치 이름이 바뀌거나 같은 Host API에 동일 이름 장치가 여러 개 있으면 Operator에서 다시 선택해야 한다. 이전 버전이 저장한 숫자 index는 정확한 장치로 안전하게 복원할 수 없으므로 자동으로 다른 장치에 연결하지 않는다.
+
+목록은 입력 capability를 보고하는 장치를 보여주는 후보 목록이다. 실제 사용 가능 여부는 Audio Test에서 장치를 열어 확인한다. 내장 마이크, 물리 믹서/USB 오디오 인터페이스 입력, OS가 입력으로 노출하는 마이크 포함 헤드셋을 사용할 수 있다. 마이크가 없는 headphone-only AUX 케이블은 입력 장치가 아니다. 시스템 재생 소리(loopback) 캡처는 지원하지 않는다.
+
+macOS에서는 PyAudio가 CoreAudio 지원 PortAudio와 함께 설치되어야 하고 backend를 실행하는 앱/프로세스에 Microphone 권한이 필요하다. macOS 실기기 Audio Test를 별도로 수행한다.
+
 **Capture stream format**
 
 AudioCapture는 설정 sample rate, 장치 default rate 및 정해진 fallback rate를 순서대로 시도하고, mono부터 장치 metadata의 `maxInputChannels` 범위 안에서 채널 수를 시도한다. 각 조합은 PCM16, PCM24, PCM32, PCM8 순서로 실제 stream을 열어 선택한다. 성공한 PyAudio stream의 tuple `(sample_rate, channels, sample_width)`이 AudioProcessor의 source format이다.

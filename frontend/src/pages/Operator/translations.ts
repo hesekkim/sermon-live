@@ -37,6 +37,8 @@ export interface OperatorCopy {
   audioDeviceSaving: string;
   audioDeviceRetry: string;
   audioDeviceRefresh: string;
+  audioDeviceShowAll: string;
+  audioDeviceReselect: string;
   audioDeviceSessionConflict: string;
   audioDeviceLoadFailed: string;
   audioTest: string;
@@ -214,6 +216,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDeviceSaving: '입력 장치를 저장하는 중입니다',
     audioDeviceRetry: '다시 시도',
     audioDeviceRefresh: '장치 새로고침',
+    audioDeviceShowAll: '모든 오디오 경로 표시',
+    audioDeviceReselect: '저장된 입력 장치를 찾을 수 없습니다. 다시 선택하세요.',
     audioDeviceSessionConflict:
       '통역 세션을 중지한 뒤 입력 장치를 바꾸거나 테스트하세요.',
     audioDeviceLoadFailed: '입력 장치를 불러오지 못했습니다',
@@ -400,6 +404,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDeviceSaving: 'Saving input device',
     audioDeviceRetry: 'Retry',
     audioDeviceRefresh: 'Refresh devices',
+    audioDeviceShowAll: 'Show all audio paths',
+    audioDeviceReselect: 'The saved input device was not found. Select it again.',
     audioDeviceSessionConflict:
       'Stop the translation session before changing or testing the input device.',
     audioDeviceLoadFailed: 'Could not load input devices',
@@ -588,6 +594,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDeviceSaving: 'Eingabegerät wird gespeichert',
     audioDeviceRetry: 'Erneut versuchen',
     audioDeviceRefresh: 'Geräte aktualisieren',
+    audioDeviceShowAll: 'Alle Audiopfade anzeigen',
+    audioDeviceReselect: 'Das gespeicherte Eingabegerät wurde nicht gefunden. Bitte erneut auswählen.',
     audioDeviceSessionConflict:
       'Beenden Sie die Übersetzungssitzung, bevor Sie das Eingabegerät ändern oder testen.',
     audioDeviceLoadFailed: 'Eingabegeräte konnten nicht geladen werden',

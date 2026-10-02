@@ -1,10 +1,32 @@
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
 from core.config import Settings
 from services import audio_capture as audio_capture_module
 from services.audio_capture import AudioCapture
+from services.audio_devices import make_device_selector
+
+
+def selector(name: str, host_api: str = "Windows WASAPI") -> str:
+    return make_device_selector(host_api, name)
+
+
+@pytest.fixture(autouse=True)
+def patch_raw_device_names(monkeypatch):
+    def get_device_info(index: int) -> SimpleNamespace:
+        audio = audio_capture_module.pyaudio.PyAudio()
+        name = audio.get_device_info_by_index(index)["name"]
+        if isinstance(name, str):
+            name = name.encode("utf-8")
+        return SimpleNamespace(name=name)
+
+    monkeypatch.setattr(
+        audio_capture_module.pyaudio.pa,
+        "get_device_info",
+        get_device_info,
+    )
 
 
 @pytest.mark.asyncio
@@ -18,7 +40,12 @@ async def test_audio_capture_uses_selected_device_default_rate(monkeypatch):
     )
     monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
 
-    capture = AudioCapture(Settings(input_sample_rate=None, audio_device="USB"))
+    capture = AudioCapture(
+        Settings(
+            input_sample_rate=None,
+            audio_device=selector("USB Microphone"),
+        )
+    )
     await capture.start()
 
     assert audio.open_kwargs["rate"] == 48000
@@ -38,7 +65,9 @@ async def test_audio_capture_prefers_configured_rate(monkeypatch):
     )
     monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
 
-    capture = AudioCapture(Settings(input_sample_rate=16000, audio_device="USB"))
+    capture = AudioCapture(
+        Settings(input_sample_rate=16000, audio_device=selector("USB Microphone"))
+    )
     await capture.start()
 
     assert audio.open_kwargs["rate"] == 16000
@@ -106,7 +135,9 @@ async def test_audio_capture_falls_back_to_supported_rate_and_channels(monkeypat
     audio.open = open_with_fallback
     monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
 
-    capture = AudioCapture(Settings(input_sample_rate=None, audio_device="USB"))
+    capture = AudioCapture(
+        Settings(input_sample_rate=None, audio_device=selector("USB Microphone"))
+    )
     await capture.start()
 
     assert audio.open_kwargs["rate"] == 44100
@@ -142,7 +173,9 @@ async def test_audio_capture_selects_supported_stereo_pcm24_format(monkeypatch):
     )
     monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
 
-    capture = AudioCapture(Settings(input_sample_rate=16000, audio_device="USB Mixer"))
+    capture = AudioCapture(
+        Settings(input_sample_rate=16000, audio_device=selector("USB Mixer"))
+    )
     await capture.start()
 
     assert audio.open_kwargs["channels"] == 2
@@ -151,6 +184,80 @@ async def test_audio_capture_selects_supported_stereo_pcm24_format(monkeypatch):
     assert capture.input_format == (16000, 2, 3)
 
     await capture.stop()
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_resolves_selector_to_current_device_index(monkeypatch):
+    audio = FakePyAudio(
+        [
+            {
+                "name": "Built-in microphone",
+                "maxInputChannels": 1,
+                "defaultSampleRate": 44100,
+            },
+            {
+                "name": "USB Mixer",
+                "maxInputChannels": 2,
+                "defaultSampleRate": 48000,
+            },
+        ]
+    )
+    monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
+
+    capture = AudioCapture(Settings(audio_device=selector("USB Mixer")))
+    await capture.start()
+
+    assert audio.open_kwargs["input_device_index"] == 1
+    await capture.stop()
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_rejects_legacy_numeric_device_index(monkeypatch):
+    audio = FakePyAudio(
+        {
+            "name": "Built-in microphone",
+            "maxInputChannels": 1,
+            "defaultSampleRate": 44100,
+        }
+    )
+    monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
+
+    capture = AudioCapture(Settings(audio_device="31"))
+
+    with pytest.raises(RuntimeError, match="select an input device again"):
+        await capture.start()
+
+    assert audio.open_kwargs == {}
+    assert audio.terminated is True
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_rejects_ambiguous_legacy_device_name(monkeypatch):
+    audio = FakePyAudio(
+        [
+            {
+                "name": "Built-in microphone",
+                "hostApi": 0,
+                "maxInputChannels": 1,
+                "defaultSampleRate": 44100,
+            },
+            {
+                "name": "Built-in microphone",
+                "hostApi": 1,
+                "maxInputChannels": 1,
+                "defaultSampleRate": 44100,
+            },
+        ],
+        host_apis=[{"name": "MME"}, {"name": "Windows WASAPI"}],
+    )
+    monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
+
+    capture = AudioCapture(Settings(audio_device="Built-in microphone"))
+
+    with pytest.raises(RuntimeError, match="is ambiguous"):
+        await capture.start()
+
+    assert audio.open_kwargs == {}
 
 
 @pytest.mark.asyncio
@@ -208,19 +315,32 @@ class FakeStream:
 
 
 class FakePyAudio:
-    def __init__(self, device: dict[str, object]) -> None:
-        self.device = device
+    def __init__(
+        self,
+        device: dict[str, object] | list[dict[str, object]],
+        host_apis: list[dict[str, object]] | None = None,
+    ) -> None:
+        self.devices = device if isinstance(device, list) else [device]
+        self.device = self.devices[0]
+        self.host_apis = host_apis or [{"name": "Windows WASAPI"}]
         self.open_kwargs: dict[str, object] = {}
         self.open_side_effect: list[Exception | FakeStream] | None = None
         self._next_open_index = 0
         self.terminated = False
 
     def get_device_count(self) -> int:
-        return 1
+        return len(self.devices)
 
     def get_device_info_by_index(self, index: int) -> dict[str, object]:
-        assert index == 0
-        return self.device
+        info = dict(self.devices[index])
+        info.setdefault("hostApi", 0)
+        return info
+
+    def get_host_api_count(self) -> int:
+        return len(self.host_apis)
+
+    def get_host_api_info_by_index(self, index: int) -> dict[str, object]:
+        return self.host_apis[index]
 
     def get_default_input_device_info(self) -> dict[str, object]:
         return self.device

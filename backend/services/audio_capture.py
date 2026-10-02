@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 import pyaudio
 
 from core.config import Settings
-from services.audio_devices import enumerate_input_devices
+from services.audio_devices import enumerate_input_devices, parse_device_selector
 
 logger = logging.getLogger(__name__)
 
@@ -77,14 +77,50 @@ class AudioCapture:
         if not raw or raw.lower() == "default":
             return None
         if raw.isdigit():
-            return int(raw)
-        lowered = raw.lower()
-        for device in enumerate_input_devices(audio):
-            name = str(device["name"])
-            if lowered in name.lower():
-                logger.info("Using input device %s (%s)", device["index"], name)
-                return int(device["index"])
-        raise RuntimeError(f"Audio input device {raw!r} was not found")
+            raise RuntimeError(
+                "Saved audio input device index cannot be resolved safely; "
+                "select an input device again in Operator settings"
+            )
+
+        selector = parse_device_selector(raw)
+        devices = enumerate_input_devices(
+            audio,
+            lambda index: pyaudio.pa.get_device_info(index).name,
+            mode="all",
+        )
+        if selector is None:
+            name_matches = [
+                device
+                for device in devices
+                if str(device["name"]).casefold() == raw.casefold()
+            ]
+        else:
+            host_api, name = selector
+            name_matches = [
+                device
+                for device in devices
+                if str(device["host_api"]) == host_api
+                and str(device["name"]) == name
+            ]
+
+        if len(name_matches) == 1:
+            device = name_matches[0]
+            logger.info(
+                "Using input device %s (%s, %s)",
+                device["index"],
+                device["host_api"],
+                device["name"],
+            )
+            return int(device["index"])
+        if len(name_matches) > 1:
+            raise RuntimeError(
+                f"Audio input device {raw!r} is ambiguous; "
+                "select it again in Operator settings"
+            )
+        raise RuntimeError(
+            f"Audio input device {raw!r} was not found; "
+            "select it again in Operator settings"
+        )
 
     @staticmethod
     def _sample_width_format(sample_width: int) -> int:

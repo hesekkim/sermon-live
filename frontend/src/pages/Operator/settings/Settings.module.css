@@ -101,6 +101,13 @@
   gap: var(--cf-space-12);
 }
 
+.deviceActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--cf-space-8);
+}
+
 .keyRow {
   display: flex;
   align-items: flex-end;
