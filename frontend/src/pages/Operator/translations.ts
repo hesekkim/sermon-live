@@ -30,6 +30,8 @@ export interface OperatorCopy {
   languageDe: string;
   interpreter: string;
   audioDevice: string;
+  audioChannel: string;
+  audioChannelReselect: string;
   audioDevicePlaceholder: string;
   audioDeviceDefault: string;
   audioDeviceLoading: string;
@@ -208,6 +210,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     languageDe: '독일어',
     interpreter: 'API 모델',
     audioDevice: '입력 장치',
+    audioChannel: '입력 채널',
+    audioChannelReselect: '저장된 입력 채널을 사용할 수 없습니다. 다시 선택하세요.',
     audioDevicePlaceholder: '입력 장치를 선택하세요',
     audioDeviceDefault: '시스템 기본 장치',
     audioDeviceLoading: '입력 장치를 불러오는 중입니다',
@@ -396,6 +400,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     languageDe: 'German',
     interpreter: 'API model',
     audioDevice: 'Input device',
+    audioChannel: 'Input channel',
+    audioChannelReselect: 'The saved input channel is unavailable. Select another channel.',
     audioDevicePlaceholder: 'Select an input device',
     audioDeviceDefault: 'System default',
     audioDeviceLoading: 'Loading input devices',
@@ -586,6 +592,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     languageDe: 'Deutsch',
     interpreter: 'API-Modell',
     audioDevice: 'Eingabegerät',
+    audioChannel: 'Eingangskanal',
+    audioChannelReselect: 'Der gespeicherte Eingangskanal ist nicht verfügbar. Bitte wählen Sie einen anderen Kanal.',
     audioDevicePlaceholder: 'Eingabegerät auswählen',
     audioDeviceDefault: 'Systemstandard',
     audioDeviceLoading: 'Eingabegeräte werden geladen',

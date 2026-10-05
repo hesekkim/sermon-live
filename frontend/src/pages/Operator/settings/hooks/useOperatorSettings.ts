@@ -16,6 +16,7 @@ type TimerValueKey =
 interface SettingsResponse {
 	interpreter: InterpreterName;
 	audio_device?: string | null;
+	audio_channel?: number | null;
 	translation_session_auto_stop_minutes?: number | null;
 	translation_session_warning_minutes?: number | null;
 	translation_session_extension_minutes?: number | null;
@@ -44,12 +45,14 @@ interface UseOperatorSettingsOptions {
 	labels: OperatorCopy;
 	language: UiLanguage;
 	setSelectedDevice: (device: string) => void;
+	setSelectedChannel: (channel: number) => void;
 }
 
 export function useOperatorSettings({
 	labels,
 	language,
 	setSelectedDevice,
+	setSelectedChannel,
 }: UseOperatorSettingsOptions) {
 	const [interpreter, setInterpreter] = useState<InterpreterName>('echo');
 	const [apiKey, setApiKey] = useState('');
@@ -73,6 +76,8 @@ export function useOperatorSettings({
 	const savedTimerValuesRef = useRef<TimerDraftState | null>(null);
 	const setSelectedDeviceRef = useRef(setSelectedDevice);
 	setSelectedDeviceRef.current = setSelectedDevice;
+	const setSelectedChannelRef = useRef(setSelectedChannel);
+	setSelectedChannelRef.current = setSelectedChannel;
 
 	const applyApiModelResponse = (data: SettingsResponse) => {
 		savedInterpreterRef.current = data.interpreter;
@@ -88,6 +93,7 @@ export function useOperatorSettings({
 	const applySettingsResponse = (data: SettingsResponse) => {
 		applyApiModelResponse(data);
 		setSelectedDeviceRef.current(data.audio_device || 'default');
+		setSelectedChannelRef.current(data.audio_channel ?? 1);
 		const values = getTimerDraftValues(data);
 		setTimerValues(values);
 		savedTimerValuesRef.current = values;
@@ -148,6 +154,7 @@ export function useOperatorSettings({
 			const data = (await response.json()) as SettingsResponse;
 			if (scope === 'device') {
 				setSelectedDeviceRef.current(data.audio_device || 'default');
+				setSelectedChannelRef.current(data.audio_channel ?? 1);
 			} else if (scope === 'safety') {
 				const values = getTimerDraftValues(data);
 				setTimerValues(values);
@@ -169,10 +176,11 @@ export function useOperatorSettings({
 		}
 	};
 
-	const saveDevice = async (nextDevice: string) => {
+	const saveDevice = async (nextDevice: string, nextChannel: number) => {
 		const body: Record<string, SettingsValue> = {
 			interpreter: savedInterpreterRef.current,
 			audio_device: nextDevice,
+			audio_channel: nextChannel,
 		};
 		return submitSettings(body, 'device');
 	};

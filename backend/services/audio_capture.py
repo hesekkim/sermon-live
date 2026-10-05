@@ -40,6 +40,9 @@ class AudioCapture:
         self._pending_dropped_chunks = 0
         self._pending_dropped_bytes = 0
         self._delivery_scheduled = False
+        self._stream_channels = 1
+        self._stream_sample_width = 2
+        self._selected_channel_index = settings.audio_channel - 1
 
     @property
     def native_format(self) -> tuple[int, int, int] | None:
@@ -152,13 +155,48 @@ class AudioCapture:
         return candidates
 
     @staticmethod
-    def _candidate_channels(device_info: dict[str, object]) -> list[int]:
+    def _candidate_channels(
+        device_info: dict[str, object], minimum_channels: int = 1
+    ) -> list[int]:
         maximum = int(device_info.get("maxInputChannels") or 0)
-        candidates: list[int] = []
-        for value in (1, 2, 4, 6, 8):
-            if value > 0 and value <= maximum:
-                candidates.append(value)
+        if minimum_channels > maximum:
+            raise RuntimeError(
+                f"Selected audio channel {minimum_channels} is unavailable "
+                f"on this device (supports up to {maximum})"
+            )
+        candidates = sorted(
+            {
+                value
+                for value in (minimum_channels, 1, 2, 4, 6, 8, maximum)
+                if minimum_channels <= value <= maximum
+            },
+            reverse=True,
+        )
         return candidates or [1]
+
+    @classmethod
+    def validate_input_channel(cls, settings: Settings) -> None:
+        capture = cls(settings)
+        audio = pyaudio.PyAudio()
+        try:
+            device_index = capture._resolve_device_index(audio)
+            try:
+                device_info = (
+                    audio.get_device_info_by_index(device_index)
+                    if device_index is not None
+                    else audio.get_default_input_device_info()
+                )
+            except Exception as exc:
+                requested_device = settings.audio_device.strip() or "system default"
+                raise RuntimeError(
+                    f"Unable to access audio input device {requested_device!r}: {exc}"
+                ) from exc
+            cls._candidate_channels(device_info, settings.audio_channel)
+        finally:
+            try:
+                audio.terminate()
+            except Exception:
+                logger.warning("Failed to terminate PyAudio after channel validation")
 
     @staticmethod
     def _candidate_sample_widths() -> list[int]:
@@ -173,7 +211,8 @@ class AudioCapture:
         device_name = str(device_info.get("name") or "default input device")
         configured_rate = self._settings.input_sample_rate
         last_error: Exception | None = None
-        for channels in self._candidate_channels(device_info):
+        selected_channel = self._settings.audio_channel
+        for channels in self._candidate_channels(device_info, selected_channel):
             for rate in self._candidate_sample_rates(device_info, configured_rate):
                 for sample_width in self._candidate_sample_widths():
                     kwargs: dict[str, object] = {
@@ -186,6 +225,8 @@ class AudioCapture:
                     }
                     if device_index is not None:
                         kwargs["input_device_index"] = device_index
+                    self._stream_channels = channels
+                    self._stream_sample_width = sample_width
                     try:
                         self._stream = audio.open(**kwargs)
                         sample_size = audio.get_sample_size(kwargs["format"])
@@ -196,7 +237,7 @@ class AudioCapture:
                             channels,
                             sample_width * 8,
                         )
-                        return (rate, channels, sample_size)
+                        return (rate, 1, sample_size)
                     except Exception as exc:  # pragma: no cover - exercised via fake stream failures
                         last_error = exc
                         continue
@@ -215,6 +256,15 @@ class AudioCapture:
     ) -> tuple[None, int]:
         loop = self._loop
         if in_data and loop is not None and self._accept_chunks:
+            if self._stream_channels > 1:
+                sample_width = self._stream_sample_width
+                frame_size = self._stream_channels * sample_width
+                complete_size = len(in_data) - len(in_data) % frame_size
+                channel_offset = self._selected_channel_index * sample_width
+                in_data = b"".join(
+                    in_data[offset : offset + sample_width]
+                    for offset in range(channel_offset, complete_size, frame_size)
+                )
             with self._pending_chunk_lock:
                 if self._pending_chunk is not None:
                     self._pending_dropped_chunks += 1

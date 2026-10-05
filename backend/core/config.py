@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     translation_queue_max_seconds: float = 2.0
     translation_drain_timeout_seconds: float = 2.0
     audio_device: str = ""
+    audio_channel: int = 1
     audio_chunk_frames: int = 1024
     input_sample_rate: int | None = 16000
     frontend_dist: str = ""
@@ -58,6 +59,13 @@ class Settings(BaseSettings):
     @classmethod
     def parse_input_sample_rate(cls, value: object) -> object:
         return None if value == "" else value
+
+    @field_validator("audio_channel")
+    @classmethod
+    def validate_audio_channel(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("audio_channel must be greater than 0")
+        return value
 
     @model_validator(mode="after")
     def validate_translation_timer_settings(self) -> "Settings":

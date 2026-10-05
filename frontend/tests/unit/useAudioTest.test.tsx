@@ -22,8 +22,10 @@ vi.mock('../../src/pages/Operator/settings/hooks/useAudioDevices', () => ({
   useAudioDevices: () => ({
     devices: [],
     deviceOptions: [],
-    selectedDevice: '',
+    selectedDevice: 'default',
     setSelectedDevice: vi.fn(),
+    selectedChannel: 1,
+    setSelectedChannel: vi.fn(),
     isLoading: false,
     error: false,
     refresh: vi.fn(),
@@ -76,14 +78,16 @@ vi.mock('../../../src/shared/components/Toast/ToastProvider', () => ({
 
 function Probe({
   selectedDevice = '',
+  selectedChannel,
   timeoutMessage,
   onRender,
 }: {
   selectedDevice?: string;
+  selectedChannel?: number;
   timeoutMessage?: string;
   onRender: (state: ReturnType<typeof useAudioTest>) => void;
 }) {
-  const state = useAudioTest(selectedDevice, timeoutMessage);
+  const state = useAudioTest(selectedDevice, timeoutMessage, selectedChannel);
   onRender(state);
   return null;
 }
@@ -92,6 +96,7 @@ function renderProbe(
   onRender: (state: ReturnType<typeof useAudioTest>) => void,
   selectedDevice = '',
   timeoutMessage?: string,
+  selectedChannel = 1,
 ) {
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -102,6 +107,7 @@ function renderProbe(
       <Probe
         onRender={onRender}
         selectedDevice={selectedDevice}
+        selectedChannel={selectedChannel}
         timeoutMessage={timeoutMessage}
       />,
     );
@@ -152,7 +158,7 @@ describe('useAudioTest', () => {
       expect.objectContaining({
         method: 'POST',
         credentials: 'same-origin',
-        body: JSON.stringify({ audio_device: '1' }),
+        body: JSON.stringify({ audio_device: '1', audio_channel: 1 }),
         signal: expect.any(AbortSignal),
       }),
     );
@@ -166,6 +172,46 @@ describe('useAudioTest', () => {
     expect(state.liveInputLevel).toBe(-12.5);
     expect(state.error).toBeNull();
 
+    cleanup();
+  });
+
+  it('uses the selected mixer channel for the audio test', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'signal',
+        capture_sample_rate: 48000,
+        capture_channels: 1,
+        capture_sample_width: 2,
+        input_level_dbfs: -12.5,
+        processing_sample_rate: 24000,
+        processing_channels: 1,
+        processing_sample_width: 2,
+        processing_success: true,
+        message: 'Audio device is accessible and ready for processing',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    let state!: ReturnType<typeof useAudioTest>;
+    const cleanup = renderProbe(
+      (nextState) => {
+        state = nextState;
+      },
+      'mixer',
+      undefined,
+      3,
+    );
+
+    await act(async () => {
+      await state.runTest();
+    });
+
+    expect(fetchMock.mock.calls[0][1]).toEqual(
+      expect.objectContaining({
+        body: JSON.stringify({ audio_device: 'mixer', audio_channel: 3 }),
+      }),
+    );
     cleanup();
   });
 
@@ -252,7 +298,7 @@ describe('useAudioTest', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/audio/test',
       expect.objectContaining({
-        body: JSON.stringify({ audio_device: 'default' }),
+        body: JSON.stringify({ audio_device: 'default', audio_channel: 1 }),
         signal: expect.any(AbortSignal),
       }),
     );
@@ -365,7 +411,7 @@ describe('useAudioTest', () => {
     container.remove();
   });
 
-  it('allows the system default input when no device is selected', () => {
+  it('allows the selected system default input', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);

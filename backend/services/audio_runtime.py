@@ -63,6 +63,7 @@ class AudioRuntime:
         self._test_queues: set[asyncio.Queue[bytes | None]] = set()
         self._input_format: tuple[int, int, int] | None = None
         self._device_setting = ""
+        self._channel_setting: int | None = None
         self._error: str | None = None
         self._last_audio_level_broadcast: float | None = None
         self._clock = time.monotonic
@@ -114,12 +115,19 @@ class AudioRuntime:
     def running(self) -> bool:
         return self._capture_task is not None and not self._capture_task.done()
 
-    async def start(self, audio_device: str | None = None) -> None:
+    async def start(
+        self, audio_device: str | None = None, audio_channel: int | None = None
+    ) -> None:
         if self.ready:
             return
         runtime = self._store.overlay_settings(self._settings)
+        updates: dict[str, object] = {}
         if audio_device is not None:
-            runtime = runtime.model_copy(update={"audio_device": audio_device})
+            updates["audio_device"] = audio_device
+        if audio_channel is not None:
+            updates["audio_channel"] = audio_channel
+        if updates:
+            runtime = runtime.model_copy(update=updates)
         capture = AudioCapture(runtime)
         try:
             await capture.start()
@@ -129,6 +137,7 @@ class AudioRuntime:
             self._capture = capture
             self._input_format = input_format
             self._device_setting = runtime.audio_device
+            self._channel_setting = runtime.audio_channel
             self._processor = self._new_processor(input_format, input_format)
             self._error = None
             self._last_audio_level_broadcast = None
@@ -158,25 +167,39 @@ class AudioRuntime:
     async def restart(self) -> None:
         await self.stop()
         await self.start()
+        if not self.ready:
+            raise RuntimeError(self._error or "Audio input device is not available")
 
     @asynccontextmanager
-    async def using_device(self, audio_device: str | None) -> AsyncIterator[None]:
+    async def using_device(
+        self, audio_device: str | None, audio_channel: int | None = None
+    ) -> AsyncIterator[None]:
         previous_device = self._device_setting
-        if audio_device is None or audio_device == previous_device:
+        previous_channel = self._channel_setting
+        requested_device = (
+            previous_device if audio_device is None else audio_device
+        )
+        requested_channel = (
+            previous_channel if audio_channel is None else audio_channel
+        )
+        if (
+            requested_device == previous_device
+            and requested_channel == previous_channel
+        ):
             yield
             return
         await self.stop()
-        await self.start(audio_device)
+        await self.start(requested_device, requested_channel)
         if not self.ready:
             error = self._error or "Audio input device is not available"
             await self.stop()
-            await self.start(previous_device)
+            await self.start(previous_device, previous_channel)
             raise RuntimeError(error)
         try:
             yield
         finally:
             await self.stop()
-            await self.start(previous_device)
+            await self.start(previous_device, previous_channel)
 
     async def collect(self, duration_seconds: float) -> bytes:
         chunks = [chunk async for chunk in self.chunks_for(duration_seconds)]

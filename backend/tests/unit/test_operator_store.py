@@ -136,3 +136,13 @@ def test_timer_settings_reject_invalid_ranges(tmp_path):
             interpreter="echo",
             translation_session_warning_minutes=90,
         )
+
+
+def test_audio_channel_setting_persists_and_overlays(tmp_path):
+    settings = Settings()
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+
+    store.save(interpreter="echo", audio_channel=3)
+
+    assert store.public_view(settings)["audio_channel"] == 3
+    assert store.overlay_settings(settings).audio_channel == 3

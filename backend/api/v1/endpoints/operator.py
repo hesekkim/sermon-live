@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from core.config import InterpreterName, get_settings
 from services.broadcast import hub
+from services.audio_capture import AudioCapture
 from services.key_validation import validate_operator_key
 from services import network
 from services.operator_store import store
@@ -17,6 +18,7 @@ class OperatorSettingsBody(BaseModel):
     interpreter: InterpreterName
     openai_api_key: str | None = Field(default=None)
     audio_device: str | None = Field(default=None)
+    audio_channel: int | None = Field(default=None, ge=1)
     input_transcript_enabled: bool | None = Field(default=None)
     translation_session_auto_stop_minutes: int | None = Field(default=None, gt=0)
     translation_session_warning_minutes: int | None = Field(default=None, gt=0)
@@ -53,11 +55,16 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
     current_view = store.public_view(current_settings)
     previous_device = current_view["audio_device"]
     device_changed = body.audio_device is not None and body.audio_device != previous_device
+    requested_channel = 1 if device_changed else body.audio_channel
+    channel_changed = (
+        requested_channel is not None
+        and requested_channel != current_view["audio_channel"]
+    )
     session_busy = session.state in ("starting", "live", "stopping")
-    if device_changed and session_busy:
+    if (device_changed or channel_changed) and session_busy:
         raise HTTPException(
             status_code=409,
-            detail="Stop the translation session before changing the input device",
+            detail="Stop the translation session before changing the input device or channel",
         )
     timer_fields = (
         "translation_session_auto_stop_minutes",
@@ -87,11 +94,24 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
             status_code=409,
             detail="Stop the translation session before changing protected settings",
         )
+    if device_changed or channel_changed:
+        audio_settings = store.overlay_settings(current_settings)
+        audio_updates: dict[str, object] = {}
+        if body.audio_device is not None:
+            audio_updates["audio_device"] = body.audio_device
+        if requested_channel is not None:
+            audio_updates["audio_channel"] = requested_channel
+        audio_settings = audio_settings.model_copy(update=audio_updates)
+        try:
+            AudioCapture.validate_input_channel(audio_settings)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
         store.save(
             interpreter=body.interpreter,
             openai_api_key=body.openai_api_key,
             audio_device=body.audio_device,
+            audio_channel=requested_channel,
             input_transcript_enabled=body.input_transcript_enabled,
             settings=current_settings,
             translation_session_auto_stop_minutes=(
@@ -114,8 +134,14 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
         ) from exc
     except (ValueError, TypeError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    if device_changed:
-        await audio.restart()
+    if device_changed or channel_changed:
+        try:
+            await audio.restart()
+        except RuntimeError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Audio settings were saved, but the input could not be started: {exc}",
+            ) from exc
     await validate_operator_key(get_settings(), store)
     return store.public_view(get_settings())
 

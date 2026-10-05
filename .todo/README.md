@@ -77,6 +77,7 @@
 49. `056-frontend-listen-broadcast-transcript-ux.md — Listen 자막 보존·강조와 Broadcast transcript 시작/표시/스크롤 UX 개선`
 50. `057-frontend-listen-autoscroll-scripture.md` — Listen 자막 자동 스크롤, 성경 팝업 재등장 및 위치, 서비스 제목 개선
 51. `058-cross-platform-audio-device-selection.md — Windows/macOS 물리 입력 장치 열거, selector 영속화, 설정 UI 개선 (진행)`
+52. `059-mixer-input-channel-selection.md — 믹서 입력 채널 선택과 실제 장비 검증`
 
 ## 결정 사항
 

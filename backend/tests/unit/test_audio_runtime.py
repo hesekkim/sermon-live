@@ -76,6 +76,19 @@ async def test_capture_and_processor_remain_ready_when_translation_detaches(monk
 
 
 @pytest.mark.asyncio
+async def test_restart_raises_when_audio_capture_fails(monkeypatch):
+    runtime, _capture, _hub = make_runtime(monkeypatch)
+
+    async def fail_start():
+        runtime._error = "No input device"
+
+    monkeypatch.setattr(runtime, "start", fail_start)
+
+    with pytest.raises(RuntimeError, match="No input device"):
+        await runtime.restart()
+
+
+@pytest.mark.asyncio
 async def test_slow_audio_level_broadcast_does_not_block_capture_or_translation(monkeypatch):
     class SlowLevelHub(FakeHub):
         def __init__(self):

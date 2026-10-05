@@ -25,6 +25,8 @@ export default function Settings() {
     deviceOptions,
     selectedDevice,
     setSelectedDevice,
+    selectedChannel,
+    setSelectedChannel,
     listMode,
     setListMode,
     isSelectionStale,
@@ -39,7 +41,11 @@ export default function Settings() {
     isTesting,
     runTest,
     stopTest,
-  } = useAudioTest(selectedDevice, labels.audioTestTimeout);
+  } = useAudioTest(
+    selectedDevice,
+    labels.audioTestTimeout,
+    selectedChannel,
+  );
   const { error, info } = useToast();
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [deviceSaveError, setDeviceSaveError] = useState<string | null>(null);
@@ -68,6 +74,7 @@ export default function Settings() {
     labels,
     language,
     setSelectedDevice,
+    setSelectedChannel,
   });
 
   const languageOptions = useMemo(
@@ -85,6 +92,22 @@ export default function Settings() {
     ],
     [deviceOptions, labels.audioDeviceDefault],
   );
+  const selectedInputDevice = devices.find(
+    (device) => device.selector === selectedDevice,
+  );
+  const channelOptions = useMemo(
+    () =>
+      Array.from(
+        { length: selectedInputDevice?.input_channels ?? 0 },
+        (_, index) => ({ value: String(index + 1), label: String(index + 1) }),
+      ),
+    [selectedInputDevice],
+  );
+  const isChannelStale =
+    selectedInputDevice !== undefined &&
+    selectedChannel > selectedInputDevice.input_channels;
+  const showChannelSelector =
+    (selectedInputDevice?.input_channels ?? 0) > 1 || isChannelStale;
 
   const currentKeyStatus =
     interpreter === 'openai' ? openaiKeyStatus : 'missing';
@@ -98,11 +121,29 @@ export default function Settings() {
 
   const handleDeviceChange = async (nextDevice: string) => {
     const previousDevice = selectedDevice;
+    const previousChannel = selectedChannel;
     setDeviceSaveError(null);
     setSelectedDevice(nextDevice);
-    const result = await saveDevice(nextDevice);
+    setSelectedChannel(1);
+    const result = await saveDevice(nextDevice, 1);
     if (!result.success) {
       setSelectedDevice(previousDevice);
+      setSelectedChannel(previousChannel);
+      setDeviceSaveError(
+        result.status === 409
+          ? labels.audioDeviceSessionConflict
+          : result.message,
+      );
+    }
+  };
+
+  const handleChannelChange = async (nextChannel: number) => {
+    const previousChannel = selectedChannel;
+    setDeviceSaveError(null);
+    setSelectedChannel(nextChannel);
+    const result = await saveDevice(selectedDevice, nextChannel);
+    if (!result.success) {
+      setSelectedChannel(previousChannel);
       setDeviceSaveError(
         result.status === 409
           ? labels.audioDeviceSessionConflict
@@ -133,6 +174,10 @@ export default function Settings() {
           labels={labels}
           options={allDeviceOptions}
           selectedDevice={selectedDevice}
+          channelOptions={channelOptions}
+          showChannelSelector={showChannelSelector}
+          selectedChannel={selectedChannel}
+          isChannelStale={isChannelStale}
           listMode={listMode}
           isSelectionStale={isSelectionStale}
           isLoading={isLoadingDevices}
@@ -143,6 +188,9 @@ export default function Settings() {
           deviceSaveError={deviceSaveError}
           onDeviceChange={(value) => {
             void handleDeviceChange(value);
+          }}
+          onChannelChange={(value) => {
+            void handleChannelChange(value);
           }}
           onListModeChange={setListMode}
           onRefresh={() => void refreshDevices()}

@@ -20,6 +20,7 @@ export interface AudioDeviceOption {
 export function useAudioDevices() {
 	const [devices, setDevices] = useState<AudioDevice[]>([]);
 	const [selectedDevice, setSelectedDeviceState] = useState('');
+	const [selectedChannel, setSelectedChannel] = useState(1);
 	const [listMode, setListMode] = useState<AudioDeviceListMode>('standard');
 	const [error, setError] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
@@ -113,6 +114,8 @@ export function useAudioDevices() {
 		deviceOptions,
 		selectedDevice,
 		setSelectedDevice,
+		selectedChannel,
+		setSelectedChannel,
 			listMode,
 			setListMode,
 			isSelectionStale,

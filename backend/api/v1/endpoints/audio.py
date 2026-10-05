@@ -5,7 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.config import Settings, get_settings
 from services.audio_capture import AudioCapture
@@ -19,6 +19,7 @@ from services.operator_auth import require_http_operator
 router = APIRouter()
 AUDIO_TEST_DURATION_SECONDS = 3.0
 AUDIO_TEST_DISCONNECT_POLL_SECONDS = 0.1
+AUDIO_TEST_SIGNAL_THRESHOLD_DBFS = -60.0
 
 
 async def _collect_audio_until_disconnected(
@@ -53,6 +54,7 @@ class AudioDeviceResponse(BaseModel):
 
 class AudioTestRequest(BaseModel):
     audio_device: str | None = None
+    audio_channel: int | None = Field(default=None, ge=1)
 
 
 class AudioTestResponse(BaseModel):
@@ -79,8 +81,13 @@ def _processing_target(settings: Settings) -> tuple[int, int, int]:
 
 def _audio_test_settings(request: AudioTestRequest) -> Settings:
     settings = operator_store.overlay_settings(get_settings())
+    updates: dict[str, object] = {}
     if request.audio_device is not None:
-        settings = settings.model_copy(update={"audio_device": request.audio_device})
+        updates["audio_device"] = request.audio_device
+    if request.audio_channel is not None:
+        updates["audio_channel"] = request.audio_channel
+    if updates:
+        settings = settings.model_copy(update=updates)
     return settings
 
 
@@ -94,7 +101,9 @@ def _audio_test_result(
     rate, channels, width = native_format
     level = processor.input_level_dbfs
     status: Literal["disconnected", "silent", "signal"] = (
-        "signal" if raw and level is not None and level > -60.0 else "silent"
+        "signal"
+        if raw and level is not None and level > AUDIO_TEST_SIGNAL_THRESHOLD_DBFS
+        else "silent"
     )
     return AudioTestResponse(
         status=status,
@@ -143,7 +152,10 @@ async def test_audio_input(
     target_format = _processing_target(settings)
     if audio.ready:
         try:
-            async with audio.using_device(request.audio_device if request else None):
+            async with audio.using_device(
+                request.audio_device if request else None,
+                request.audio_channel if request else None,
+            ):
                 native_format = audio.input_format
                 if native_format is None:
                     raise RuntimeError("Audio input device is not available")
@@ -230,7 +242,10 @@ async def stream_audio_test(request: AudioTestRequest | None = None) -> Streamin
     async def events() -> AsyncIterator[str]:
         if audio.ready:
             try:
-                async with audio.using_device(request.audio_device if request else None):
+                async with audio.using_device(
+                    request.audio_device if request else None,
+                    request.audio_channel if request else None,
+                ):
                     native_format = audio.input_format
                     if native_format is None:
                         raise RuntimeError("Audio input device is not available")

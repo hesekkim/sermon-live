@@ -181,9 +181,100 @@ async def test_audio_capture_selects_supported_stereo_pcm24_format(monkeypatch):
     assert audio.open_kwargs["channels"] == 2
     assert audio.open_kwargs["format"] == audio_capture_module.pyaudio.paInt24
     assert audio.open_kwargs["input_device_index"] == 0
-    assert capture.input_format == (16000, 2, 3)
+    assert capture.input_format == (16000, 1, 3)
 
     await capture.stop()
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_selects_requested_mixer_channel(monkeypatch):
+    audio = FakePyAudio(
+        {
+            "name": "USB Mixer",
+            "maxInputChannels": 4,
+            "defaultSampleRate": 48000,
+        }
+    )
+    monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
+
+    capture = AudioCapture(
+        Settings(audio_channel=3, audio_device=selector("USB Mixer"))
+    )
+    await capture.start()
+
+    samples = [
+        (11, 22, 33, 44),
+        (55, 66, 77, 88),
+    ]
+    interleaved = b"".join(
+        sample.to_bytes(2, "little", signed=True)
+        for frame in samples
+        for sample in frame
+    )
+    capture._on_chunk(interleaved, len(samples), None, 0)
+    await asyncio.sleep(0)
+
+    assert audio.open_kwargs["channels"] == 4
+    assert capture.input_format == (16000, 1, 2)
+    assert capture._queue.get_nowait() == b"".join(
+        frame[2].to_bytes(2, "little", signed=True) for frame in samples
+    )
+    await capture.stop()
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_prefers_multichannel_stream_for_channel_one(monkeypatch):
+    audio = FakePyAudio(
+        {
+            "name": "USB Mixer",
+            "maxInputChannels": 4,
+            "defaultSampleRate": 48000,
+        }
+    )
+    monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
+
+    capture = AudioCapture(
+        Settings(audio_channel=1, audio_device=selector("USB Mixer"))
+    )
+    await capture.start()
+
+    samples = [(11, 22, 33, 44), (55, 66, 77, 88)]
+    interleaved = b"".join(
+        sample.to_bytes(2, "little", signed=True)
+        for frame in samples
+        for sample in frame
+    )
+    capture._on_chunk(interleaved, len(samples), None, 0)
+    await asyncio.sleep(0)
+
+    assert audio.open_kwargs["channels"] == 4
+    assert capture.input_format == (16000, 1, 2)
+    assert capture._queue.get_nowait() == b"".join(
+        frame[0].to_bytes(2, "little", signed=True) for frame in samples
+    )
+    await capture.stop()
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_rejects_unavailable_channel(monkeypatch):
+    audio = FakePyAudio(
+        {
+            "name": "USB Mixer",
+            "maxInputChannels": 2,
+            "defaultSampleRate": 48000,
+        }
+    )
+    monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
+
+    capture = AudioCapture(
+        Settings(audio_channel=3, audio_device=selector("USB Mixer"))
+    )
+
+    with pytest.raises(RuntimeError, match="Selected audio channel 3 is unavailable"):
+        await capture.start()
+
+    assert audio.open_kwargs == {}
+    assert audio.terminated is True
 
 
 @pytest.mark.asyncio

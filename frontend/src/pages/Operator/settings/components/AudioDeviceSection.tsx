@@ -15,6 +15,10 @@ interface AudioDeviceSectionProps {
   labels: OperatorCopy;
   options: AudioDeviceOption[];
   selectedDevice: string;
+  channelOptions: AudioDeviceOption[];
+  showChannelSelector: boolean;
+  selectedChannel: number;
+  isChannelStale: boolean;
   listMode: AudioDeviceListMode;
   isSelectionStale: boolean;
   isLoading: boolean;
@@ -24,6 +28,7 @@ interface AudioDeviceSectionProps {
   hasDevices: boolean;
   deviceSaveError: string | null;
   onDeviceChange: (device: string) => void;
+  onChannelChange: (channel: number) => void;
   onListModeChange: (mode: AudioDeviceListMode) => void;
   onRefresh: () => void;
   onRetry: () => void;
@@ -41,6 +46,10 @@ export default function AudioDeviceSection({
   labels,
   options,
   selectedDevice,
+  channelOptions,
+  showChannelSelector,
+  selectedChannel,
+  isChannelStale,
   listMode,
   isSelectionStale,
   isLoading,
@@ -50,6 +59,7 @@ export default function AudioDeviceSection({
   hasDevices,
   deviceSaveError,
   onDeviceChange,
+  onChannelChange,
   onListModeChange,
   onRefresh,
   onRetry,
@@ -63,6 +73,7 @@ export default function AudioDeviceSection({
   onStopTest,
 }: AudioDeviceSectionProps) {
   const canRun =
+    !isChannelStale &&
     Boolean(selectedDevice) &&
     options.some((option) => option.value === selectedDevice);
 
@@ -98,6 +109,18 @@ export default function AudioDeviceSection({
         disabled={isLoading || isSaving || isSessionBusy}
         onChange={onDeviceChange}
       />
+      {showChannelSelector ? (
+        <Select
+          label={labels.audioChannel}
+          options={channelOptions}
+          value={String(selectedChannel)}
+          disabled={isLoading || isSaving || isSessionBusy}
+          onChange={(value) => onChannelChange(Number(value))}
+        />
+      ) : null}
+      {isChannelStale ? (
+        <p role="alert">{labels.audioChannelReselect}</p>
+      ) : null}
       {isSelectionStale ? (
         <p role="alert">{labels.audioDeviceReselect}</p>
       ) : null}

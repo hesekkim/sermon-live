@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from core.config import Settings
-from api.v1.endpoints.audio import _collect_audio_until_disconnected
+from api.v1.endpoints.audio import _audio_test_result, _collect_audio_until_disconnected
 from main import app
 from services.audio_devices import enumerate_input_devices, list_input_devices
 from services.runtime import session
@@ -402,12 +402,14 @@ async def test_audio_collection_is_cancelled_when_client_disconnects():
 
 def test_audio_test_endpoint_uses_requested_device(monkeypatch, operator_client):
     captured_devices: list[str] = []
+    captured_channels: list[int] = []
 
     class FakeCapture:
         input_format = (16000, 1, 2)
 
         def __init__(self, settings: object) -> None:
             captured_devices.append(str(settings.audio_device))
+            captured_channels.append(int(settings.audio_channel))
 
         async def start(self) -> None:
             return None
@@ -421,10 +423,14 @@ def test_audio_test_endpoint_uses_requested_device(monkeypatch, operator_client)
     monkeypatch.setattr("api.v1.endpoints.audio.AudioCapture", FakeCapture)
     monkeypatch.setattr("api.v1.endpoints.audio.audio", SimpleNamespace(ready=False))
 
-    response = operator_client.post("/api/v1/audio/test", json={"audio_device": "3"})
+    response = operator_client.post(
+        "/api/v1/audio/test",
+        json={"audio_device": "3", "audio_channel": 3},
+    )
 
     assert response.status_code == 200
     assert captured_devices == ["3"]
+    assert captured_channels == [3]
 
 
 @pytest.mark.parametrize("path", ["/api/v1/audio/test", "/api/v1/audio/test/stream"])
@@ -544,6 +550,22 @@ def test_stream_audio_test_reports_live_levels_and_final_result(monkeypatch, ope
     assert [event["type"] for event in events] == ["level", "level", "result"]
     assert events[-1]["status"] == "signal"
     assert events[-1]["processing_success"] is True
+
+
+@pytest.mark.parametrize(
+    ("level", "expected_status"),
+    [(-55.0, "signal"), (-65.0, "silent")],
+)
+def test_audio_test_uses_lower_signal_threshold(level, expected_status):
+    result = _audio_test_result(
+        SimpleNamespace(input_level_dbfs=level),
+        raw=b"\x01\x00",
+        native_format=(16000, 1, 2),
+        target_format=(16000, 1, 2),
+        processing_success=True,
+    )
+
+    assert result.status == expected_status
 
 
 class FakePyAudio:

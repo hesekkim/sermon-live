@@ -19,6 +19,7 @@ export interface AudioTestResult {
 export function useAudioTest(
   selectedDevice = '',
   timeoutMessage = 'Audio test timed out',
+  selectedChannel = 1,
 ) {
   const [result, setResult] = useState<AudioTestResult | null>(null);
   const [liveInputLevel, setLiveInputLevel] = useState<number | null>(null);
@@ -36,7 +37,7 @@ export function useAudioTest(
     setError(null);
 
     return () => requestRef.current?.abort();
-  }, [selectedDevice]);
+  }, [selectedDevice, selectedChannel]);
 
   const runTest = useCallback(async () => {
     requestRef.current?.abort();
@@ -56,7 +57,10 @@ export function useAudioTest(
       const response = await operatorFetch('/api/v1/audio/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio_device: selectedDevice }),
+        body: JSON.stringify({
+          audio_device: selectedDevice,
+          audio_channel: selectedChannel,
+        }),
         signal: controller.signal,
       });
 
@@ -96,7 +100,7 @@ export function useAudioTest(
         setIsTesting(false);
       }
     }
-  }, [selectedDevice, timeoutMessage]);
+  }, [selectedDevice, selectedChannel, timeoutMessage]);
 
   return { result, liveInputLevel, error, isTesting, runTest, stopTest };
 }
