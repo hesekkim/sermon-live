@@ -44,8 +44,7 @@ def test_translation_defaults_match_openai_target_format():
 
     assert settings.openai_model == "gpt-realtime-translate"
     assert settings.translation_target_language == "de"
-    assert settings.translation_source_transcription_model == "gpt-realtime-whisper"
-    assert settings.input_transcript_enabled is False
+    assert "input_transcript_enabled" not in settings.model_dump()
 
 
 def test_translation_timer_defaults():

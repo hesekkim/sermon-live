@@ -80,6 +80,8 @@
 52. `059-mixer-input-channel-selection.md — 믹서 입력 채널 선택과 실제 장비 검증`
 53. `060-listen-websocket-network-reliability.md — Listener WebSocket 재접속, 동시 연결 안정성, 자동 네트워크 주소 탐지 검증 (hotspot 검증 대기)`
 
+54. `061-operator-broadcast-ux-and-transcript-cost-guard.md` — Broadcast 자막 자동 스크롤, 저장/시작 로딩 UX, Korean source transcript 비용 차단
+
 ## 결정 사항
 
 - FastAPI + Vite React. Next.js 사용하지 않음

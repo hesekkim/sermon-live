@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import Button from '../../../shared/components/Button/Button';
+import LoadingSpinner from '../../../shared/components/LoadingSpinner/LoadingSpinner';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
 import AppearanceSection from './components/AppearanceSection';
@@ -54,8 +55,6 @@ export default function Settings() {
     setInterpreter,
     apiKey,
     setApiKey,
-    inputTranscriptEnabled,
-    setInputTranscriptEnabled,
     openaiKeyStatus,
     openaiKeyMasked,
     keyWarning,
@@ -219,6 +218,8 @@ export default function Settings() {
           />
           <div className={styles.applyActions}>
             <Button
+              icon={isSaving ? <LoadingSpinner size="small" /> : undefined}
+              aria-busy={isSaving}
               disabled={
                 isSessionBusy ||
                 isSaving ||
@@ -234,7 +235,7 @@ export default function Settings() {
                 }
               }}
             >
-              {labels.apply}
+              {isSaving ? labels.saving : labels.apply}
             </Button>
           </div>
         </>
@@ -252,8 +253,6 @@ export default function Settings() {
           }}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
-          inputTranscriptEnabled={inputTranscriptEnabled}
-          onInputTranscriptEnabledChange={setInputTranscriptEnabled}
           keyStatus={currentKeyStatus}
           savedKeyPreview={openaiKeyMasked}
           keyWarning={keyWarning}
@@ -261,20 +260,19 @@ export default function Settings() {
         />
         <div className={styles.applyActions}>
           <Button
+            icon={isSaving ? <LoadingSpinner size="small" /> : undefined}
+            aria-busy={isSaving}
             disabled={isSessionBusy || isSaving || !isApiModelDirty}
             onClick={async () => {
               const saved = await saveApiModel();
               if (saved.success) {
-                outletContext?.setInputTranscriptEnabled(
-                  interpreter === 'openai' && inputTranscriptEnabled,
-                );
                 info(labels.applySaved);
               } else {
                 error(saved.message);
               }
             }}
           >
-            {labels.apply}
+            {isSaving ? labels.saving : labels.apply}
           </Button>
         </div>
       </>
@@ -286,6 +284,7 @@ export default function Settings() {
       <div className={styles.pageHeader}>
         <Button
           variant="ghost"
+          className={styles.backButton}
           type="button"
           aria-label={labels.back}
           title={labels.back}

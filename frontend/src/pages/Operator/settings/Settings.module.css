@@ -12,7 +12,11 @@
 .pageHeader {
   display: flex;
   justify-content: flex-start;
-  margin-bottom: var(--cf-space-8);
+  margin-bottom: var(--cf-space-12);
+}
+
+.backButton {
+  padding: var(--cf-space-8) var(--cf-space-16);
 }
 
 .tabList {
@@ -249,6 +253,8 @@
 
 .applyActions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: var(--cf-space-12);
   grid-column: 1 / -1;
 }

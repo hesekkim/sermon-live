@@ -953,9 +953,7 @@ describe('Settings save flow', () => {
       'input[name="input_transcript_enabled"]',
     ) as HTMLInputElement;
     expect(inputTranscriptToggle.checked).toBe(false);
-    await act(async () => {
-      inputTranscriptToggle.click();
-    });
+    expect(inputTranscriptToggle).toBeDisabled();
 
     const apiInput = container.querySelector(
       'input[type="password"]',
@@ -990,8 +988,8 @@ describe('Settings save flow', () => {
     expect(apiPayload).toMatchObject({
       interpreter: 'openai',
       openai_api_key: 'sk-test-1234',
-      input_transcript_enabled: true,
     });
+    expect(apiPayload).not.toHaveProperty('input_transcript_enabled');
     expect(apiPayload).not.toHaveProperty('audio_device');
     expect(apiPayload).not.toHaveProperty(
       'translation_session_auto_stop_minutes',
@@ -1009,6 +1007,115 @@ describe('Settings save flow', () => {
     await act(async () => {
       root.unmount();
     });
+    container.remove();
+  });
+
+  it('shows a saving state while settings are being persisted', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    let finishSave: (() => void) | undefined;
+    const savePending = new Promise<void>((resolve) => {
+      finishSave = resolve;
+    });
+    const savedSettings = {
+      interpreter: 'echo',
+      audio_device: '0',
+      translation_session_auto_stop_minutes: 45,
+      translation_session_warning_minutes: 5,
+      translation_session_extension_minutes: 10,
+      translation_session_hard_limit_minutes: 120,
+      openai_key_set: false,
+    };
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url === '/api/v1/audio/devices') {
+          return {
+            ok: true,
+            json: async () => [
+              {
+                index: 0,
+                name: 'Built-in microphone',
+                input_channels: 1,
+                default_sample_rate: 44100,
+              },
+            ],
+          };
+        }
+        if (
+          url === '/api/v1/operator/settings' &&
+          init?.method === 'PUT'
+        ) {
+          await savePending;
+          return { ok: true, json: async () => savedSettings };
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            ...savedSettings,
+            translation_session_auto_stop_minutes: 90,
+          }),
+        };
+      },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const safetyTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('안전 설정'),
+    );
+    await act(async () => {
+      safetyTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const autoStopInput = container.querySelector(
+      'input[name="translation_session_auto_stop_minutes"]',
+    ) as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(autoStopInput, '45');
+      autoStopInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const applyButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '적용',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      applyButton.click();
+      await Promise.resolve();
+    });
+
+    expect(applyButton).toBeDisabled();
+    expect(applyButton).toHaveAttribute('aria-busy', 'true');
+    expect(applyButton.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(applyButton).toHaveTextContent('저장 중...');
+
+    await act(async () => {
+      finishSave?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(applyButton).toBeDisabled();
+    expect(applyButton).toHaveTextContent('적용');
+    expect(applyButton).not.toHaveAttribute('aria-busy', 'true');
+    expect(applyButton.querySelector('[aria-hidden="true"]')).toBeNull();
+
+    await act(async () => root.unmount());
     container.remove();
   });
 

@@ -17,7 +17,6 @@ class OperatorRecord:
     openai_api_key: str = ""
     audio_device: str = ""
     audio_channel: int | None = None
-    input_transcript_enabled: bool | None = None
     translation_session_auto_stop_minutes: int | None = None
     translation_session_warning_minutes: int | None = None
     translation_session_extension_minutes: int | None = None
@@ -46,9 +45,6 @@ class OperatorSettingsStore:
             openai_api_key=_as_str(raw.get("openai_api_key")),
             audio_device=_as_str(raw.get("audio_device")),
             audio_channel=_as_optional_int(raw.get("audio_channel")),
-            input_transcript_enabled=_as_optional_bool(
-                raw.get("input_transcript_enabled")
-            ),
             translation_session_auto_stop_minutes=_as_optional_int(
                 raw.get("translation_session_auto_stop_minutes")
             ),
@@ -70,7 +66,6 @@ class OperatorSettingsStore:
         openai_api_key: str | None = None,
         audio_device: str | None = None,
         audio_channel: int | None = None,
-        input_transcript_enabled: bool | None = None,
         settings: Settings | None = None,
         translation_session_auto_stop_minutes: int | None = None,
         translation_session_warning_minutes: int | None = None,
@@ -128,11 +123,6 @@ class OperatorSettingsStore:
             audio_channel=(
                 audio_channel if audio_channel is not None else current.audio_channel
             ),
-            input_transcript_enabled=(
-                input_transcript_enabled
-                if input_transcript_enabled is not None
-                else current.input_transcript_enabled
-            ),
             **timer_updates,
         )
         self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,7 +131,6 @@ class OperatorSettingsStore:
             "openai_api_key": record.openai_api_key,
             "audio_device": record.audio_device,
             "audio_channel": record.audio_channel,
-            "input_transcript_enabled": record.input_transcript_enabled,
             "translation_session_auto_stop_minutes": (
                 record.translation_session_auto_stop_minutes
             ),
@@ -172,11 +161,7 @@ class OperatorSettingsStore:
             "interpreter": interpreter,
             "audio_device": audio_device,
             "audio_channel": audio_channel,
-            "input_transcript_enabled": (
-                record.input_transcript_enabled
-                if record.input_transcript_enabled is not None
-                else settings.input_transcript_enabled
-            ),
+            "input_transcript_enabled": False,
             "translation_session_auto_stop_minutes": (
                 record.translation_session_auto_stop_minutes
                 or settings.translation_session_auto_stop_minutes
@@ -248,8 +233,6 @@ class OperatorSettingsStore:
             updates["audio_device"] = record.audio_device
         if record.audio_channel is not None:
             updates["audio_channel"] = record.audio_channel
-        if record.input_transcript_enabled is not None:
-            updates["input_transcript_enabled"] = record.input_transcript_enabled
         for field in (
             "translation_session_auto_stop_minutes",
             "translation_session_warning_minutes",
@@ -274,10 +257,6 @@ def _as_optional_int(value: object) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool) and value > 0:
         return value
     return None
-
-
-def _as_optional_bool(value: object) -> bool | None:
-    return value if isinstance(value, bool) else None
 
 
 def _mask_key(value: str) -> str:

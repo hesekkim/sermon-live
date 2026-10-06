@@ -97,12 +97,6 @@ class OpenAIRealtimeInterpreter:
             audio_settings: dict[str, Any] = {
                 "output": {"language": self._settings.translation_target_language}
             }
-            if self._settings.input_transcript_enabled:
-                audio_settings["input"] = {
-                    "transcription": {
-                        "model": self._settings.translation_source_transcription_model
-                    }
-                }
             await self._send_json(
                 {
                     "type": "session.update",

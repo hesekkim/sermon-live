@@ -37,6 +37,29 @@ afterEach(() => {
 });
 
 describe('TranscriptPane', () => {
+  it('scrolls to the newest transcript line when lines change', () => {
+    const container = renderPane(['First line.']);
+    const scroll = container.querySelector('[class*="scroll"]') as HTMLDivElement;
+    Object.defineProperty(scroll, 'scrollHeight', {
+      configurable: true,
+      value: 240,
+    });
+
+    act(() => {
+      roots[0].render(
+        <TranscriptPane
+          title="German transcript"
+          empty="No transcript"
+          lines={['First line.', 'Newest line.']}
+          downloadLabel="Download transcript"
+          filename="transcript.txt"
+        />,
+      );
+    });
+
+    expect(scroll.scrollTop).toBe(240);
+  });
+
   it('disables download for empty content and downloads valid transcript lines', () => {
     const download = vi.spyOn(transcriptFile, 'downloadTextFile').mockImplementation(() => {});
     const emptyPane = renderPane(['', '   ']);

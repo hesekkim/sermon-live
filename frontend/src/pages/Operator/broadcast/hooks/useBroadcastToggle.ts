@@ -26,6 +26,7 @@ export function useBroadcastToggle({
 }: UseBroadcastToggleOptions) {
   const { info, error: toastError } = useToast();
   const [actionPending, setActionPending] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const actionPendingRef = useRef(false);
 
   const runPendingAction = async (
@@ -59,11 +60,16 @@ export function useBroadcastToggle({
           info(labels.sessionStopped);
         } else {
           if (!(await beforeStart())) return;
-          clearTranscripts();
-          await start();
-          await new Promise((resolve) => setTimeout(resolve, 150));
-          if (sessionErrorDuringAttemptRef.current) return;
-          info(labels.sessionStarted);
+          setIsStarting(true);
+          try {
+            clearTranscripts();
+            await start();
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            if (sessionErrorDuringAttemptRef.current) return;
+            info(labels.sessionStarted);
+          } finally {
+            setIsStarting(false);
+          }
         }
       },
       (caught) => {
@@ -95,5 +101,5 @@ export function useBroadcastToggle({
   const extendSession = () =>
     runPendingAction(extend, () => toastError(labels.extendFailed));
 
-  return { actionPending, toggleSession, stopNow, extendSession };
+  return { actionPending, isStarting, toggleSession, stopNow, extendSession };
 }

@@ -66,6 +66,7 @@ export interface OperatorCopy {
   showApiKey: string;
   hideApiKey: string;
   apply: string;
+  saving: string;
   applySaved: string;
   applyFailed: string;
   settingsLoadFailed: string;
@@ -90,6 +91,7 @@ export interface OperatorCopy {
   keyStatusInvalid: string;
   sessionOn: string;
   sessionOff: string;
+  broadcastStarting: string;
   listeners: string;
   broadcastStatus: string;
   serverStatus: string;
@@ -185,7 +187,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     brand: 'Sermon Live',
     navSettings: '설정',
     navBroadcast: '방송',
-    back: '뒤로',
+    back: '뒤로 가기',
     navSermonSession: '설교',
     sermonTitle: '설교 제목',
     sermonSpeaker: '설교자',
@@ -246,10 +248,11 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     apiKeySaved: '저장된 키가 있습니다',
     inputTranscript: '한국어 원문 transcript 사용',
     inputTranscriptDescription:
-      '방송 화면과 다운로드에 한국어 원문을 표시합니다. 번역 품질을 높이지 않으며 추가 API 사용량이 발생할 수 있습니다.',
+      '한국어 원문 transcript는 현재 비활성화되어 있으며 통역 서비스로 전송되지 않습니다.',
     showApiKey: 'API KEY 표시',
     hideApiKey: 'API KEY 숨기기',
     apply: '적용',
+    saving: '저장 중...',
     applySaved: '설정을 적용했습니다',
     applyFailed: '설정 적용에 실패했습니다',
     settingsLoadFailed: '설정을 불러오지 못했습니다',
@@ -277,6 +280,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     keyStatusInvalid: '유효하지 않음',
     sessionOn: '방송 중지',
     sessionOff: '방송 시작',
+    broadcastStarting: '방송 시작 중...',
     listeners: '참여 인원',
     broadcastStatus: '방송 운영 상태',
     serverStatus: '서버',
@@ -436,10 +440,11 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     apiKeySaved: 'A key is already saved',
     inputTranscript: 'Enable Korean source transcript',
     inputTranscriptDescription:
-      'Shows and downloads the Korean source transcript for the operator. It does not improve translation and may add API usage.',
+      'Korean source transcripts are currently disabled and are not sent to the translation provider.',
     showApiKey: 'Show API KEY',
     hideApiKey: 'Hide API KEY',
     apply: 'Apply',
+    saving: 'Saving...',
     applySaved: 'Settings applied',
     applyFailed: 'Could not apply settings',
     settingsLoadFailed: 'Could not load settings',
@@ -469,6 +474,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     keyStatusInvalid: 'Invalid',
     sessionOn: 'Stop broadcast',
     sessionOff: 'Start broadcast',
+    broadcastStarting: 'Starting broadcast...',
     listeners: 'Listeners',
     broadcastStatus: 'Broadcast status',
     serverStatus: 'Server',
@@ -628,10 +634,11 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     apiKeySaved: 'Ein Schlüssel ist gespeichert',
     inputTranscript: 'Koreanisches Originaltranskript verwenden',
     inputTranscriptDescription:
-      'Zeigt und lädt das koreanische Originaltranskript für den Operator. Es verbessert die Übersetzung nicht und kann zusätzliche API-Nutzung verursachen.',
+      'Koreanische Originaltranskripte sind derzeit deaktiviert und werden nicht an den Übersetzungsdienst gesendet.',
     showApiKey: 'API KEY anzeigen',
     hideApiKey: 'API KEY ausblenden',
     apply: 'Anwenden',
+    saving: 'Wird gespeichert...',
     applySaved: 'Einstellungen angewendet',
     applyFailed: 'Einstellungen konnten nicht angewendet werden',
     settingsLoadFailed: 'Einstellungen konnten nicht geladen werden',
@@ -661,6 +668,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     keyStatusInvalid: 'Ungültig',
     sessionOn: 'Sendung stoppen',
     sessionOff: 'Sendung starten',
+    broadcastStarting: 'Sendung wird gestartet...',
     listeners: 'Zuhörer',
     broadcastStatus: 'Sendungsstatus',
     serverStatus: 'Server',

@@ -1,4 +1,5 @@
 .shell {
+  position: relative;
   display: flex;
   height: 100vh;
   min-height: 0;
@@ -7,6 +8,34 @@
   overflow: hidden;
   background-color: var(--cms-bg);
   color: var(--cms-text);
+}
+
+.startingOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: rgb(15 23 42 / 24%);
+}
+
+.startingCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cf-space-12);
+  padding: var(--cf-space-24);
+  border: 1px solid var(--cms-border);
+  border-radius: var(--cf-radius-card);
+  background: var(--cms-surface);
+  color: var(--cms-text);
+  box-shadow: 0 12px 32px rgb(15 23 42 / 18%);
+  font-weight: 600;
+  text-align: center;
+}
+
+.startingCard > span:first-child {
+  color: var(--cms-primary);
 }
 
 .shell > aside {

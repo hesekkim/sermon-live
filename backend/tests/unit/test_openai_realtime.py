@@ -74,30 +74,32 @@ async def test_start_sends_translation_configuration_and_pcm():
 
 
 @pytest.mark.asyncio
-async def test_start_uses_translation_settings():
+async def test_start_ignores_legacy_input_transcript_settings():
     websocket = FakeWebSocket(
         [
             {"type": "session.created"},
             {"type": "session.updated"},
         ]
     )
+    settings = Settings.model_validate(
+        {
+            "interpreter": "openai",
+            "openai_api_key": "test-key",
+            "translation_target_language": "fr",
+            "translation_source_transcription_model": "custom-whisper",
+            "input_transcript_enabled": True,
+        }
+    )
     adapter = OpenAIRealtimeInterpreter(
-        Settings(
-            interpreter="openai",
-            openai_api_key="test-key",
-            translation_target_language="fr",
-            translation_source_transcription_model="custom-whisper",
-            input_transcript_enabled=True,
-        ),
+        settings,
         websocket_factory=factory_for(websocket),
     )
 
     await adapter.start()
 
-    assert websocket.sent[0]["session"]["audio"]["input"]["transcription"] == {
-        "model": "custom-whisper"
+    assert websocket.sent[0]["session"]["audio"] == {
+        "output": {"language": "fr"}
     }
-    assert websocket.sent[0]["session"]["audio"]["output"] == {"language": "fr"}
     await adapter.close()
 
 
@@ -113,7 +115,6 @@ async def test_start_omits_input_transcription_when_disabled():
         Settings(
             interpreter="openai",
             openai_api_key="test-key",
-            input_transcript_enabled=False,
         ),
         websocket_factory=factory_for(websocket),
     )

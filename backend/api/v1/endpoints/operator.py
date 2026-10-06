@@ -51,6 +51,11 @@ async def get_operator_settings() -> dict[str, object]:
     "/api/v1/operator/settings", dependencies=[Depends(require_http_operator)]
 )
 async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]:
+    if body.input_transcript_enabled is True:
+        raise HTTPException(
+            status_code=422,
+            detail="Korean source transcripts are disabled",
+        )
     current_settings = get_settings()
     current_view = store.public_view(current_settings)
     previous_device = current_view["audio_device"]
@@ -73,12 +78,6 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
         "translation_session_hard_limit_minutes",
     )
     protected_settings_changed = body.interpreter != current_view["interpreter"]
-    if (
-        body.input_transcript_enabled is not None
-        and body.input_transcript_enabled
-        != current_view["input_transcript_enabled"]
-    ):
-        protected_settings_changed = True
     for field in timer_fields:
         requested = getattr(body, field)
         if requested is not None and requested != current_view[field]:
@@ -112,7 +111,6 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
             openai_api_key=body.openai_api_key,
             audio_device=body.audio_device,
             audio_channel=requested_channel,
-            input_transcript_enabled=body.input_transcript_enabled,
             settings=current_settings,
             translation_session_auto_stop_minutes=(
                 body.translation_session_auto_stop_minutes

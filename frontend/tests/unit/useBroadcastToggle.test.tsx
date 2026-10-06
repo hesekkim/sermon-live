@@ -29,7 +29,7 @@ function Probe({
   extend,
 }: ProbeProps) {
   const sessionErrorDuringAttemptRef = useRef(false);
-  const { actionPending, toggleSession, stopNow, extendSession } =
+  const { actionPending, isStarting, toggleSession, stopNow, extendSession } =
     useBroadcastToggle({
       labels: operatorCopy.ko,
       sessionStatus,
@@ -46,6 +46,9 @@ function Probe({
       <button type="button" onClick={() => void toggleSession()}>
         Toggle
       </button>
+      <p role="status">
+        {isStarting ? operatorCopy.ko.broadcastStarting : ''}
+      </p>
       <button
         type="button"
         disabled={actionPending}
@@ -160,6 +163,40 @@ describe('useBroadcastToggle timer actions', () => {
 
     expect(start).toHaveBeenCalledTimes(1);
     expect(stop).not.toHaveBeenCalled();
+    act(() => root.unmount());
+  });
+
+  it('reports that the broadcast is starting until the request completes', async () => {
+    let resolveStart: (() => void) | undefined;
+    const start = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveStart = resolve;
+        }),
+    );
+    const { container, root } = renderProbe({
+      sessionStatus: 'off',
+      start,
+      stop: vi.fn(),
+      extend: vi.fn(),
+    });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button')?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(start).toHaveBeenCalledOnce();
+    expect(container.querySelector('[role="status"]')).toHaveTextContent(
+      operatorCopy.ko.broadcastStarting,
+    );
+
+    await act(async () => {
+      resolveStart?.();
+      await new Promise((resolve) => setTimeout(resolve, 160));
+    });
+    expect(container.querySelector('[role="status"]')).toBeEmptyDOMElement();
     act(() => root.unmount());
   });
 

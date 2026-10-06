@@ -32,8 +32,6 @@ class Settings(BaseSettings):
     # Verify the model name against the official API when the OpenAI adapter is implemented.
     openai_model: str = "gpt-realtime-translate"
     translation_target_language: str = "de"
-    translation_source_transcription_model: str = "gpt-realtime-whisper"
-    input_transcript_enabled: bool = False
     translation_session_auto_stop_minutes: int = 90
     translation_session_warning_minutes: int = 5
     translation_session_extension_minutes: int = 10

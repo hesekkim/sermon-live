@@ -137,13 +137,21 @@ async def test_start_stop_keeps_server_audio_ready_and_rejects_duplicate_transit
     assert hub.listener_events[-1] == hub.operator_events[-1]
 
 
-def test_session_status_exposes_effective_input_transcript_setting(tmp_path):
-    settings = Settings(interpreter="openai", input_transcript_enabled=True)
+def test_session_status_ignores_legacy_input_transcript_setting(tmp_path):
+    settings = Settings.model_validate(
+        {
+            "interpreter": "openai",
+            "input_transcript_enabled": True,
+        }
+    )
     service, _hub = make_service(tmp_path, settings=settings)
 
-    assert service.status()["input_transcript_enabled"] is True
+    assert service.status()["input_transcript_enabled"] is False
 
-    service._store.save(interpreter="echo", input_transcript_enabled=True)
+    service._store._path.write_text(
+        '{"interpreter":"openai","input_transcript_enabled":true}\n',
+        encoding="utf-8",
+    )
     assert service.status()["input_transcript_enabled"] is False
 
 

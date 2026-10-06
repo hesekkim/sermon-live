@@ -74,7 +74,7 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
             "openai_api_key": "unit-test-key",
             "audio_device": "USB Audio",
             "audio_channel": 2,
-            "input_transcript_enabled": True,
+            "input_transcript_enabled": False,
             "translation_session_auto_stop_minutes": 60,
             "translation_session_warning_minutes": 4,
             "translation_session_extension_minutes": 15,
@@ -86,7 +86,7 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     assert body["interpreter"] == "openai"
     assert body["audio_device"] == "USB Audio"
     assert body["audio_channel"] == 2
-    assert body["input_transcript_enabled"] is True
+    assert body["input_transcript_enabled"] is False
     assert body["translation_session_auto_stop_minutes"] == 60
     assert body["translation_session_warning_minutes"] == 4
     assert body["translation_session_extension_minutes"] == 15
@@ -124,6 +124,18 @@ def test_changing_audio_device_without_channel_resets_channel_to_one(
     assert response.json()["audio_device"] == "Microphone (X-USB)"
     assert response.json()["audio_channel"] == 1
     assert store.load().audio_channel == 1
+
+
+def test_operator_settings_rejects_enabling_input_transcript(operator_client):
+    response = operator_client.put(
+        "/api/v1/operator/settings",
+        json={"interpreter": "openai", "input_transcript_enabled": True},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Korean source transcripts are disabled"
+    }
 
 
 def test_unavailable_audio_channel_is_rejected_before_saving(
@@ -267,7 +279,7 @@ def test_operator_settings_cannot_change_safety_or_interpreter_during_session(
     assert timer_response.status_code == 409
     assert interpreter_response.status_code == 409
     assert key_response.status_code == 409
-    assert transcript_response.status_code == 409
+    assert transcript_response.status_code == 422
     assert channel_response.status_code == 409
     current = store.public_view(get_settings())
     assert current["translation_session_auto_stop_minutes"] == 90

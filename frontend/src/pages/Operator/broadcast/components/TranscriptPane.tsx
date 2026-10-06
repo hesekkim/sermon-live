@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import { LiaFileDownloadSolid } from 'react-icons/lia';
 import Button from '../../../../shared/components/Button/Button';
 import {
@@ -23,7 +24,13 @@ export default function TranscriptPane({
   filename,
   prominent = false,
 }: TranscriptPaneProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const hasTranscript = lines.some((line) => line.trim().length > 0);
+
+  useLayoutEffect(() => {
+    const scroll = scrollRef.current;
+    if (scroll) scroll.scrollTop = scroll.scrollHeight;
+  }, [lines]);
 
   return (
     <section
@@ -43,7 +50,7 @@ export default function TranscriptPane({
           }
         />
       </div>
-      <div className={styles.scroll}>
+      <div className={styles.scroll} ref={scrollRef}>
         {lines.length === 0 ? (
           <p className={styles.empty}>{empty}</p>
         ) : (

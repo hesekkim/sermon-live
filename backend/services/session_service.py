@@ -75,9 +75,6 @@ class _TranslationSessionService:
 
     def status(self) -> dict[str, object]:
         start_block_reason = self._start_block_reason()
-        runtime_settings = self._active_settings or self._store.overlay_settings(
-            self._settings
-        )
         payload = {
             "running": self.running,
             "session_status": self._state,
@@ -85,10 +82,7 @@ class _TranslationSessionService:
             "audio_ready": self._audio.ready,
             "audio_error": self._audio.error,
             "error": self._error,
-            "input_transcript_enabled": (
-                runtime_settings.interpreter == "openai"
-                and runtime_settings.input_transcript_enabled
-            ),
+            "input_transcript_enabled": False,
             "last_termination_reason": self._last_termination_reason,
             "start_available": start_block_reason is None,
             "start_block_reason": start_block_reason,

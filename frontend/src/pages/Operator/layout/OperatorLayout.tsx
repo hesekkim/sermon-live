@@ -10,6 +10,7 @@ import {
 import { useRef, useState } from 'react';
 import Button from '../../../shared/components/Button/Button';
 import Dialog from '../../../shared/components/Dialog/Dialog';
+import LoadingSpinner from '../../../shared/components/LoadingSpinner/LoadingSpinner';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import Sidebar from '../../../shared/components/Sidebar/Sidebar';
 import BroadcastHeader from '../broadcast/components/BroadcastHeader';
@@ -77,6 +78,7 @@ export default function OperatorLayout({
   });
   const { showInputPane } = useOperatorLayout();
   const isLive = session.sessionStatus === 'live';
+  const isStarting = actions.isStarting;
   const isTransitioning =
     session.sessionStatus === 'starting' ||
     session.sessionStatus === 'stopping';
@@ -110,6 +112,7 @@ export default function OperatorLayout({
             fullWidth
             icon={isLive ? <LuPowerOff size={18} /> : <LuPower size={18} />}
             aria-pressed={isLive}
+            aria-busy={isStarting}
             title={powerTitle}
             disabled={actions.actionPending || isTransitioning || startDisabled}
             onClick={() => void actions.toggleSession()}
@@ -224,6 +227,19 @@ export default function OperatorLayout({
       >
         <p>{labels.startWithTranscriptBody}</p>
       </Dialog>
+      {isStarting ? (
+        <div
+          className={styles.startingOverlay}
+          role="status"
+          aria-live="polite"
+          aria-label={labels.broadcastStarting}
+        >
+          <div className={styles.startingCard}>
+            <LoadingSpinner size="large" />
+            <span>{labels.broadcastStarting}</span>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
