@@ -42,7 +42,8 @@ async def test_invalid_key_is_updated_without_starting_session(monkeypatch, tmp_
 
     view = store.public_view(Settings(interpreter="openai"))
     assert view["openai_key_status"] == "invalid"
-    assert view["openai_key_warning"] == "invalid credentials"
+    assert view["openai_key_warning"] == "OpenAI API key is invalid"
+    assert "invalid credentials" not in str(view)
 
 
 @pytest.mark.asyncio

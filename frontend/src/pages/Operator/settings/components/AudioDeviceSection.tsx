@@ -1,4 +1,5 @@
 import Button from '../../../../shared/components/Button/Button';
+import LoadingSpinner from '../../../../shared/components/LoadingSpinner/LoadingSpinner';
 import Select from '../../../../shared/components/Select/Select';
 import SlideToggle from '../../../../shared/components/SlideToggle/SlideToggle';
 import { FiRefreshCw } from 'react-icons/fi';
@@ -22,6 +23,7 @@ interface AudioDeviceSectionProps {
   listMode: AudioDeviceListMode;
   isSelectionStale: boolean;
   isLoading: boolean;
+  isSettingsLoaded: boolean;
   isSaving: boolean;
   isSessionBusy: boolean;
   hasLoadError: boolean;
@@ -53,6 +55,7 @@ export default function AudioDeviceSection({
   listMode,
   isSelectionStale,
   isLoading,
+  isSettingsLoaded,
   isSaving,
   isSessionBusy,
   hasLoadError,
@@ -106,7 +109,7 @@ export default function AudioDeviceSection({
         options={options}
         value={selectedDevice}
         placeholder={labels.audioDevicePlaceholder}
-        disabled={isLoading || isSaving || isSessionBusy}
+        disabled={!isSettingsLoaded || isLoading || isSaving || isSessionBusy}
         onChange={onDeviceChange}
       />
       {showChannelSelector ? (
@@ -114,9 +117,19 @@ export default function AudioDeviceSection({
           label={labels.audioChannel}
           options={channelOptions}
           value={String(selectedChannel)}
-          disabled={isLoading || isSaving || isSessionBusy}
+          disabled={!isSettingsLoaded || isLoading || isSaving || isSessionBusy}
           onChange={(value) => onChannelChange(Number(value))}
         />
+      ) : null}
+      {isSaving ? (
+        <div
+          className={styles.audioDeviceSaving}
+          role="status"
+          aria-live="polite"
+        >
+          <LoadingSpinner size="small" />
+          <span>{labels.audioDeviceSaving}</span>
+        </div>
       ) : null}
       {isChannelStale ? (
         <p role="alert">{labels.audioChannelReselect}</p>
@@ -137,7 +150,6 @@ export default function AudioDeviceSection({
       {!isLoading && !hasLoadError && !hasDevices ? (
         <p role="status">{labels.audioDeviceEmpty}</p>
       ) : null}
-      {isSaving ? <p role="status">{labels.audioDeviceSaving}</p> : null}
       {deviceSaveError ? <p role="alert">{deviceSaveError}</p> : null}
       <AudioTestPanel
         labels={labels}

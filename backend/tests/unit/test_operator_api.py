@@ -49,14 +49,16 @@ def test_sermon_session_routes_are_not_registered(operator_client):
 
 
 def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
-    async def skip_key_validation(*_args):
-        return None
+    key_validation_calls = []
+
+    async def record_key_validation(*_args):
+        key_validation_calls.append(True)
 
     async def skip_audio_restart():
         return None
 
     monkeypatch.setattr(
-        operator_endpoint, "validate_operator_key", skip_key_validation
+        operator_endpoint, "validate_operator_key", record_key_validation
     )
     monkeypatch.setattr(
         operator_endpoint.AudioCapture, "validate_input_channel", lambda _settings: None
@@ -67,6 +69,7 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     empty = operator_client.get("/api/v1/operator/settings")
     assert empty.status_code == 200
     assert empty.json()["input_transcript_enabled"] is False
+    assert len(key_validation_calls) == 1
     saved = operator_client.put(
         "/api/v1/operator/settings",
         json={
@@ -94,19 +97,22 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     assert body["openai_key_set"] is True
     assert body["openai_key_masked"] == "unit...-key"
     assert "unit-test-key" not in str(body)
+    assert len(key_validation_calls) == 2
 
 
 def test_changing_audio_device_without_channel_resets_channel_to_one(
     operator_client, monkeypatch, tmp_path
 ):
-    async def skip_key_validation(*_args):
-        return None
+    key_validation_calls = []
+
+    async def record_key_validation(*_args):
+        key_validation_calls.append(True)
 
     async def skip_audio_restart():
         return None
 
     monkeypatch.setattr(
-        operator_endpoint, "validate_operator_key", skip_key_validation
+        operator_endpoint, "validate_operator_key", record_key_validation
     )
     monkeypatch.setattr(
         operator_endpoint.AudioCapture, "validate_input_channel", lambda _settings: None
@@ -124,6 +130,7 @@ def test_changing_audio_device_without_channel_resets_channel_to_one(
     assert response.json()["audio_device"] == "Microphone (X-USB)"
     assert response.json()["audio_channel"] == 1
     assert store.load().audio_channel == 1
+    assert key_validation_calls == []
 
 
 def test_operator_settings_rejects_enabling_input_transcript(operator_client):

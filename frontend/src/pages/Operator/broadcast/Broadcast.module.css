@@ -80,8 +80,11 @@
   color: var(--cms-warning-text, #a16207);
 }
 
+.statusItem dd[data-state='error'] {
+  color: var(--cms-danger, #b91c1c);
+}
+
 .statusItem dd[data-state='offline'],
-.statusItem dd[data-state='error'],
 .statusItem dd[data-state='disconnected'],
 .statusItem dd[data-state='off'] {
   color: var(--cms-text-secondary);

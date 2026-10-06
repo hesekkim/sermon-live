@@ -12,7 +12,7 @@ import { useBroadcastToggle } from '../../src/pages/Operator/broadcast/hooks/use
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 interface ProbeProps {
-  sessionStatus: 'off' | 'live';
+  sessionStatus: 'off' | 'live' | 'stopping';
   start?: () => Promise<void>;
   beforeStart?: () => Promise<boolean>;
   clearTranscripts?: () => void;
@@ -29,8 +29,14 @@ function Probe({
   extend,
 }: ProbeProps) {
   const sessionErrorDuringAttemptRef = useRef(false);
-  const { actionPending, isStarting, toggleSession, stopNow, extendSession } =
-    useBroadcastToggle({
+  const {
+    actionPending,
+    isStarting,
+    isStopping,
+    toggleSession,
+    stopNow,
+    extendSession,
+  } = useBroadcastToggle({
       labels: operatorCopy.ko,
       sessionStatus,
       start,
@@ -47,7 +53,11 @@ function Probe({
         Toggle
       </button>
       <p role="status">
-        {isStarting ? operatorCopy.ko.broadcastStarting : ''}
+        {isStopping
+          ? operatorCopy.ko.broadcastStopping
+          : isStarting
+            ? operatorCopy.ko.broadcastStarting
+            : ''}
       </p>
       <button
         type="button"
@@ -195,6 +205,38 @@ describe('useBroadcastToggle timer actions', () => {
     await act(async () => {
       resolveStart?.();
       await new Promise((resolve) => setTimeout(resolve, 160));
+    });
+    expect(container.querySelector('[role="status"]')).toBeEmptyDOMElement();
+    act(() => root.unmount());
+  });
+
+  it('reports that the broadcast is stopping until the request completes', async () => {
+    let resolveStop: (() => void) | undefined;
+    const stop = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveStop = resolve;
+        }),
+    );
+    const { container, root } = renderProbe({
+      sessionStatus: 'live',
+      stop,
+      extend: vi.fn(),
+    });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button')?.click();
+      await Promise.resolve();
+    });
+
+    expect(stop).toHaveBeenCalledOnce();
+    expect(container.querySelector('[role="status"]')).toHaveTextContent(
+      operatorCopy.ko.broadcastStopping,
+    );
+
+    await act(async () => {
+      resolveStop?.();
+      await Promise.resolve();
     });
     expect(container.querySelector('[role="status"]')).toBeEmptyDOMElement();
     act(() => root.unmount());

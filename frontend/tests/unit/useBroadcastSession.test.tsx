@@ -318,11 +318,18 @@ describe('useBroadcastSession', () => {
           sessionStatus: 'live',
           audioReady: true,
           startAvailable: false,
-          startBlockReason: null,
+          startBlockReason: 'OpenAI API key is invalid',
           listenerCount: 4,
           timer: { elapsedSeconds: 65, remainingSeconds: 535, warning: false },
         }),
       );
+    });
+
+    expect(latestSession.current?.startBlockReason).toBe(
+      operatorCopy.ko.invalidApiKey,
+    );
+
+    await act(async () => {
       firstSocket?.emit(
         'message',
         JSON.stringify({ type: 'latency', milliseconds: 180 }),

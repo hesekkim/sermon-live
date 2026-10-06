@@ -82,6 +82,8 @@
 
 54. `061-operator-broadcast-ux-and-transcript-cost-guard.md` — Broadcast 자막 자동 스크롤, 저장/시작 로딩 UX, Korean source transcript 비용 차단
 
+55. `062-operator-settings-and-session-transition-ux.md` — Operator 설정 피드백, 안전한 API 키 오류 표시, 장치 저장 및 세션 전환 로딩 UX
+
 ## 결정 사항
 
 - FastAPI + Vite React. Next.js 사용하지 않음

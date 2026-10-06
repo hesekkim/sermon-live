@@ -24,8 +24,9 @@ async def validate_operator_key(
     interpreter = create_interpreter(runtime)
     try:
         await interpreter.validate_key()
-    except KeyValidationError as exc:
-        store.set_key_status(provider, "invalid", str(exc))
+    except KeyValidationError:
+        label = "OpenAI" if provider == "openai" else provider.title()
+        store.set_key_status(provider, "invalid", f"{label} API key is invalid")
     except Exception:
         return
     else:

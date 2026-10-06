@@ -181,7 +181,7 @@ class OperatorSettingsStore:
             "openai_key_set": bool(openai_key),
             "openai_key_masked": _mask_key(openai_key),
             "openai_key_status": openai_status,
-            "openai_key_warning": openai_raw[1] if openai_raw else _warning_for_key("openai", openai_status),
+            "openai_key_warning": _warning_for_key("openai", openai_status),
         }
 
     def set_key_status(

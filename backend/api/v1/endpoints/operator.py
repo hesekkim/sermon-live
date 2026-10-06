@@ -77,17 +77,19 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
         "translation_session_extension_minutes",
         "translation_session_hard_limit_minutes",
     )
-    protected_settings_changed = body.interpreter != current_view["interpreter"]
+    interpreter_changed = body.interpreter != current_view["interpreter"]
+    stored_key = store.load().openai_api_key or current_settings.openai_api_key
+    api_key_changed = (
+        body.openai_api_key not in (None, "")
+        and body.openai_api_key != stored_key
+    )
+    api_model_changed = interpreter_changed or api_key_changed
+    protected_settings_changed = api_model_changed
     for field in timer_fields:
         requested = getattr(body, field)
         if requested is not None and requested != current_view[field]:
             protected_settings_changed = True
             break
-    stored_key = store.load().openai_api_key or current_settings.openai_api_key
-    protected_settings_changed = protected_settings_changed or (
-        body.openai_api_key not in (None, "")
-        and body.openai_api_key != stored_key
-    )
     if protected_settings_changed and session_busy:
         raise HTTPException(
             status_code=409,
@@ -140,7 +142,8 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
                 status_code=503,
                 detail=f"Audio settings were saved, but the input could not be started: {exc}",
             ) from exc
-    await validate_operator_key(get_settings(), store)
+    if api_model_changed:
+        await validate_operator_key(get_settings(), store)
     return store.public_view(get_settings())
 
 

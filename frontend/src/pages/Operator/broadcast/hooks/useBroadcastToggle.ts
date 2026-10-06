@@ -27,6 +27,7 @@ export function useBroadcastToggle({
   const { info, error: toastError } = useToast();
   const [actionPending, setActionPending] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const actionPendingRef = useRef(false);
 
   const runPendingAction = async (
@@ -56,8 +57,13 @@ export function useBroadcastToggle({
     await runPendingAction(
       async () => {
         if (isStopping) {
-          await stop();
-          info(labels.sessionStopped);
+          setIsStopping(true);
+          try {
+            await stop();
+            info(labels.sessionStopped);
+          } finally {
+            setIsStopping(false);
+          }
         } else {
           if (!(await beforeStart())) return;
           setIsStarting(true);
@@ -92,8 +98,13 @@ export function useBroadcastToggle({
   const stopNow = () =>
     runPendingAction(
       async () => {
-        await stop();
-        info(labels.sessionStopped);
+        setIsStopping(true);
+        try {
+          await stop();
+          info(labels.sessionStopped);
+        } finally {
+          setIsStopping(false);
+        }
       },
       () => toastError(labels.stopFailed),
     );
@@ -101,5 +112,12 @@ export function useBroadcastToggle({
   const extendSession = () =>
     runPendingAction(extend, () => toastError(labels.extendFailed));
 
-  return { actionPending, isStarting, toggleSession, stopNow, extendSession };
+  return {
+    actionPending,
+    isStarting,
+    isStopping,
+    toggleSession,
+    stopNow,
+    extendSession,
+  };
 }

@@ -67,6 +67,7 @@ export default function BroadcastHeader({
   onExtend,
   onStopNow,
 }: BroadcastHeaderProps) {
+  const isInvalidApiKey = startBlockReason === labels.invalidApiKey;
   const serverLabel = {
     connecting: labels.serverConnecting,
     online: labels.serverOnline,
@@ -271,9 +272,15 @@ export default function BroadcastHeader({
           {!isLive &&
           startBlockReason &&
           (sessionStatus === 'off' || sessionStatus === 'error') ? (
-            <div className={styles.statusItem} role="status">
+            <div
+              className={styles.statusItem}
+              role={isInvalidApiKey ? 'alert' : 'status'}
+            >
               <dt>{labels.sessionErrorLabel}</dt>
-              <dd data-state="warning" title={startBlockReason}>
+              <dd
+                data-state={isInvalidApiKey ? 'error' : 'warning'}
+                title={startBlockReason}
+              >
                 {startBlockReason}
               </dd>
             </div>

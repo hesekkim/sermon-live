@@ -70,6 +70,7 @@ export interface OperatorCopy {
   applySaved: string;
   applyFailed: string;
   settingsLoadFailed: string;
+  settingsLoading: string;
   darkMode: string;
   lightMode: string;
   safety: string;
@@ -92,6 +93,7 @@ export interface OperatorCopy {
   sessionOn: string;
   sessionOff: string;
   broadcastStarting: string;
+  broadcastStopping: string;
   listeners: string;
   broadcastStatus: string;
   serverStatus: string;
@@ -256,6 +258,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     applySaved: '설정을 적용했습니다',
     applyFailed: '설정 적용에 실패했습니다',
     settingsLoadFailed: '설정을 불러오지 못했습니다',
+    settingsLoading: '설정을 불러오는 중...',
     darkMode: '다크 모드',
     lightMode: '라이트 모드',
     safety: '안전 설정',
@@ -281,6 +284,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionOn: '방송 중지',
     sessionOff: '방송 시작',
     broadcastStarting: '방송 시작 중...',
+    broadcastStopping: '방송 중지 중...',
     listeners: '참여 인원',
     broadcastStatus: '방송 운영 상태',
     serverStatus: '서버',
@@ -448,6 +452,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     applySaved: 'Settings applied',
     applyFailed: 'Could not apply settings',
     settingsLoadFailed: 'Could not load settings',
+    settingsLoading: 'Loading settings...',
     darkMode: 'Dark mode',
     lightMode: 'Light mode',
     safety: 'Safety settings',
@@ -475,6 +480,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionOn: 'Stop broadcast',
     sessionOff: 'Start broadcast',
     broadcastStarting: 'Starting broadcast...',
+    broadcastStopping: 'Stopping broadcast...',
     listeners: 'Listeners',
     broadcastStatus: 'Broadcast status',
     serverStatus: 'Server',
@@ -642,6 +648,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     applySaved: 'Einstellungen angewendet',
     applyFailed: 'Einstellungen konnten nicht angewendet werden',
     settingsLoadFailed: 'Einstellungen konnten nicht geladen werden',
+    settingsLoading: 'Einstellungen werden geladen...',
     darkMode: 'Dunkelmodus',
     lightMode: 'Heller Modus',
     safety: 'Sicherheitsoptionen',
@@ -669,6 +676,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     sessionOn: 'Sendung stoppen',
     sessionOff: 'Sendung starten',
     broadcastStarting: 'Sendung wird gestartet...',
+    broadcastStopping: 'Sendung wird gestoppt...',
     listeners: 'Zuhörer',
     broadcastStatus: 'Sendungsstatus',
     serverStatus: 'Server',

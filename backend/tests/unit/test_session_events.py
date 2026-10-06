@@ -254,10 +254,26 @@ async def test_openai_invalid_key_prevents_session_start(tmp_path, monkeypatch):
     )
     service = SessionService(Settings(interpreter="echo"), hub, FakeAudioRuntime(), store)
 
-    with pytest.raises(RuntimeError, match="OpenAI rejected the configured key"):
+    with pytest.raises(RuntimeError, match="OpenAI API key is invalid"):
         await service.start()
 
     assert service.state == "error"
     assert store.public_view(Settings(interpreter="echo"))["openai_key_status"] == "invalid"
     assert interpreter.closed is True
     assert not any(event.get("type") == "session_ended" for event in hub.operator)
+
+
+def test_invalid_key_start_block_does_not_expose_provider_warning(tmp_path):
+    store = OperatorSettingsStore(tmp_path / "invalid-openai.json")
+    store.save(interpreter="openai", openai_api_key="test-key")
+    store.set_key_status(
+        "openai", "invalid", "Incorrect API key provided: sensitive detail"
+    )
+    service = SessionService(
+        Settings(interpreter="echo"),
+        FakeHub(),
+        FakeAudioRuntime(),
+        store,
+    )
+
+    assert service.status()["start_block_reason"] == "OpenAI API key is invalid"

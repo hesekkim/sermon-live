@@ -57,7 +57,7 @@ export default function Settings() {
     setApiKey,
     openaiKeyStatus,
     openaiKeyMasked,
-    keyWarning,
+    settingsLoadStatus,
     draftLanguage,
     setDraftLanguage,
     timerValues,
@@ -180,6 +180,7 @@ export default function Settings() {
           listMode={listMode}
           isSelectionStale={isSelectionStale}
           isLoading={isLoadingDevices}
+          isSettingsLoaded={settingsLoadStatus === 'loaded'}
           isSaving={isSaving}
           isSessionBusy={isSessionBusy}
           hasLoadError={deviceLoadError}
@@ -242,6 +243,23 @@ export default function Settings() {
       );
     }
 
+    if (settingsLoadStatus === 'loading') {
+      return (
+        <div
+          className={styles.settingsLoading}
+          role="status"
+          aria-live="polite"
+        >
+          <LoadingSpinner size="small" />
+          <span>{labels.settingsLoading}</span>
+        </div>
+      );
+    }
+
+    if (settingsLoadStatus === 'error') {
+      return <p role="alert">{labels.settingsLoadFailed}</p>;
+    }
+
     return (
       <>
         <InterpreterSection
@@ -255,7 +273,6 @@ export default function Settings() {
           onApiKeyChange={setApiKey}
           keyStatus={currentKeyStatus}
           savedKeyPreview={openaiKeyMasked}
-          keyWarning={keyWarning}
           disabled={isSessionBusy}
         />
         <div className={styles.applyActions}>

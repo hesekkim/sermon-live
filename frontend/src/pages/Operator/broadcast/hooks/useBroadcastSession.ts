@@ -26,6 +26,14 @@ export type TerminationReason =
   | 'device_error'
   | 'server_shutdown';
 
+function formatStartBlockReason(
+  reason: string | null | undefined,
+  labels: OperatorCopy,
+): string | null {
+  if (reason === 'OpenAI API key is invalid') return labels.invalidApiKey;
+  return reason ?? null;
+}
+
 export interface SessionTimerState {
   elapsedSeconds?: number;
   remainingSeconds?: number | null;
@@ -221,7 +229,9 @@ export function useBroadcastSession(
       if (typeof data.start_available === 'boolean')
         setStartAvailable(data.start_available);
       if ('start_block_reason' in data)
-        setStartBlockReason(data.start_block_reason ?? null);
+        setStartBlockReason(
+          formatStartBlockReason(data.start_block_reason, labels),
+        );
       if ('error' in data) setSessionError(data.error ?? null);
       if (data.last_termination_reason) {
         setLastTerminationReason(
@@ -361,7 +371,9 @@ export function useBroadcastSession(
               'start_block_reason' in payload ||
               'startBlockReason' in payload
             )
-              setStartBlockReason(startBlockReason ?? null);
+              setStartBlockReason(
+                formatStartBlockReason(startBlockReason, labels),
+              );
             if ('error' in payload) setSessionError(payload.error ?? null);
             if (payload.reason || payload.last_termination_reason) {
               setLastTerminationReason(
@@ -530,6 +542,7 @@ export function useBroadcastSession(
   }, [
     clearAudioLevel,
     emitSessionError,
+    labels,
     markAudioLevelStale,
     refreshStatus,
     updateAudioLevel,

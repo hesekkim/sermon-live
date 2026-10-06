@@ -78,13 +78,16 @@ def test_public_view_reports_key_status_for_saved_values(tmp_path):
 def test_set_key_status_persists_public_status_without_exposing_key(tmp_path):
     store = OperatorSettingsStore(tmp_path / "operator.json")
     store.save(interpreter="openai", openai_api_key="secret-key")
-    store.set_key_status("openai", "invalid", "OpenAI API key is invalid")
+    store.set_key_status(
+        "openai", "invalid", "Incorrect API key provided: sensitive detail"
+    )
 
     view = store.public_view(Settings(interpreter="openai", openai_api_key=""))
 
     assert view["openai_key_status"] == "invalid"
     assert view["openai_key_warning"] == "OpenAI API key is invalid"
     assert "secret-key" not in str(view)
+    assert "sensitive detail" not in str(view)
 
 
 def test_public_view_reports_missing_when_key_is_empty(tmp_path):

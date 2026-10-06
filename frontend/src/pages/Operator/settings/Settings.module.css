@@ -118,6 +118,20 @@
   gap: var(--cf-space-12);
 }
 
+.settingsLoading {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-8);
+}
+
+.audioDeviceSaving {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-8);
+  color: var(--cms-text-secondary);
+  font-size: 0.875rem;
+}
+
 .inputWrap {
   flex: 1;
 }
@@ -127,12 +141,20 @@
   gap: var(--cf-space-4);
 }
 
+.transcriptOptionDisabled {
+  opacity: var(--cf-disabled-opacity);
+}
+
 .transcriptToggle {
   display: inline-flex;
   align-items: center;
   gap: var(--cf-space-8);
   width: fit-content;
   color: var(--cms-text);
+}
+
+.transcriptOptionDisabled .transcriptToggle {
+  cursor: not-allowed;
 }
 
 .transcriptToggle input {

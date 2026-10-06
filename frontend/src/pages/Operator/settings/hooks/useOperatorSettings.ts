@@ -24,7 +24,6 @@ interface SettingsResponse {
 	openai_key_set: boolean;
 	openai_key_masked?: string;
 	openai_key_status?: KeyStatus;
-	openai_key_warning?: string | null;
 }
 
 export interface TimerDraftState {
@@ -57,7 +56,6 @@ export function useOperatorSettings({
 	const [apiKey, setApiKey] = useState('');
 	const [openaiKeyStatus, setOpenaiKeyStatus] = useState<KeyStatus>('missing');
 	const [openaiKeyMasked, setOpenaiKeyMasked] = useState('');
-	const [keyWarning, setKeyWarning] = useState('');
 	const [draftLanguage, setDraftLanguage] = useState<UiLanguage>(language);
 	const [timerValues, setTimerValues] = useState<TimerDraftState>({
 		autoStopMinutes: '90',
@@ -66,8 +64,10 @@ export function useOperatorSettings({
 		hardLimitMinutes: '120',
 	});
 	const [isSaving, setIsSaving] = useState(false);
-	const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
-	const { warning, error } = useToast();
+	const [settingsLoadStatus, setSettingsLoadStatus] = useState<
+		'loading' | 'loaded' | 'error'
+	>('loading');
+	const { error } = useToast();
 	const settingsLoadStartedRef = useRef(false);
 	const savedInterpreterRef = useRef<InterpreterName>('echo');
 	const savedTimerValuesRef = useRef<TimerDraftState | null>(null);
@@ -81,7 +81,6 @@ export function useOperatorSettings({
 		setInterpreter(data.interpreter);
 		setOpenaiKeyStatus(data.openai_key_status ?? 'missing');
 		setOpenaiKeyMasked(data.openai_key_masked ?? '');
-		setKeyWarning(getSelectedWarning(data));
 	};
 
 	const applySettingsResponse = (data: SettingsResponse) => {
@@ -91,7 +90,6 @@ export function useOperatorSettings({
 		const values = getTimerDraftValues(data);
 		setTimerValues(values);
 		savedTimerValuesRef.current = values;
-		setHasLoadedSettings(true);
 	};
 
 	useEffect(() => {
@@ -101,19 +99,19 @@ export function useOperatorSettings({
 			try {
 				const response = await operatorFetch('/api/v1/operator/settings');
 				if (!response.ok) {
+					setSettingsLoadStatus('error');
 					error(labels.settingsLoadFailed);
 					return;
 				}
 				const data = (await response.json()) as SettingsResponse;
 				applySettingsResponse(data);
-				if (data.openai_key_status === 'invalid' && data.openai_key_warning) {
-					warning(summarizeWarning(data.openai_key_warning));
-				}
+				setSettingsLoadStatus('loaded');
 			} catch {
+				setSettingsLoadStatus('error');
 				error(labels.settingsLoadFailed);
 			}
 		})();
-	}, [error, labels.settingsLoadFailed, warning]);
+	}, [error, labels.settingsLoadFailed]);
 
 	const setTimerValue = (key: TimerValueKey, value: string) => {
 		setTimerValues((current) => ({ ...current, [key]: value }));
@@ -155,12 +153,8 @@ export function useOperatorSettings({
 				savedTimerValuesRef.current = values;
 			} else {
 				applyApiModelResponse(data);
-				setHasLoadedSettings(true);
+				setSettingsLoadStatus('loaded');
 				setApiKey('');
-				const responseWarning = getSelectedWarning(data);
-				if (responseWarning && data.interpreter !== 'echo') {
-					warning(summarizeWarning(responseWarning));
-				}
 			}
 			return { success: true as const };
 		} catch {
@@ -171,6 +165,9 @@ export function useOperatorSettings({
 	};
 
 	const saveDevice = async (nextDevice: string, nextChannel: number) => {
+		if (settingsLoadStatus !== 'loaded') {
+			return { success: false as const, message: labels.settingsLoadFailed };
+		}
 		const body: Record<string, SettingsValue> = {
 			interpreter: savedInterpreterRef.current,
 			audio_device: nextDevice,
@@ -210,7 +207,7 @@ export function useOperatorSettings({
 			return timerValues[timerKey] !== savedTimerValuesRef.current?.[timerKey];
 		});
 	const isApiModelDirty =
-		hasLoadedSettings &&
+		settingsLoadStatus === 'loaded' &&
 		(interpreter !== savedInterpreterRef.current || Boolean(apiKey.trim()));
 
 	return {
@@ -220,7 +217,7 @@ export function useOperatorSettings({
 		setApiKey,
 		openaiKeyStatus,
 		openaiKeyMasked,
-		keyWarning,
+		settingsLoadStatus,
 		draftLanguage,
 		setDraftLanguage,
 		timerValues,
@@ -286,16 +283,4 @@ function validateTimerDraft(values: TimerDraftState, labels: OperatorCopy): Time
 		hasErrors: Object.keys(fieldErrors).length > 0,
 		message,
 	};
-}
-
-function getSelectedWarning(data: SettingsResponse): string {
-	const warning = data.interpreter === 'openai' ? data.openai_key_warning : null;
-	return warning ? summarizeWarning(warning) : '';
-}
-
-function summarizeWarning(value: string): string {
-	const normalized = value.replace(/\s+/g, ' ').trim();
-	return normalized.length > 160
-		? `${normalized.slice(0, 157).trimEnd()}...`
-		: normalized;
 }

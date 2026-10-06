@@ -223,9 +223,10 @@ class _TranslationSessionService:
             interpreter = create_interpreter(runtime)
             try:
                 await interpreter.validate_key()
-            except KeyValidationError as exc:
-                self._store.set_key_status(runtime.interpreter, "invalid", str(exc))
-                raise RuntimeError(str(exc)) from exc
+            except KeyValidationError:
+                message = "OpenAI API key is invalid"
+                self._store.set_key_status(runtime.interpreter, "invalid", message)
+                raise RuntimeError(message) from None
             await interpreter.start()
             if runtime.interpreter == "openai":
                 self._store.set_key_status(runtime.interpreter, "valid")
@@ -681,7 +682,7 @@ class SessionService(_TranslationSessionService):
             if not settings_view["openai_key_set"]:
                 return "OpenAI API key is not set"
             if settings_view["openai_key_status"] == "invalid":
-                return str(settings_view["openai_key_warning"] or "OpenAI API key is invalid")
+                return "OpenAI API key is invalid"
         return None
 
     def status(self) -> dict[str, object]:

@@ -78,7 +78,14 @@ export default function OperatorLayout({
   });
   const { showInputPane } = useOperatorLayout();
   const isLive = session.sessionStatus === 'live';
-  const isStarting = actions.isStarting;
+  const isStarting =
+    actions.isStarting || session.sessionStatus === 'starting';
+  const isStopping =
+    actions.isStopping || session.sessionStatus === 'stopping';
+  const isSessionTransitionLoading = isStarting || isStopping;
+  const transitionMessage = isStopping
+    ? labels.broadcastStopping
+    : labels.broadcastStarting;
   const isTransitioning =
     session.sessionStatus === 'starting' ||
     session.sessionStatus === 'stopping';
@@ -112,7 +119,7 @@ export default function OperatorLayout({
             fullWidth
             icon={isLive ? <LuPowerOff size={18} /> : <LuPower size={18} />}
             aria-pressed={isLive}
-            aria-busy={isStarting}
+            aria-busy={isSessionTransitionLoading}
             title={powerTitle}
             disabled={actions.actionPending || isTransitioning || startDisabled}
             onClick={() => void actions.toggleSession()}
@@ -227,16 +234,16 @@ export default function OperatorLayout({
       >
         <p>{labels.startWithTranscriptBody}</p>
       </Dialog>
-      {isStarting ? (
+      {isSessionTransitionLoading ? (
         <div
           className={styles.startingOverlay}
           role="status"
           aria-live="polite"
-          aria-label={labels.broadcastStarting}
+          aria-label={transitionMessage}
         >
           <div className={styles.startingCard}>
             <LoadingSpinner size="large" />
-            <span>{labels.broadcastStarting}</span>
+            <span>{transitionMessage}</span>
           </div>
         </div>
       ) : null}
