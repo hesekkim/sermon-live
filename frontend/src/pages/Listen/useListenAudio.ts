@@ -4,6 +4,7 @@ import { appendSentenceDelta } from '../../utils/appendSentenceDelta';
 
 const DEFAULT_SAMPLE_RATE = 24000;
 const RECONNECT_DELAY_MS = 1200;
+const CONNECT_TIMEOUT_MS = 8000;
 const MAX_SCHEDULED_AUDIO_SECONDS = 2;
 
 interface ScheduledAudioSource {
@@ -11,7 +12,18 @@ interface ScheduledAudioSource {
   endAt: number;
 }
 
-type ConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting';
+type ConnectionState =
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'initialRetrying'
+  | 'timedOutRetrying'
+  | 'serverRetrying'
+  | 'reconnecting';
+type RetryState = Extract<
+  ConnectionState,
+  'initialRetrying' | 'timedOutRetrying' | 'serverRetrying' | 'reconnecting'
+>;
 type SessionStatus =
   | 'unknown'
   | 'off'
@@ -93,7 +105,9 @@ export function useListenAudio() {
   const sampleRateRef = useRef(DEFAULT_SAMPLE_RATE);
   const wantsListenRef = useRef(false);
   const isListeningRef = useRef(false);
+  const hasConnectedRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
+  const connectTimeoutTimerRef = useRef<number | null>(null);
   const connectSocketRef = useRef<((isReconnect: boolean) => void) | null>(
     null,
   );
@@ -105,8 +119,14 @@ export function useListenAudio() {
       listenGenerationRef.current += 1;
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (connectTimeoutTimerRef.current !== null) {
+        window.clearTimeout(connectTimeoutTimerRef.current);
+        connectTimeoutTimerRef.current = null;
       }
       const socket = socketRef.current;
+      socketRef.current = null;
       if (
         socket &&
         (socket.readyState === WebSocket.CONNECTING ||
@@ -114,7 +134,6 @@ export function useListenAudio() {
       ) {
         socket.close(1000, 'Page closed');
       }
-      socketRef.current = null;
       void audioContextRef.current?.close();
     };
   }, []);
@@ -239,21 +258,68 @@ export function useListenAudio() {
         return;
       }
 
-      setConnectionState(isReconnect ? 'reconnecting' : 'connecting');
+      setConnectionState(
+        isReconnect
+          ? hasConnectedRef.current
+            ? 'reconnecting'
+            : 'initialRetrying'
+          : 'connecting',
+      );
       setHasSessionStatus(false);
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const socket = new WebSocket(`${protocol}//${location.host}/ws/listen`);
       socket.binaryType = 'arraybuffer';
       socketRef.current = socket;
 
+      const scheduleReconnect = (retryState: RetryState) => {
+        if (!wantsListenRef.current || reconnectTimerRef.current !== null) {
+          return;
+        }
+        setConnectionState(retryState);
+        reconnectTimerRef.current = window.setTimeout(() => {
+          reconnectTimerRef.current = null;
+          connectSocketRef.current?.(true);
+        }, RECONNECT_DELAY_MS);
+      };
+
+      const failSocket = (retryState: RetryState) => {
+        if (socketRef.current !== socket) {
+          return;
+        }
+        socketRef.current = null;
+        if (connectTimeoutTimerRef.current !== null) {
+          window.clearTimeout(connectTimeoutTimerRef.current);
+          connectTimeoutTimerRef.current = null;
+        }
+        if (
+          socket.readyState === WebSocket.CONNECTING ||
+          socket.readyState === WebSocket.OPEN
+        ) {
+          socket.close();
+        }
+        scheduleReconnect(retryState);
+      };
+
+      connectTimeoutTimerRef.current = window.setTimeout(() => {
+        failSocket('timedOutRetrying');
+      }, CONNECT_TIMEOUT_MS);
+
       socket.addEventListener('open', () => {
         if (socketRef.current !== socket) {
           return;
         }
+        if (connectTimeoutTimerRef.current !== null) {
+          window.clearTimeout(connectTimeoutTimerRef.current);
+          connectTimeoutTimerRef.current = null;
+        }
         setConnectionState('connected');
+        hasConnectedRef.current = true;
       });
 
       socket.addEventListener('message', (event) => {
+        if (socketRef.current !== socket) {
+          return;
+        }
         if (typeof event.data === 'string') {
           let payload: SessionEvent;
           try {
@@ -315,24 +381,30 @@ export function useListenAudio() {
         });
       });
 
-      socket.addEventListener('close', () => {
+      socket.addEventListener('close', (event) => {
         if (socketRef.current !== socket) {
           return;
         }
         socketRef.current = null;
+        if (connectTimeoutTimerRef.current !== null) {
+          window.clearTimeout(connectTimeoutTimerRef.current);
+          connectTimeoutTimerRef.current = null;
+        }
         if (!wantsListenRef.current) {
           return;
         }
-        setConnectionState('reconnecting');
-        reconnectTimerRef.current = window.setTimeout(() => {
-          connectSocketRef.current?.(true);
-        }, RECONNECT_DELAY_MS);
+        const retryState: RetryState = event.wasClean
+          ? 'serverRetrying'
+          : hasConnectedRef.current
+            ? 'reconnecting'
+            : 'initialRetrying';
+        scheduleReconnect(retryState);
       });
 
       socket.addEventListener('error', () => {
-        if (socketRef.current === socket) {
-          socket.close();
-        }
+        failSocket(
+          hasConnectedRef.current ? 'reconnecting' : 'initialRetrying',
+        );
       });
     },
     [queueAudioChunk, stopListening],
@@ -376,6 +448,9 @@ export function useListenAudio() {
     idle: 'Not connected',
     connecting: 'Connecting',
     connected: 'Connected',
+    initialRetrying: 'Initial connection failed · retrying',
+    timedOutRetrying: 'Connection timed out · retrying',
+    serverRetrying: 'Server closed the connection · retrying',
     reconnecting: 'Connection lost · reconnecting',
   }[connectionState];
 

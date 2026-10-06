@@ -52,7 +52,7 @@ npm install
 npm run dev
 ```
 
-Phones must use the laptop LAN IP, not `localhost`.
+Phones must use the laptop LAN IP, not `localhost`. If the Listener remains in its connecting state, confirm Windows Firewall access and that the network allows devices to communicate with the laptop.
 
 ## Interpreter injection
 

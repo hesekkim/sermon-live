@@ -70,6 +70,9 @@
 }
 
 .connecting,
+.initialRetrying,
+.timedOutRetrying,
+.serverRetrying,
 .reconnecting {
   border-color: #e4c999;
   background: #f5ebd8;

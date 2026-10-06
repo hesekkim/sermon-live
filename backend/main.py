@@ -25,10 +25,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def lan_ip() -> str:
-    return detect_lan_ip() or "127.0.0.1"
-
-
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await audio.start()
@@ -81,11 +77,12 @@ app = create_application()
 
 
 if __name__ == "__main__":
-    ip = lan_ip()
     logger.info("HTTP http://%s:%s", settings.host, settings.port)
-    logger.info("Listen page http://%s:%s/listen", ip, settings.port)
-    logger.info("Operator page http://%s:%s/operator", ip, settings.port)
-    logger.info("WebSocket ws://%s:%s/ws/listen", ip, settings.port)
+    address = detect_lan_ip()
+    if address:
+        logger.info("Congregation URL: http://%s:%s/listen", address, settings.port)
+    else:
+        logger.warning("Could not detect a LAN address for the Listener")
     uvicorn.run(
         "main:app",
         host=settings.host,

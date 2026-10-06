@@ -88,9 +88,11 @@ class MockWebSocket extends EventTarget {
     );
   }
 
-  close() {
+  close(code = 1006, _reason?: string) {
     this.readyState = MockWebSocket.CLOSED;
-    this.dispatchEvent(new Event('close'));
+    this.dispatchEvent(
+      new CloseEvent('close', { code, wasClean: code === 1000 }),
+    );
   }
 }
 
@@ -845,9 +847,7 @@ describe('Listener experience', () => {
     );
 
     act(() => firstSocket.close());
-    expect(container).toHaveTextContent(
-      'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
-    );
+    expect(container).toHaveTextContent('Connection lost · reconnecting');
     expect(
       container.querySelector('button[aria-label="Stop listening"]'),
     ).toBeEnabled();
@@ -869,6 +869,79 @@ describe('Listener experience', () => {
       });
     });
     expect(container).toHaveTextContent('VERBUNDEN · ÜBERSETZUNG AUS');
+  });
+
+  it('retries a socket that never completes its handshake and ignores late events', () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const firstSocket = MockWebSocket.instances[0];
+
+    act(() => vi.advanceTimersByTime(8000));
+    expect(container).toHaveTextContent('Connection timed out · retrying');
+
+    act(() => vi.advanceTimersByTime(1200));
+    expect(MockWebSocket.instances).toHaveLength(2);
+    const secondSocket = MockWebSocket.instances[1];
+    act(() => secondSocket.open());
+
+    act(() => {
+      firstSocket.open();
+      firstSocket.message({
+        type: 'translation_status',
+        session_status: 'off',
+      });
+      firstSocket.close();
+    });
+    expect(container).toHaveTextContent('WARTEN AUF SENDUNGSSTART');
+    expect(MockWebSocket.instances).toHaveLength(2);
+  });
+
+  it('reports a clean server closure separately while reconnecting', () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+
+    act(() => {
+      socket.open();
+      socket.close(1000);
+    });
+
+    expect(container).toHaveTextContent(
+      'Server closed the connection · retrying',
+    );
+  });
+
+  it('cleans up a pending handshake timeout and socket when unmounted', () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+
+    act(() => {
+      roots.forEach((root) => root.unmount());
+      roots = [];
+    });
+    container.remove();
+    act(() => vi.advanceTimersByTime(9000));
+
+    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(socket.readyState).toBe(MockWebSocket.CLOSED);
+  });
+
+  it('cleans up a pending reconnect timer when unmounted', () => {
+    vi.useFakeTimers();
+    renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.close();
+    });
+
+    act(() => {
+      roots.forEach((root) => root.unmount());
+      roots = [];
+    });
+    act(() => vi.advanceTimersByTime(1200));
+
+    expect(MockWebSocket.instances).toHaveLength(1);
   });
 
   it('persists theme and caption size for this listener', async () => {

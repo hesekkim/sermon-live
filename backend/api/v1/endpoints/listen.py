@@ -1,7 +1,11 @@
+import logging
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from services.broadcast import hub
 from services.runtime import session
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -13,18 +17,19 @@ def health_check() -> dict[str, str]:
 
 @router.websocket("/ws/listen")
 async def listen_socket(websocket: WebSocket) -> None:
-    await hub.register(websocket, kind="listen")
-    await websocket.send_json(session.session_event())
     try:
+        await hub.register(websocket, kind="listen")
+        if not await hub.send_listen_event(websocket, session.session_event()):
+            return
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        hub.unregister(websocket)
-        await hub.broadcast_operator(
-            {"type": "listener_count", "listener_count": hub.listener_count}
-        )
+        pass
     except Exception:
-        hub.unregister(websocket)
-        await hub.broadcast_operator(
-            {"type": "listener_count", "listener_count": hub.listener_count}
-        )
+        logger.exception("Listener WebSocket handler failed")
+        raise
+    finally:
+        if hub.unregister(websocket):
+            await hub.broadcast_operator(
+                {"type": "listener_count", "listener_count": hub.listener_count}
+            )

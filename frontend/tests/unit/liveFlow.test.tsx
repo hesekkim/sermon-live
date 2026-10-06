@@ -278,9 +278,7 @@ describe('core live broadcast flow', () => {
     expect(listener.container).toHaveTextContent('VERBUNDEN · ÜBERSETZUNG AUS');
 
     act(() => firstSocket?.close());
-    expect(listener.container).toHaveTextContent(
-      'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
-    );
+    expect(listener.container).toHaveTextContent('Connection lost · reconnecting');
 
     act(() => vi.advanceTimersByTime(1200));
     const secondSocket = MockWebSocket.instances[1];

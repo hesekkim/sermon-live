@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import weakref
 from typing import Any, Literal
 
 from fastapi import WebSocket
@@ -21,6 +22,9 @@ class BroadcastHub:
     def __init__(self) -> None:
         self._listen_clients: set[WebSocket] = set()
         self._operator_clients: set[WebSocket] = set()
+        self._listen_send_locks: weakref.WeakKeyDictionary[
+            WebSocket, asyncio.Lock
+        ] = weakref.WeakKeyDictionary()
         self._sample_rate: int | None = None
 
     @property
@@ -41,26 +45,28 @@ class BroadcastHub:
         self._listen_clients.add(websocket)
         logger.info("Listen client connected (%s total)", self.listener_count)
         if self._sample_rate is not None:
-            await self._safe_send_json(
+            await self._send_listen_json(
                 websocket, {"sampleRate": self._sample_rate}
             )
         await self.broadcast_operator(
             {"type": "listener_count", "listener_count": self.listener_count}
         )
 
-    def unregister(self, websocket: WebSocket) -> None:
+    def unregister(self, websocket: WebSocket) -> bool:
         if websocket in self._operator_clients:
             self._operator_clients.discard(websocket)
             logger.info(
                 "Operator client disconnected (%s total)",
                 len(self._operator_clients),
             )
-            return
+            return False
         if websocket in self._listen_clients:
             self._listen_clients.discard(websocket)
             logger.info(
                 "Listen client disconnected (%s total)", self.listener_count
             )
+            return True
+        return False
 
     async def broadcast_audio(self, pcm: bytes, sample_rate: int) -> None:
         if sample_rate != self._sample_rate:
@@ -152,8 +158,14 @@ class BroadcastHub:
         self, client: WebSocket, payload: dict[str, Any]
     ) -> bool:
         try:
+            lock = self._listen_send_lock(client)
+
+            async def send() -> bool:
+                async with lock:
+                    return await self._safe_send_json(client, payload)
+
             return await asyncio.wait_for(
-                self._safe_send_json(client, payload),
+                send(),
                 timeout=self._LISTEN_SEND_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
@@ -162,8 +174,14 @@ class BroadcastHub:
 
     async def _send_listen_bytes(self, client: WebSocket, pcm: bytes) -> bool:
         try:
+            lock = self._listen_send_lock(client)
+
+            async def send() -> None:
+                async with lock:
+                    await client.send_bytes(pcm)
+
             await asyncio.wait_for(
-                client.send_bytes(pcm),
+                send(),
                 timeout=self._LISTEN_SEND_TIMEOUT_SECONDS,
             )
             return True
@@ -203,6 +221,18 @@ class BroadcastHub:
             return False
         except Exception:
             return False
+
+    def _listen_send_lock(self, client: WebSocket) -> asyncio.Lock:
+        lock = self._listen_send_locks.get(client)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._listen_send_locks[client] = lock
+        return lock
+
+    async def send_listen_event(
+        self, client: WebSocket, payload: dict[str, Any]
+    ) -> bool:
+        return await self._send_listen_json(client, payload)
 
 
 hub = BroadcastHub()

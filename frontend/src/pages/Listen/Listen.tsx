@@ -11,6 +11,39 @@ import { ScripturePopup } from './ScripturePopup/ScripturePopup';
 import { useListenAudio, type ScripturePassage } from './useListenAudio';
 import { useListenerPreferences } from './useListenerPreferences';
 
+const RETRY_LABELS = {
+  initialRetrying: {
+    ko: '최초 연결 실패 · 다시 연결 중',
+    en: 'Initial connection failed · retrying',
+    de: 'ERSTVERBINDUNG FEHLGESCHLAGEN · NEUER VERSUCH',
+  },
+  timedOutRetrying: {
+    ko: '연결 시간 초과 · 다시 연결 중',
+    en: 'Connection timed out · retrying',
+    de: 'VERBINDUNGSZEITÜBERSCHREITUNG · NEUER VERSUCH',
+  },
+  serverRetrying: {
+    ko: '서버 연결 종료 · 다시 연결 중',
+    en: 'Server closed the connection · retrying',
+    de: 'SERVER HAT DIE VERBINDUNG BEENDET · NEUER VERSUCH',
+  },
+  reconnecting: {
+    ko: '연결 끊김 · 다시 연결 중',
+    en: 'Connection lost · reconnecting',
+    de: 'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
+  },
+} as const;
+
+function connectionRetryLabel(
+  state: keyof typeof RETRY_LABELS,
+): string {
+  const language = navigator.language.split('-')[0].toLowerCase();
+  if (language === 'ko' || language === 'de') {
+    return RETRY_LABELS[state][language];
+  }
+  return RETRY_LABELS[state].en;
+}
+
 export default function Listen() {
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const {
@@ -95,11 +128,15 @@ export default function Listen() {
     dismissScripture();
     setScriptureCards([]);
   };
-  const statusLabel =
-    connectionState === 'connecting'
+  const isRetrying =
+    connectionState === 'initialRetrying' ||
+    connectionState === 'timedOutRetrying' ||
+    connectionState === 'serverRetrying' ||
+    connectionState === 'reconnecting';
+  const statusLabel = isRetrying
+    ? connectionRetryLabel(connectionState)
+    : connectionState === 'connecting'
       ? 'VERBINDET...'
-      : connectionState === 'reconnecting'
-        ? 'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT'
         : sessionEnded
           ? 'SENDUNG BEENDET · DEUTSCH'
           : sessionStatus === 'live'
@@ -124,7 +161,11 @@ export default function Listen() {
         ? 'Die Übersetzung ist ausgeschaltet.'
         : 'Die Übersetzung erscheint hier.';
   const badgeStateClass =
-    connectionState === 'connecting' || connectionState === 'reconnecting'
+    connectionState === 'connecting' ||
+    connectionState === 'initialRetrying' ||
+    connectionState === 'timedOutRetrying' ||
+    connectionState === 'serverRetrying' ||
+    connectionState === 'reconnecting'
       ? styles[connectionState]
       : sessionEnded || sessionStatus === 'off' || sessionStatus === 'error'
         ? styles.inactive
