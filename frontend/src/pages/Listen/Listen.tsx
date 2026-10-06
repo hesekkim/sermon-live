@@ -174,7 +174,7 @@ export default function Listen() {
   return (
     <main className={styles.page} data-theme={theme}>
       <header className={styles.header}>
-        <h1>Seanuree Live</h1>
+        <h1>Sermon Live</h1>
         {sessionEnded ? null : (
           <div
             className={`${styles.sessionBadge} ${badgeStateClass}`}
