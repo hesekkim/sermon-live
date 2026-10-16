@@ -5,7 +5,7 @@ import type { OperatorCopy } from '../../translations';
 import styles from '../Settings.module.css';
 
 export type InterpreterName = 'echo' | 'openai';
-type KeyStatus = 'valid' | 'missing' | 'invalid';
+type KeyStatus = 'valid' | 'missing' | 'invalid' | 'unverified';
 
 interface InterpreterSectionProps {
   labels: OperatorCopy;
@@ -14,6 +14,9 @@ interface InterpreterSectionProps {
   apiKey: string;
   onApiKeyChange: (apiKey: string) => void;
   keyStatus: KeyStatus;
+  keyWarning: string;
+  isValidatingKey: boolean;
+  keyValidationFailed: boolean;
   savedKeyPreview: string;
   disabled: boolean;
 }
@@ -25,19 +28,25 @@ export default function InterpreterSection({
   apiKey,
   onApiKeyChange,
   keyStatus,
+  keyWarning,
+  isValidatingKey,
+  keyValidationFailed,
   savedKeyPreview,
   disabled,
 }: InterpreterSectionProps) {
-  const keyStatusLabel =
-    keyStatus === 'valid'
+  const keyStatusLabel = isValidatingKey
+    ? labels.keyStatusChecking
+    : keyStatus === 'valid'
       ? labels.keyStatusValid
       : keyStatus === 'invalid'
         ? labels.keyStatusInvalid
-        : labels.keyStatusMissing;
+        : keyStatus === 'unverified'
+          ? labels.keyStatusUnverified
+          : labels.keyStatusMissing;
   const keyStatusVariant =
-    keyStatus === 'valid'
+    !isValidatingKey && keyStatus === 'valid'
       ? 'decided'
-      : keyStatus === 'invalid'
+      : !isValidatingKey && keyStatus === 'invalid'
         ? 'deprecated'
         : 'readonly';
   const keyDisabled = disabled || interpreter === 'echo';
@@ -50,6 +59,14 @@ export default function InterpreterSection({
           <StatusTag label={keyStatusLabel} variant={keyStatusVariant} />
         ) : null}
       </h2>
+      {interpreter !== 'echo' ? (
+        <p className={styles.timerHint}>{labels.keyStatusNote}</p>
+      ) : null}
+      {keyValidationFailed ? (
+        <p className={styles.timerHint}>{labels.keyValidationFailed}</p>
+      ) : keyWarning ? (
+        <p className={styles.timerHint}>{keyWarning}</p>
+      ) : null}
       <Select
         label={labels.interpreter}
         options={[

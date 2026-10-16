@@ -69,7 +69,7 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     empty = operator_client.get("/api/v1/operator/settings")
     assert empty.status_code == 200
     assert empty.json()["input_transcript_enabled"] is False
-    assert len(key_validation_calls) == 1
+    assert key_validation_calls == []
     saved = operator_client.put(
         "/api/v1/operator/settings",
         json={
@@ -97,7 +97,56 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     assert body["openai_key_set"] is True
     assert body["openai_key_masked"] == "unit...-key"
     assert "unit-test-key" not in str(body)
-    assert len(key_validation_calls) == 2
+    assert len(key_validation_calls) == 1
+
+
+def test_operator_settings_get_returns_persisted_key_status_without_validation(
+    operator_client, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(store, "_path", tmp_path / "operator.json")
+    store.save(interpreter="openai", openai_api_key="unit-test-key")
+    store.set_key_status("openai", "invalid", "provider error must stay private")
+
+    def fail_validation(*_args):
+        pytest.fail("Settings GET must not validate the key")
+
+    monkeypatch.setattr(operator_endpoint, "validate_operator_key", fail_validation)
+
+    response = operator_client.get("/api/v1/operator/settings")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["openai_key_status"] == "invalid"
+    assert body["openai_key_warning"] == "OpenAI API key is invalid"
+    assert "unit-test-key" not in response.text
+    assert "provider error" not in response.text
+
+
+def test_operator_settings_validate_key_checks_and_returns_safe_status(
+    operator_client, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(store, "_path", tmp_path / "operator.json")
+    store.save(interpreter="openai", openai_api_key="unit-test-key")
+    validation_calls = []
+
+    async def reject_key(settings, target_store):
+        validation_calls.append(
+            target_store.overlay_settings(settings).interpreter
+        )
+        target_store.set_key_status(
+            "openai", "invalid", "provider response with private details"
+        )
+
+    monkeypatch.setattr(operator_endpoint, "validate_operator_key", reject_key)
+
+    response = operator_client.post("/api/v1/operator/settings/validate-key")
+
+    assert response.status_code == 200
+    assert validation_calls == ["openai"]
+    assert response.json()["openai_key_status"] == "invalid"
+    assert response.json()["openai_key_warning"] == "OpenAI API key is invalid"
+    assert "unit-test-key" not in response.text
+    assert "private details" not in response.text
 
 
 def test_changing_audio_device_without_channel_resets_channel_to_one(

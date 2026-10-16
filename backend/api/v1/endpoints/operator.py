@@ -42,9 +42,18 @@ def get_operator_network() -> OperatorNetworkResponse:
 @router.get(
     "/api/v1/operator/settings", dependencies=[Depends(require_http_operator)]
 )
-async def get_operator_settings() -> dict[str, object]:
-    await validate_operator_key(get_settings(), store)
+def get_operator_settings() -> dict[str, object]:
     return store.public_view(get_settings())
+
+
+@router.post(
+    "/api/v1/operator/settings/validate-key",
+    dependencies=[Depends(require_http_operator)],
+)
+async def validate_operator_settings_key() -> dict[str, object]:
+    settings = get_settings()
+    await validate_operator_key(settings, store)
+    return store.public_view(settings)
 
 
 @router.put(

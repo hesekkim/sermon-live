@@ -476,6 +476,136 @@ describe('Settings save flow', () => {
     container.remove();
   });
 
+  it('revalidates the saved key whenever the API Model tab is entered', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    let resolveFirstValidation!: (response: {
+      ok: boolean;
+      json: () => Promise<unknown>;
+    }) => void;
+    let validationCalls = 0;
+    const savedSettings = {
+      interpreter: 'openai',
+      audio_device: 'default',
+      translation_session_auto_stop_minutes: 90,
+      translation_session_warning_minutes: 5,
+      translation_session_extension_minutes: 10,
+      translation_session_hard_limit_minutes: 120,
+      openai_key_set: true,
+      openai_key_masked: 'unit...-key',
+      openai_key_status: 'valid',
+    };
+    const validationResult = {
+      ...savedSettings,
+      openai_key_status: 'invalid',
+      openai_key_warning: 'OpenAI API key is invalid',
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/v1/audio/devices?mode=standard') {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (url === '/api/v1/operator/settings') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => savedSettings,
+        });
+      }
+      if (url === '/api/v1/operator/settings/validate-key') {
+        validationCalls += 1;
+        if (validationCalls === 1) {
+          return new Promise((resolve) => {
+            resolveFirstValidation = resolve;
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => validationResult,
+        });
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(validationCalls).toBe(0);
+    const findTab = (name: string) =>
+      Array.from(container.querySelectorAll('[role="tab"]')).find((button) =>
+        button.textContent?.includes(name),
+      );
+    await act(async () => {
+      findTab('API 모델')?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+    });
+
+    expect(validationCalls).toBe(1);
+    expect(container.textContent).toContain('확인 중...');
+    expect(container.textContent).not.toContain('유효함');
+
+    const apiKeyInput = container.querySelector(
+      'input[type="password"]',
+    ) as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(apiKeyInput, 'replacement-key');
+      apiKeyInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const applyButton = Array.from(container.querySelectorAll('button')).find(
+      (button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(
+          button.textContent?.trim() ?? '',
+        ),
+    ) as HTMLButtonElement;
+    expect(applyButton).toBeDisabled();
+
+    await act(async () => {
+      resolveFirstValidation({
+        ok: true,
+        json: async () => validationResult,
+      });
+    });
+    expect(container.textContent).toContain('유효하지 않음');
+    expect(applyButton).toBeEnabled();
+
+    await act(async () => {
+      findTab('안전 설정')?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+    });
+    await act(async () => {
+      findTab('API 모델')?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(validationCalls).toBe(2);
+    expect(container.textContent).toContain('유효하지 않음');
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
   it('saves translation timer settings and validates their constraints', async () => {
     installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
     const fetchMock = vi
@@ -1439,6 +1569,129 @@ describe('Settings save flow', () => {
         .querySelector('button[aria-haspopup="listbox"]')
         ?.getAttribute('aria-label'),
     ).toContain('Built-in microphone');
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('keeps safety timer fields hidden until settings finish loading', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    let resolveSettings!: (response: {
+      ok: boolean;
+      json: () => Promise<unknown>;
+    }) => void;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (String(input) === '/api/v1/audio/devices?mode=standard') {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      return new Promise((resolve) => {
+        resolveSettings = resolve;
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const safetyTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('안전 설정'),
+    );
+    await act(async () => {
+      safetyTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      '설정을 불러오는 중...',
+    );
+    expect(
+      container.querySelector('input[name="translation_session_auto_stop_minutes"]'),
+    ).toBeNull();
+    expect(
+      Array.from(container.querySelectorAll('button')).some((button) =>
+        ['적용', 'Apply', 'Anwenden'].includes(button.textContent?.trim() ?? ''),
+      ),
+    ).toBe(false);
+
+    await act(async () => {
+      resolveSettings({
+        ok: true,
+        json: async () => ({
+          interpreter: 'echo',
+          audio_device: 'default',
+          translation_session_auto_stop_minutes: 45,
+          translation_session_warning_minutes: 3,
+          translation_session_extension_minutes: 15,
+          translation_session_hard_limit_minutes: 90,
+          openai_key_set: false,
+        }),
+      });
+    });
+
+    expect(
+      (container.querySelector(
+        'input[name="translation_session_auto_stop_minutes"]',
+      ) as HTMLInputElement).value,
+    ).toBe('45');
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('shows a settings error instead of safety defaults when loading fails', async () => {
+    installStorage({ operatorUiLanguage: 'ko', operatorUiTheme: 'light' });
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (String(input) === '/api/v1/audio/devices?mode=standard') {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <OperatorPrefsProvider>
+          <ToastProvider>
+            <Settings />
+          </ToastProvider>
+        </OperatorPrefsProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const safetyTab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+      (button) => button.textContent?.includes('안전 설정'),
+    );
+    await act(async () => {
+      safetyTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      '설정을 불러오지 못했습니다',
+    );
+    expect(
+      container.querySelector('input[name="translation_session_auto_stop_minutes"]'),
+    ).toBeNull();
 
     await act(async () => {
       root.unmount();

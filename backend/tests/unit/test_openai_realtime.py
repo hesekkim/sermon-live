@@ -237,7 +237,15 @@ async def test_close_flushes_before_socket_close():
 @pytest.mark.asyncio
 async def test_validate_key_rejects_handshake_error():
     websocket = FakeWebSocket(
-        [{"type": "error", "error": {"message": "invalid api key"}}]
+        [
+            {
+                "type": "error",
+                "error": {
+                    "code": "invalid_api_key",
+                    "message": "invalid api key",
+                },
+            }
+        ]
     )
     adapter = OpenAIRealtimeInterpreter(
         Settings(interpreter="openai", openai_api_key="test-key"),
@@ -247,6 +255,52 @@ async def test_validate_key_rejects_handshake_error():
     with pytest.raises(KeyValidationError):
         await adapter.validate_key()
     assert websocket.closed
+
+
+@pytest.mark.asyncio
+async def test_validate_key_treats_non_authentication_error_as_unavailable():
+    websocket = FakeWebSocket(
+        [{"type": "error", "error": {"code": "server_error"}}]
+    )
+    adapter = OpenAIRealtimeInterpreter(
+        Settings(interpreter="openai", openai_api_key="test-key"),
+        websocket_factory=factory_for(websocket),
+    )
+
+    with pytest.raises(RuntimeError, match="rejected the validation session"):
+        await adapter.validate_key()
+    assert websocket.closed
+
+
+@pytest.mark.asyncio
+async def test_validate_key_treats_network_failure_as_unavailable():
+    async def fail_to_connect(*_args, **_kwargs):
+        raise OSError("network unavailable")
+
+    adapter = OpenAIRealtimeInterpreter(
+        Settings(interpreter="openai", openai_api_key="test-key"),
+        websocket_factory=fail_to_connect,
+    )
+
+    with pytest.raises(RuntimeError, match="connection failed"):
+        await adapter.validate_key()
+
+
+@pytest.mark.asyncio
+async def test_validate_key_treats_unauthorized_connection_as_invalid_key():
+    class UnauthorizedError(Exception):
+        status_code = 401
+
+    async def reject_connection(*_args, **_kwargs):
+        raise UnauthorizedError("unauthorized")
+
+    adapter = OpenAIRealtimeInterpreter(
+        Settings(interpreter="openai", openai_api_key="test-key"),
+        websocket_factory=reject_connection,
+    )
+
+    with pytest.raises(KeyValidationError, match="API key is invalid"):
+        await adapter.validate_key()
 
 
 @pytest.mark.asyncio

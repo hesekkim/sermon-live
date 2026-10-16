@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { operatorFetch } from '../../auth/operatorAuthApi';
 import { useToast } from '../../../../shared/components/Toast/ToastProvider';
 import type { OperatorCopy, UiLanguage } from '../../translations';
 
 type InterpreterName = 'echo' | 'openai';
-type KeyStatus = 'valid' | 'missing' | 'invalid';
+type KeyStatus = 'valid' | 'missing' | 'invalid' | 'unverified';
 type SaveScope = 'device' | 'safety' | 'api';
 type SettingsValue = string | number | boolean | undefined;
 type TimerValueKey =
@@ -24,7 +24,10 @@ interface SettingsResponse {
 	openai_key_set: boolean;
 	openai_key_masked?: string;
 	openai_key_status?: KeyStatus;
+	openai_key_warning?: string | null;
 }
+
+type KeyValidationState = 'idle' | 'loading' | 'failed';
 
 export interface TimerDraftState {
 	autoStopMinutes: string;
@@ -56,6 +59,9 @@ export function useOperatorSettings({
 	const [apiKey, setApiKey] = useState('');
 	const [openaiKeyStatus, setOpenaiKeyStatus] = useState<KeyStatus>('missing');
 	const [openaiKeyMasked, setOpenaiKeyMasked] = useState('');
+	const [openaiKeyWarning, setOpenaiKeyWarning] = useState('');
+	const [keyValidationState, setKeyValidationState] =
+		useState<KeyValidationState>('idle');
 	const [draftLanguage, setDraftLanguage] = useState<UiLanguage>(language);
 	const [timerValues, setTimerValues] = useState<TimerDraftState>({
 		autoStopMinutes: '90',
@@ -71,6 +77,7 @@ export function useOperatorSettings({
 	const settingsLoadStartedRef = useRef(false);
 	const savedInterpreterRef = useRef<InterpreterName>('echo');
 	const savedTimerValuesRef = useRef<TimerDraftState | null>(null);
+	const keyValidationInFlightRef = useRef(false);
 	const setSelectedDeviceRef = useRef(setSelectedDevice);
 	setSelectedDeviceRef.current = setSelectedDevice;
 	const setSelectedChannelRef = useRef(setSelectedChannel);
@@ -79,8 +86,12 @@ export function useOperatorSettings({
 	const applyApiModelResponse = (data: SettingsResponse) => {
 		savedInterpreterRef.current = data.interpreter;
 		setInterpreter(data.interpreter);
-		setOpenaiKeyStatus(data.openai_key_status ?? 'missing');
+		setOpenaiKeyStatus(
+			data.openai_key_status ??
+				(data.openai_key_set ? 'unverified' : 'missing'),
+		);
 		setOpenaiKeyMasked(data.openai_key_masked ?? '');
+		setOpenaiKeyWarning(data.openai_key_warning ?? '');
 	};
 
 	const applySettingsResponse = (data: SettingsResponse) => {
@@ -112,6 +123,42 @@ export function useOperatorSettings({
 			}
 		})();
 	}, [error, labels.settingsLoadFailed]);
+
+	const validateKey = useCallback(async () => {
+		if (
+			settingsLoadStatus !== 'loaded' ||
+			savedInterpreterRef.current !== 'openai' ||
+			keyValidationInFlightRef.current
+		) {
+			return;
+		}
+		keyValidationInFlightRef.current = true;
+		setKeyValidationState('loading');
+		setOpenaiKeyWarning('');
+		try {
+			const response = await operatorFetch(
+				'/api/v1/operator/settings/validate-key',
+				{ method: 'POST' },
+			);
+			if (!response.ok) {
+				setOpenaiKeyStatus('unverified');
+				setKeyValidationState('failed');
+				return;
+			}
+			const data = (await response.json()) as SettingsResponse;
+			const status =
+				data.openai_key_status ??
+				(data.openai_key_set ? 'unverified' : 'missing');
+			setOpenaiKeyStatus(status);
+			setOpenaiKeyWarning(data.openai_key_warning ?? '');
+			setKeyValidationState(status === 'unverified' ? 'failed' : 'idle');
+		} catch {
+			setOpenaiKeyStatus('unverified');
+			setKeyValidationState('failed');
+		} finally {
+			keyValidationInFlightRef.current = false;
+		}
+	}, [settingsLoadStatus]);
 
 	const setTimerValue = (key: TimerValueKey, value: string) => {
 		setTimerValues((current) => ({ ...current, [key]: value }));
@@ -177,6 +224,9 @@ export function useOperatorSettings({
 	};
 
 	const saveSafety = async () => {
+		if (settingsLoadStatus !== 'loaded') {
+			return { success: false as const, message: labels.settingsLoadFailed };
+		}
 		if (timerValidation.hasErrors) {
 			return { success: false as const, message: timerValidation.message };
 		}
@@ -217,6 +267,9 @@ export function useOperatorSettings({
 		setApiKey,
 		openaiKeyStatus,
 		openaiKeyMasked,
+		openaiKeyWarning,
+		keyValidationState,
+		validateKey,
 		settingsLoadStatus,
 		draftLanguage,
 		setDraftLanguage,

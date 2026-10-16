@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from core.config import Settings
@@ -47,7 +49,7 @@ async def test_invalid_key_is_updated_without_starting_session(monkeypatch, tmp_
 
 
 @pytest.mark.asyncio
-async def test_connection_failure_does_not_mark_key_invalid(monkeypatch, tmp_path):
+async def test_connection_failure_marks_key_unverified(monkeypatch, tmp_path):
     store = OperatorSettingsStore(tmp_path / "operator.json")
     store.save(interpreter="openai", openai_api_key="valid-key")
     monkeypatch.setattr(
@@ -58,4 +60,35 @@ async def test_connection_failure_does_not_mark_key_invalid(monkeypatch, tmp_pat
     await validate_operator_key(Settings(interpreter="openai"), store)
 
     view = store.public_view(Settings(interpreter="openai"))
-    assert view["openai_key_status"] != "invalid"
+    assert view["openai_key_status"] == "unverified"
+
+
+@pytest.mark.asyncio
+async def test_stale_validation_does_not_update_status_for_replaced_key(
+    monkeypatch, tmp_path
+):
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+    store.save(interpreter="openai", openai_api_key="old-key")
+    validation_started = asyncio.Event()
+    finish_validation = asyncio.Event()
+
+    class DelayedInterpreter:
+        async def validate_key(self) -> None:
+            validation_started.set()
+            await finish_validation.wait()
+
+    monkeypatch.setattr(
+        "services.key_validation.create_interpreter",
+        lambda _settings: DelayedInterpreter(),
+    )
+
+    validation = asyncio.create_task(
+        validate_operator_key(Settings(interpreter="openai"), store)
+    )
+    await validation_started.wait()
+    store.save(interpreter="openai", openai_api_key="new-key")
+    finish_validation.set()
+    await validation
+
+    view = store.public_view(Settings(interpreter="openai"))
+    assert view["openai_key_status"] == "unverified"

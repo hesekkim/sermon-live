@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import Button from '../../../shared/components/Button/Button';
 import LoadingSpinner from '../../../shared/components/LoadingSpinner/LoadingSpinner';
@@ -57,6 +57,9 @@ export default function Settings() {
     setApiKey,
     openaiKeyStatus,
     openaiKeyMasked,
+    openaiKeyWarning,
+    keyValidationState,
+    validateKey,
     settingsLoadStatus,
     draftLanguage,
     setDraftLanguage,
@@ -75,6 +78,12 @@ export default function Settings() {
     setSelectedDevice,
     setSelectedChannel,
   });
+
+  useEffect(() => {
+    if (activeTab === 'api' && settingsLoadStatus === 'loaded') {
+      void validateKey();
+    }
+  }, [activeTab, settingsLoadStatus, validateKey]);
 
   const languageOptions = useMemo(
     () => [
@@ -151,6 +160,13 @@ export default function Settings() {
     }
   };
 
+  const handleTabChange = (tab: SettingsTab) => {
+    setActiveTab(tab);
+    if (tab === 'api') {
+      void validateKey();
+    }
+  };
+
   const renderContent = () => {
     if (activeTab === 'appearance') {
       return (
@@ -208,6 +224,23 @@ export default function Settings() {
     }
 
     if (activeTab === 'safety') {
+      if (settingsLoadStatus === 'loading') {
+        return (
+          <div
+            className={styles.settingsLoading}
+            role="status"
+            aria-live="polite"
+          >
+            <LoadingSpinner size="small" />
+            <span>{labels.settingsLoading}</span>
+          </div>
+        );
+      }
+
+      if (settingsLoadStatus === 'error') {
+        return <p role="alert">{labels.settingsLoadFailed}</p>;
+      }
+
       return (
         <>
           <SafetySection
@@ -272,6 +305,9 @@ export default function Settings() {
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
           keyStatus={currentKeyStatus}
+          keyWarning={openaiKeyWarning}
+          isValidatingKey={keyValidationState === 'loading'}
+          keyValidationFailed={keyValidationState === 'failed'}
           savedKeyPreview={openaiKeyMasked}
           disabled={isSessionBusy}
         />
@@ -279,7 +315,12 @@ export default function Settings() {
           <Button
             icon={isSaving ? <LoadingSpinner size="small" /> : undefined}
             aria-busy={isSaving}
-            disabled={isSessionBusy || isSaving || !isApiModelDirty}
+            disabled={
+              isSessionBusy ||
+              isSaving ||
+              keyValidationState === 'loading' ||
+              !isApiModelDirty
+            }
             onClick={async () => {
               const saved = await saveApiModel();
               if (saved.success) {
@@ -325,7 +366,7 @@ export default function Settings() {
             aria-selected={activeTab === tab.id}
             aria-controls={`settings-panel-${tab.id}`}
             className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
           >
             {tab.label}
           </button>

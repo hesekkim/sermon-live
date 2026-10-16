@@ -25,9 +25,26 @@ async def validate_operator_key(
     try:
         await interpreter.validate_key()
     except KeyValidationError:
+        if not _key_is_unchanged(settings, store, provider, key):
+            return
         label = "OpenAI" if provider == "openai" else provider.title()
         store.set_key_status(provider, "invalid", f"{label} API key is invalid")
     except Exception:
+        if not _key_is_unchanged(settings, store, provider, key):
+            return
+        store.set_key_status(provider, "unverified")
         return
     else:
+        if not _key_is_unchanged(settings, store, provider, key):
+            return
         store.set_key_status(provider, "valid")
+
+
+def _key_is_unchanged(
+    settings: Settings,
+    store: OperatorSettingsStore,
+    provider: str,
+    key: str,
+) -> bool:
+    current = store.overlay_settings(settings)
+    return current.interpreter == provider and current.openai_api_key == key

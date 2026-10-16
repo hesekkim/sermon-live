@@ -66,13 +66,13 @@ def test_public_view_includes_openai_environment_key(tmp_path):
     assert view["openai_key_masked"] == "fr...nv"
 
 
-def test_public_view_reports_key_status_for_saved_values(tmp_path):
+def test_public_view_marks_saved_key_unverified_without_validation(tmp_path):
     store = OperatorSettingsStore(tmp_path / "operator.json")
     store.save(interpreter="openai", openai_api_key="secret-key")
     view = store.public_view(Settings(interpreter="openai", openai_api_key=""))
 
-    assert view["openai_key_status"] == "missing"
-    assert view["openai_key_warning"] == "OpenAI API key is not set"
+    assert view["openai_key_status"] == "unverified"
+    assert view["openai_key_warning"] is None
 
 
 def test_set_key_status_persists_public_status_without_exposing_key(tmp_path):
@@ -88,6 +88,38 @@ def test_set_key_status_persists_public_status_without_exposing_key(tmp_path):
     assert view["openai_key_warning"] == "OpenAI API key is invalid"
     assert "secret-key" not in str(view)
     assert "sensitive detail" not in str(view)
+
+
+def test_public_view_marks_saved_key_without_validation_as_unverified(tmp_path):
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+    store.save(interpreter="openai", openai_api_key="secret-key")
+
+    view = store.public_view(Settings(interpreter="openai", openai_api_key=""))
+
+    assert view["openai_key_status"] == "unverified"
+    assert view["openai_key_warning"] is None
+
+
+def test_non_key_save_preserves_last_validation_status(tmp_path):
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+    store.save(interpreter="openai", openai_api_key="secret-key")
+    store.set_key_status("openai", "valid")
+
+    store.save(interpreter="openai", translation_session_auto_stop_minutes=60)
+
+    view = store.public_view(Settings(interpreter="openai", openai_api_key=""))
+    assert view["openai_key_status"] == "valid"
+
+
+def test_changed_key_resets_last_validation_status(tmp_path):
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+    store.save(interpreter="openai", openai_api_key="first-key")
+    store.set_key_status("openai", "valid")
+
+    store.save(interpreter="openai", openai_api_key="replacement-key")
+
+    view = store.public_view(Settings(interpreter="openai", openai_api_key=""))
+    assert view["openai_key_status"] == "unverified"
 
 
 def test_public_view_reports_missing_when_key_is_empty(tmp_path):

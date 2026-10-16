@@ -68,17 +68,27 @@ class OpenAIRealtimeInterpreter:
         return "OpenAI Realtime rejected the session"
 
     async def validate_key(self) -> None:
-        websocket = await self._connect()
         try:
-            event = await self._receive_json(websocket)
-            if event.get("type") == "error":
-                raise KeyValidationError(self._error_message(event))
-            if event.get("type") != "session.created":
-                raise KeyValidationError("OpenAI Realtime session handshake failed")
+            websocket = await self._connect()
         except KeyValidationError:
             raise
         except Exception as exc:
-            raise KeyValidationError("OpenAI Realtime connection failed") from exc
+            if _is_authentication_rejection(exc):
+                raise KeyValidationError("OpenAI API key is invalid") from exc
+            raise RuntimeError("OpenAI Realtime connection failed") from exc
+        try:
+            try:
+                event = await self._receive_json(websocket)
+            except Exception as exc:
+                raise RuntimeError("OpenAI Realtime connection failed") from exc
+            if event.get("type") == "error":
+                error = event.get("error")
+                code = error.get("code") if isinstance(error, dict) else None
+                if code in {"invalid_api_key", "authentication_error"}:
+                    raise KeyValidationError("OpenAI API key is invalid")
+                raise RuntimeError("OpenAI Realtime rejected the validation session")
+            if event.get("type") != "session.created":
+                raise RuntimeError("OpenAI Realtime session handshake failed")
         finally:
             await websocket.close()
 
@@ -219,3 +229,11 @@ class OpenAIRealtimeInterpreter:
                 reader_task.cancel()
                 await asyncio.gather(reader_task, return_exceptions=True)
             await websocket.close()
+
+
+def _is_authentication_rejection(error: Exception) -> bool:
+    response = getattr(error, "response", None)
+    status_code = getattr(response, "status_code", None)
+    if status_code is None:
+        status_code = getattr(error, "status_code", None)
+    return status_code == 401

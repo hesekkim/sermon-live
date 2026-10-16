@@ -74,6 +74,11 @@ class OperatorSettingsStore:
     ) -> OperatorRecord:
         current = self.load()
         openai = current.openai_api_key
+        openai_key_changed = (
+            openai_api_key is not None
+            and openai_api_key != ""
+            and openai_api_key != openai
+        )
         if openai_api_key is not None and openai_api_key != "":
             openai = openai_api_key
         device = current.audio_device
@@ -144,6 +149,10 @@ class OperatorSettingsStore:
                 record.translation_session_hard_limit_minutes
             ),
         }
+        if not openai_key_changed:
+            for name, (status, warning) in self._read_status_overrides().items():
+                payload[f"{name}_key_status"] = status
+                payload[f"{name}_key_warning"] = warning
         self._path.write_text(
             json.dumps(payload, indent=2) + "\n", encoding="utf-8"
         )
@@ -156,7 +165,9 @@ class OperatorSettingsStore:
         audio_channel = record.audio_channel or settings.audio_channel
         openai_key = record.openai_api_key or settings.openai_api_key
         openai_raw = self._read_status_overrides().get("openai")
-        openai_status = _normalize_key_status(openai_raw[0] if openai_raw else None, bool(openai_key))
+        openai_status = _normalize_key_status(
+            openai_raw[0] if openai_raw else None, bool(openai_key)
+        )
         return {
             "interpreter": interpreter,
             "audio_device": audio_device,
@@ -192,7 +203,7 @@ class OperatorSettingsStore:
     ) -> None:
         if provider not in {"openai"}:
             return
-        if status not in {"valid", "missing", "invalid"}:
+        if status not in {"valid", "missing", "invalid", "unverified"}:
             raise ValueError(f"Unsupported key status: {status}")
         try:
             raw = json.loads(self._path.read_text(encoding="utf-8"))
@@ -218,7 +229,12 @@ class OperatorSettingsStore:
         for name in ("openai",):
             status = raw.get(f"{name}_key_status")
             warning = raw.get(f"{name}_key_warning")
-            if isinstance(status, str) and status in {"valid", "missing", "invalid"}:
+            if isinstance(status, str) and status in {
+                "valid",
+                "missing",
+                "invalid",
+                "unverified",
+            }:
                 result[name] = (status, warning if isinstance(warning, str) else None)
         return result
 
@@ -268,9 +284,9 @@ def _mask_key(value: str) -> str:
 
 
 def _normalize_key_status(status: str | None, has_value: bool) -> str:
-    if status in {"valid", "missing", "invalid"}:
+    if status in {"valid", "missing", "invalid", "unverified"}:
         return status
-    return "missing"
+    return "unverified" if has_value else "missing"
 
 
 def _warning_for_key(provider: str, status: str) -> str | None:

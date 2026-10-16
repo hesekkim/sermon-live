@@ -90,6 +90,10 @@ export interface OperatorCopy {
   keyStatusValid: string;
   keyStatusMissing: string;
   keyStatusInvalid: string;
+  keyStatusUnverified: string;
+  keyStatusNote: string;
+  keyStatusChecking: string;
+  keyValidationFailed: string;
   sessionOn: string;
   sessionOff: string;
   broadcastStarting: string;
@@ -281,6 +285,10 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     keyStatusValid: '유효함',
     keyStatusMissing: '없음',
     keyStatusInvalid: '유효하지 않음',
+    keyStatusUnverified: '확인되지 않음',
+    keyStatusNote: '키 상태는 확인 시점의 결과이며, OpenAI가 저장된 통역 서비스일 때 API Model 탭을 열면 키를 다시 검증합니다.',
+    keyStatusChecking: '확인 중...',
+    keyValidationFailed: '키를 확인할 수 없습니다. 네트워크 연결을 확인한 뒤 다시 시도하세요.',
     sessionOn: '방송 중지',
     sessionOff: '방송 시작',
     broadcastStarting: '방송 시작 중...',
@@ -477,6 +485,10 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     keyStatusValid: 'Valid',
     keyStatusMissing: 'Missing',
     keyStatusInvalid: 'Invalid',
+    keyStatusUnverified: 'Not verified',
+    keyStatusNote: 'Key status reflects the time it was checked; opening the API Model tab rechecks the key when OpenAI is the saved provider.',
+    keyStatusChecking: 'Checking...',
+    keyValidationFailed: 'Could not check the key. Check your network connection and try again.',
     sessionOn: 'Stop broadcast',
     sessionOff: 'Start broadcast',
     broadcastStarting: 'Starting broadcast...',
@@ -673,6 +685,10 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     keyStatusValid: 'Gültig',
     keyStatusMissing: 'Fehlt',
     keyStatusInvalid: 'Ungültig',
+    keyStatusUnverified: 'Nicht überprüft',
+    keyStatusNote: 'Der Schlüsselstatus entspricht dem Zeitpunkt der Prüfung; beim Öffnen des API-Model-Tabs wird der Schlüssel erneut geprüft, wenn OpenAI als Anbieter gespeichert ist.',
+    keyStatusChecking: 'Wird überprüft...',
+    keyValidationFailed: 'Der Schlüssel konnte nicht überprüft werden. Prüfen Sie Ihre Netzwerkverbindung und versuchen Sie es erneut.',
     sessionOn: 'Sendung stoppen',
     sessionOff: 'Sendung starten',
     broadcastStarting: 'Sendung wird gestartet...',
