@@ -179,7 +179,6 @@
 }
 
 .paneProminent .empty {
-  max-width: 72ch;
   font-size: 1.25rem;
   line-height: 1.55;
 }
@@ -199,7 +198,6 @@
 
 .paneProminent .past,
 .paneProminent .current {
-  max-width: 72ch;
   font-size: 1.25rem;
   line-height: 1.55;
 }
