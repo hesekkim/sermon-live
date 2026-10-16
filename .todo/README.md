@@ -16,6 +16,12 @@
 
 1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증 (052 완료 후)
 
+### 신규 사용자 보고 이슈
+
+1. `063-listen-audio-context-recovery.md` — 모바일 Safari 화면 잠금/복귀 후 Listen 오디오 재생 복구
+2. `064-openai-translation-audio-output-diagnostics.md` — OpenAI Translation audio delta부터 mixer·Listener 재생까지 음성 누락 진단
+3. `065-operator-safety-settings-loading.md` — 안전 설정 초기 기본값 노출 및 Settings GET 키 검증 대기 분리
+
 ## 보류 (`hold/`)
 
 1. `019-backend-glossary-model.md` — Global + Today's Sermon Glossary 최소 모델
