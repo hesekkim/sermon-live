@@ -14,7 +14,7 @@
 
 ### 지금
 
-1. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증 (052 완료 후)
+현재 진행 중인 기존 작업 없음.
 
 ### 신규 사용자 보고 이슈
 
@@ -89,6 +89,7 @@
 
 55. `062-operator-settings-and-session-transition-ux.md` — Operator 설정 피드백, 안전한 API 키 오류 표시, 장치 저장 및 세션 전환 로딩 UX
 56. `065-operator-safety-settings-loading.md` — 안전 설정 로딩 및 Settings GET 지연 분리, API 키 재검증 상태 안전화
+57. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
 
 ## 결정 사항
 

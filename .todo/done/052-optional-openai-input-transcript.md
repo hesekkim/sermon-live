@@ -19,7 +19,7 @@ OpenAI translation은 입력 음성을 직접 번역하므로 별도 input trans
 - Translation session이 `starting`, `live`, `stopping`일 때는 변경을 거부한다.
 - Provider별 session payload는 `OpenAIRealtimeInterpreter` adapter 안에서만 분기한다. `SessionService` 및 공용 audio/event pipeline은 OpenAI 이름을 검사하지 않는다.
 - Input transcript off이면 Broadcast input TranscriptPane은 숨긴다. On이면 기존 desktop dual-pane breakpoint 동작을 유지하고, viewport가 좁을 때의 현재 숨김 UX도 유지한다.
-- 실 API usage 차이 및 번역 품질 향상 여부는 자동 테스트로 단정하지 않고 `.todo/008-backend-openai-e2e-verify.md`의 수동 확인에서 기록한다.
+- 실 API usage 차이 및 번역 품질 향상 여부는 자동 테스트로 단정하지 않고 `.todo/done/008-backend-openai-e2e-verify.md`의 수동 확인에서 기록한다.
 
 ## Implementation
 
@@ -101,4 +101,4 @@ OpenAI translation은 입력 음성을 직접 번역하므로 별도 input trans
 - `frontend/src/pages/Operator/translations.ts`
 - `frontend/tests/unit/OperatorPrefs.test.tsx`
 - `frontend/tests/unit/operatorNavigation.test.tsx`
-- `.todo/008-backend-openai-e2e-verify.md`
+- `.todo/done/008-backend-openai-e2e-verify.md`

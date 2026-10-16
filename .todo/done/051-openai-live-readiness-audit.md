@@ -7,7 +7,7 @@
 
 실제 OpenAI Translation API와 장비를 연결하기 전에 목표 아키텍처의 핵심 경로를 전체적으로 점검하고, 자동화 테스트로 재현되는 실장 차단 결함을 수정한다. 공개 Listen, 오디오 파이프라인, session lifecycle 및 OpenAI adapter 경계에서 장애가 다른 client나 전체 번역 흐름으로 번지지 않도록 한다.
 
-실제 OpenAI API 호출 및 장비 end-to-end 검증은 이 티켓에서 수행하지 않는다. 이 티켓의 완료는 `.todo/008-backend-openai-e2e-verify.md`의 수동 실장 검증을 시작할 준비가 되었다는 뜻이다.
+실제 OpenAI API 호출 및 장비 end-to-end 검증은 이 티켓에서 수행하지 않는다. 이 티켓의 완료는 `.todo/done/008-backend-openai-e2e-verify.md`의 수동 실장 검증을 시작할 준비가 되었다는 뜻이다.
 
 ## 발견 배경
 
@@ -147,7 +147,7 @@ Frontend 작업 디렉터리에서:
 ## 다음 작업과의 관계
 
 - 선행 완료 기준: 이 티켓의 자동화 하드닝과 unit suite 통과.
-- 후속: `.todo/008-backend-openai-e2e-verify.md`에서 실제 계정 및 장비를 이용한 시작 → 한국어 발화 → 독일어 자막/오디오 → 종료/마지막 출력 확인을 수행한다.
+- 후속: `.todo/done/008-backend-openai-e2e-verify.md`에서 실제 계정 및 장비를 이용한 시작 → 한국어 발화 → 독일어 자막/오디오 → 종료/마지막 출력 확인을 수행한다.
 - 실제 장비로만 검증 가능한 문제는 이 티켓에서 해결 완료로 가장하지 않고 008의 수동 결과에 연결한다.
 
 ## Related files
