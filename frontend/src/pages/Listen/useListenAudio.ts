@@ -93,8 +93,17 @@ export function useListenAudio() {
   const [subtitleLines, setSubtitleLines] = useState<string[]>([]);
   const [scripture, setScripture] = useState<ScripturePassage | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [audioRecoveryRequired, setAudioRecoveryRequired] = useState(false);
   const [audioError, setAudioError] = useState('');
   const audioContextRef = useRef<AudioContext | null>(null);
+  const audioContextStateListenerRef = useRef<{
+    context: AudioContext;
+    listener: EventListener;
+  } | null>(null);
+  const audioResumeRef = useRef<{
+    context: AudioContext;
+    promise: Promise<void>;
+  } | null>(null);
   const nextPlayTimeRef = useRef(0);
   const playingSourcesRef = useRef(
     new Map<AudioBufferSourceNode, ScheduledAudioSource>(),
@@ -111,6 +120,16 @@ export function useListenAudio() {
   const connectSocketRef = useRef<((isReconnect: boolean) => void) | null>(
     null,
   );
+
+  const clearScheduledAudio = useCallback((context?: AudioContext) => {
+    for (const source of playingSourcesRef.current.keys()) {
+      source.stop();
+      source.disconnect();
+    }
+    playingSourcesRef.current.clear();
+    nextPlayTimeRef.current =
+      context?.currentTime ?? audioContextRef.current?.currentTime ?? 0;
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -134,23 +153,87 @@ export function useListenAudio() {
       ) {
         socket.close(1000, 'Page closed');
       }
+      const stateListener = audioContextStateListenerRef.current;
+      if (stateListener) {
+        stateListener.context.removeEventListener(
+          'statechange',
+          stateListener.listener,
+        );
+        audioContextStateListenerRef.current = null;
+      }
       void audioContextRef.current?.close();
     };
   }, []);
 
-  const ensureAudioContext = useCallback(async () => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext();
+  const getAudioContext = useCallback(() => {
+    const current = audioContextRef.current;
+    if (current && current.state !== 'closed') {
+      return current;
     }
-    const context = audioContextRef.current;
-    if (context.state === 'suspended') {
-      await context.resume();
+    const previousListener = audioContextStateListenerRef.current;
+    if (previousListener) {
+      previousListener.context.removeEventListener(
+        'statechange',
+        previousListener.listener,
+      );
+      audioContextStateListenerRef.current = null;
+    }
+    const context = new AudioContext();
+    audioContextRef.current = context;
+    const listener: EventListener = () => {
+      if (audioContextRef.current !== context) {
+        return;
+      }
+      if (context.state === 'running') {
+        setAudioRecoveryRequired(false);
+        setAudioError('');
+      } else if (isListeningRef.current) {
+        clearScheduledAudio(context);
+        pendingPcmRef.current = null;
+        setAudioRecoveryRequired(true);
+      }
+    };
+    context.addEventListener('statechange', listener);
+    audioContextStateListenerRef.current = { context, listener };
+    return context;
+  }, [clearScheduledAudio]);
+
+  const resumeAudioContext = useCallback((context: AudioContext) => {
+    if (context.state === 'running') {
+      return Promise.resolve();
+    }
+    if (context.state === 'closed') {
+      return Promise.reject(
+        new Error(`AudioContext state is ${context.state}`),
+      );
+    }
+    const currentResume = audioResumeRef.current;
+    if (currentResume?.context === context) {
+      return currentResume.promise;
+    }
+    const promise = context.resume().then(() => {
+      if (context.state !== 'running') {
+        throw new Error(`AudioContext state is ${context.state}`);
+      }
+    }).finally(() => {
+      if (audioResumeRef.current?.promise === promise) {
+        audioResumeRef.current = null;
+      }
+    });
+    audioResumeRef.current = { context, promise };
+    return promise;
+  }, []);
+
+  const ensureAudioContext = useCallback(async () => {
+    const context = getAudioContext();
+    if (context.state !== 'running') {
+      await resumeAudioContext(context);
     }
     if (context.state !== 'running') {
       throw new Error(`AudioContext state is ${context.state}`);
     }
     return context;
-  }, []);
+  }, [getAudioContext, resumeAudioContext]);
 
   const queueAudioChunk = useCallback(async (chunkBuffer: ArrayBuffer) => {
     const generation = listenGenerationRef.current;
@@ -158,11 +241,23 @@ export function useListenAudio() {
       return;
     }
     const context = audioContextRef.current;
-    if (!context) {
+    if (!context || context.state !== 'running') {
+      pendingPcmRef.current = null;
+      setAudioRecoveryRequired(true);
+      if (context && context.state !== 'closed') {
+        void resumeAudioContext(context).catch((error: unknown) => {
+          if (
+            isListeningRef.current &&
+            generation === listenGenerationRef.current &&
+            audioContextRef.current === context
+          ) {
+            setAudioError(
+              error instanceof Error ? error.message : String(error),
+            );
+          }
+        });
+      }
       return;
-    }
-    if (context.state === 'suspended') {
-      await context.resume();
     }
     if (
       !isListeningRef.current ||
@@ -229,20 +324,79 @@ export function useListenAudio() {
       startAt,
       endAt: nextPlayTimeRef.current,
     });
-  }, []);
+  }, [resumeAudioContext]);
 
   const stopListening = useCallback(() => {
     listenGenerationRef.current += 1;
     isListeningRef.current = false;
     setIsListening(false);
+    setAudioRecoveryRequired(false);
     pendingPcmRef.current = null;
-    nextPlayTimeRef.current = audioContextRef.current?.currentTime ?? 0;
-    for (const source of playingSourcesRef.current.keys()) {
-      source.stop();
-      source.disconnect();
+    clearScheduledAudio();
+  }, [clearScheduledAudio]);
+
+  const recoverAudio = useCallback(async () => {
+    if (!isListeningRef.current) {
+      return;
     }
-    playingSourcesRef.current.clear();
-  }, []);
+    const generation = listenGenerationRef.current;
+    try {
+      const context = getAudioContext();
+      if (context.state !== 'running') {
+        await resumeAudioContext(context);
+      }
+      if (
+        !isListeningRef.current ||
+        generation !== listenGenerationRef.current ||
+        context.state !== 'running'
+      ) {
+        throw new Error(`AudioContext state is ${context.state}`);
+      }
+      setAudioRecoveryRequired(false);
+      setAudioError('');
+    } catch (error) {
+      if (
+        isListeningRef.current &&
+        generation === listenGenerationRef.current
+      ) {
+        setAudioRecoveryRequired(true);
+        setAudioError(error instanceof Error ? error.message : String(error));
+      }
+    }
+  }, [getAudioContext, resumeAudioContext]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState !== 'visible' ||
+        !isListeningRef.current
+      ) {
+        return;
+      }
+      const context = audioContextRef.current;
+      if (!context || context.state === 'closed') {
+        setAudioRecoveryRequired(true);
+        return;
+      }
+      if (context.state === 'running') {
+        return;
+      }
+      const generation = listenGenerationRef.current;
+      void resumeAudioContext(context).catch((error: unknown) => {
+        if (
+          isListeningRef.current &&
+          generation === listenGenerationRef.current &&
+          audioContextRef.current === context
+        ) {
+          setAudioRecoveryRequired(true);
+          setAudioError(error instanceof Error ? error.message : String(error));
+        }
+      });
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [resumeAudioContext]);
 
   const connectSocket = useCallback(
     (isReconnect: boolean) => {
@@ -429,6 +583,7 @@ export function useListenAudio() {
     try {
       await ensureAudioContext();
       setAudioError('');
+      setAudioRecoveryRequired(false);
       setSessionEnded(false);
       wantsListenRef.current = true;
       listenGenerationRef.current += 1;
@@ -467,6 +622,7 @@ export function useListenAudio() {
 
   return {
     audioError,
+    audioRecoveryRequired,
     canStartListening,
     connectionLabel,
     connectionState,
@@ -476,6 +632,7 @@ export function useListenAudio() {
     sessionLabel,
     sessionStatus,
     scripture,
+    recoverAudio,
     startListening,
     stopListening,
     subtitle,

@@ -242,6 +242,28 @@
   font-size: 12px;
 }
 
+.audioRecovery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(calc(100% - 48px), 860px);
+  margin: 0 auto 8px;
+  color: #a33f34;
+  font-size: 12px;
+}
+
+.audioRecovery p {
+  margin: 0;
+}
+
+.audioRecovery .listenButton {
+  min-height: 36px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
 .powered {
   padding: 2px 0 3px;
   color: var(--listener-muted);
@@ -281,6 +303,12 @@
 
   .footerToolbar {
     padding-top: 8px;
+  }
+
+  .audioRecovery {
+    align-items: stretch;
+    flex-direction: column;
+    width: calc(100% - 24px);
   }
 }
 

@@ -9,7 +9,7 @@ import Listen from '../../src/pages/Listen/Listen';
   }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-class MockAudioContext {
+class MockAudioContext extends EventTarget {
   static instances: MockAudioContext[] = [];
   static resumeGates: Promise<void>[] = [];
   static sources: Array<{
@@ -17,12 +17,14 @@ class MockAudioContext {
     stop: ReturnType<typeof vi.fn>;
     disconnect: ReturnType<typeof vi.fn>;
   }> = [];
+  static channelData: Float32Array[] = [];
 
   state: AudioContextState = 'suspended';
   currentTime = 0;
   destination = {} as AudioDestinationNode;
 
   constructor() {
+    super();
     MockAudioContext.instances.push(this);
   }
 
@@ -30,16 +32,25 @@ class MockAudioContext {
     const gate = MockAudioContext.resumeGates.shift();
     if (gate) await gate;
     this.state = 'running';
+    this.dispatchEvent(new Event('statechange'));
   }
 
   async close() {
     this.state = 'closed';
+    this.dispatchEvent(new Event('statechange'));
+  }
+
+  suspend() {
+    this.state = 'suspended';
+    this.dispatchEvent(new Event('statechange'));
   }
 
   createBuffer(_channels: number, length: number, sampleRate: number) {
+    const channelData = new Float32Array(length);
+    MockAudioContext.channelData.push(channelData);
     return {
       duration: length / sampleRate,
-      getChannelData: () => new Float32Array(length),
+      getChannelData: () => channelData,
     } as unknown as AudioBuffer;
   }
 
@@ -130,6 +141,7 @@ beforeEach(() => {
   MockAudioContext.instances = [];
   MockAudioContext.resumeGates = [];
   MockAudioContext.sources = [];
+  MockAudioContext.channelData = [];
   storedValues.clear();
   Object.defineProperty(window, 'localStorage', {
     configurable: true,
@@ -660,6 +672,166 @@ describe('Listener experience', () => {
     expect(container).not.toHaveTextContent('SENDUNG BEENDET');
   });
 
+  it('recovers suspended audio on visibility return without reconnecting the socket', async () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+      socket.message({ text: 'Guten Morgen.' });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+
+    const context = MockAudioContext.instances[0];
+    act(() => context.suspend());
+    expect(container).toHaveTextContent('Audio playback stopped');
+    expect(container).toHaveTextContent('Guten Morgen.');
+
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(context.state).toBe('running');
+    expect(container).not.toHaveTextContent('Audio playback stopped');
+    await act(async () => {
+      socket.audio([1, 0, 2, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(1);
+  });
+
+  it('discards a partial PCM sample when audio is interrupted', async () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+
+    const context = MockAudioContext.instances[0];
+    await act(async () => {
+      socket.audio([1]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.channelData).toHaveLength(0);
+
+    act(() => context.suspend());
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      socket.audio([0, 64]);
+      await Promise.resolve();
+    });
+
+    expect(MockAudioContext.channelData).toHaveLength(1);
+    expect(MockAudioContext.channelData[0]).toHaveLength(1);
+    expect(MockAudioContext.channelData[0][0]).toBeCloseTo(0.5);
+  });
+
+  it('offers a user-gesture recovery after resume fails and recreates a closed context', async () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+    const context = MockAudioContext.instances[0];
+    act(() => context.suspend());
+    MockAudioContext.resumeGates.push(
+      Promise.reject(new Error('resume blocked')),
+    );
+
+    await act(async () => {
+      socket.audio([1, 0, 2, 0]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(container).toHaveTextContent('Audio playback stopped');
+    expect(container).toHaveTextContent('resume blocked');
+    expect(MockAudioContext.sources).toHaveLength(0);
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Resume audio"]')
+        ?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(context.state).toBe('running');
+    expect(container).not.toHaveTextContent('Audio playback stopped');
+
+    await act(async () => {
+      await context.close();
+    });
+    expect(container).toHaveTextContent('Audio playback stopped');
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Resume audio"]')
+        ?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.instances).toHaveLength(2);
+    expect(MockAudioContext.instances[1].state).toBe('running');
+    await act(async () => {
+      socket.audio([3, 0, 4, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(1);
+  });
+
+  it('drops audio frames received while context recovery is pending', async () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+
+    const context = MockAudioContext.instances[0];
+    act(() => context.suspend());
+    let resolveResume!: () => void;
+    MockAudioContext.resumeGates.push(
+      new Promise<void>((resolve) => {
+        resolveResume = resolve;
+      }),
+    );
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      socket.audio([1, 0, 2, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(0);
+
+    await act(async () => {
+      resolveResume();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      socket.audio([3, 0, 4, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(1);
+  });
+
   it('drops a chunk whose audio-context resume completes after stop', async () => {
     const container = renderListener();
     const socket = MockWebSocket.instances[0];
@@ -686,24 +858,17 @@ describe('Listener experience', () => {
     });
 
     await click(container.querySelector('button[aria-label="Stop listening"]'));
-    await click(
-      container.querySelector('button[aria-label="Start listening"]'),
-    );
-    expect(
-      container.querySelector('button[aria-label="Stop listening"]'),
-    ).toBeEnabled();
     await act(async () => {
       resolveResume();
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(
-      container.querySelector('button[aria-label="Stop listening"]'),
-    ).toBeEnabled();
     expect(MockAudioContext.sources).toHaveLength(0);
 
-    MockAudioContext.resumeGates = [];
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
     await act(async () => {
       socket.audio([3, 0, 4, 0]);
       await Promise.resolve();

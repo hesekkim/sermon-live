@@ -44,14 +44,36 @@ function connectionRetryLabel(
   return RETRY_LABELS[state].en;
 }
 
+function audioRecoveryCopy() {
+  const language = navigator.language.split('-')[0].toLowerCase();
+  if (language === 'ko') {
+    return {
+      message: '오디오 재생이 중단되었습니다. 버튼을 눌러 다시 시작하세요.',
+      button: '오디오 다시 재생',
+    };
+  }
+  if (language === 'de') {
+    return {
+      message: 'Die Audiowiedergabe wurde unterbrochen. Tippen Sie, um sie fortzusetzen.',
+      button: 'Audio fortsetzen',
+    };
+  }
+  return {
+    message: 'Audio playback stopped. Tap to resume listening.',
+    button: 'Resume audio',
+  };
+}
+
 export default function Listen() {
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const {
     audioError,
+    audioRecoveryRequired,
     canStartListening,
     connectionState,
     dismissScripture,
     isListening,
+    recoverAudio,
     sessionEnded,
     sessionStatus,
     scripture,
@@ -170,6 +192,7 @@ export default function Listen() {
       : sessionEnded || sessionStatus === 'off' || sessionStatus === 'error'
         ? styles.inactive
         : '';
+  const recoveryCopy = audioRecoveryCopy();
 
   return (
     <main className={styles.page} data-theme={theme}>
@@ -289,6 +312,19 @@ export default function Listen() {
             </button>
           </div>
         </div>
+        {audioRecoveryRequired && (
+          <div className={styles.audioRecovery} role="alert">
+            <p>{recoveryCopy.message}</p>
+            <button
+              type="button"
+              className={styles.listenButton}
+              aria-label={recoveryCopy.button}
+              onClick={() => void recoverAudio()}
+            >
+              {recoveryCopy.button}
+            </button>
+          </div>
+        )}
         {audioError && <p className={styles.audioError}>{audioError}</p>}
         <div className={styles.powered}>POWERED BY CHURCHTRANSLATOR.AT</div>
       </footer>

@@ -18,8 +18,7 @@
 
 ### 신규 사용자 보고 이슈
 
-1. `063-listen-audio-context-recovery.md` — 모바일 Safari 화면 잠금/복귀 후 Listen 오디오 재생 복구
-2. `064-openai-translation-audio-output-diagnostics.md` — OpenAI Translation audio delta부터 mixer·Listener 재생까지 음성 누락 진단
+1. `064-openai-translation-audio-output-diagnostics.md` — OpenAI Translation audio delta부터 mixer·Listener 재생까지 음성 누락 진단
 
 ## 보류 (`hold/`)
 
@@ -90,6 +89,7 @@
 55. `062-operator-settings-and-session-transition-ux.md` — Operator 설정 피드백, 안전한 API 키 오류 표시, 장치 저장 및 세션 전환 로딩 UX
 56. `065-operator-safety-settings-loading.md` — 안전 설정 로딩 및 Settings GET 지연 분리, API 키 재검증 상태 안전화
 57. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
+58. `063-listen-audio-context-recovery.md` — 모바일 Safari 화면 잠금/복귀 후 Listen 오디오 재생 복구 (구현·자동 검증 완료; iOS 실기기 검증은 미수행)
 
 ## 결정 사항
 
