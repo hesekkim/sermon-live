@@ -72,9 +72,11 @@ export default function Listen() {
     canStartListening,
     connectionState,
     dismissScripture,
+    interpreterReconnecting,
     isListening,
     recoverAudio,
     sessionEnded,
+    sessionKey,
     sessionStatus,
     scripture,
     stopListening,
@@ -136,8 +138,8 @@ export default function Listen() {
     };
   }, [isListening]);
   useEffect(() => {
-    if (sessionStatus === 'starting') setScriptureCards([]);
-  }, [sessionStatus]);
+    setScriptureCards([]);
+  }, [sessionKey]);
   useEffect(() => {
     if (scripture) setScriptureCards((current) => [scripture, ...current]);
   }, [scripture]);
@@ -162,9 +164,11 @@ export default function Listen() {
         : sessionEnded
           ? 'SENDUNG BEENDET · DEUTSCH'
           : sessionStatus === 'live'
-            ? subtitle
-              ? 'SESSION LIVE · DEUTSCH'
-              : 'WARTEN AUF ÜBERSETZUNG'
+            ? interpreterReconnecting
+              ? 'ÜBERSETZUNG WIRD WIEDERHERGESTELLT'
+              : subtitle
+                ? 'SESSION LIVE · DEUTSCH'
+                : 'WARTEN AUF ÜBERSETZUNG'
             : sessionStatus === 'starting'
               ? 'ÜBERSETZUNG STARTET'
               : sessionStatus === 'stopping'

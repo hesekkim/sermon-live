@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import uuid
 from typing import Literal
 
 from core.config import Settings
@@ -48,6 +49,8 @@ class _TranslationSessionService:
         self._state: SessionState = "off"
         self._error: str | None = None
         self._last_termination_reason: str | None = None
+        self._session_id: str | None = None
+        self._interpreter_reconnecting = False
         self._interpreter: LiveInterpreter | None = None
         self._audio_task: asyncio.Task[None] | None = None
         self._audio_in_flight: bytes | None = None
@@ -82,6 +85,8 @@ class _TranslationSessionService:
             "audio_ready": self._audio.ready,
             "audio_error": self._audio.error,
             "error": self._error,
+            "session_id": self._session_id,
+            "interpreter_reconnecting": self._interpreter_reconnecting,
             "input_transcript_enabled": False,
             "last_termination_reason": self._last_termination_reason,
             "start_available": start_block_reason is None,
@@ -203,6 +208,8 @@ class _TranslationSessionService:
                 raise RuntimeError(message)
             self._state = "starting"
             self._start_task = asyncio.current_task()
+            self._session_id = uuid.uuid4().hex[:12]
+            self._interpreter_reconnecting = False
             self._error = None
             self._last_termination_reason = None
             self._timer_started_at = None
@@ -423,6 +430,7 @@ class _TranslationSessionService:
             self._timer_warning_sent = False
             self._timer_extension_count = 0
             self._active_settings = None
+            self._interpreter_reconnecting = False
             self._error = error
             self._last_termination_reason = reason
             self._state = (
@@ -490,6 +498,10 @@ class _TranslationSessionService:
                     await self._hub.broadcast_operator(
                         {"type": "transcript", "role": "input", "text": event.text}
                     )
+                elif event.kind in ("reconnecting", "reconnected"):
+                    await self._set_interpreter_reconnecting(
+                        event.kind == "reconnecting"
+                    )
                 elif event.kind == "error" and event.text:
                     message = self._safe_error_message(event.text)
                     logger.error("Interpreter error: %s", message)
@@ -519,6 +531,12 @@ class _TranslationSessionService:
             self._state = "stopping"
             await self._publish_status()
         await self._finish(reason, error, asyncio.current_task())
+
+    async def _set_interpreter_reconnecting(self, reconnecting: bool) -> None:
+        if self._state != "live" or self._interpreter_reconnecting == reconnecting:
+            return
+        self._interpreter_reconnecting = reconnecting
+        await self._publish_status()
 
     async def _handle_device_error(self, message: str) -> None:
         await self._finish_from_task("device_error", message)
@@ -578,6 +596,7 @@ class _TranslationSessionService:
         payload = {
             "type": "session_ended",
             "reason": reason,
+            "session_id": self._session_id,
             "audio_dropped_chunks": getattr(self._audio, "dropped_chunks", 0),
             "audio_dropped_duration_seconds": getattr(
                 self._audio, "dropped_duration_seconds", 0.0
@@ -652,6 +671,10 @@ class SessionService(_TranslationSessionService):
                 elif event.kind == "input_text" and event.text:
                     await self._hub.broadcast_operator(
                         {"type": "transcript", "role": "input", "text": event.text}
+                    )
+                elif event.kind in ("reconnecting", "reconnected"):
+                    await self._set_interpreter_reconnecting(
+                        event.kind == "reconnecting"
                     )
                 elif event.kind == "error" and event.text:
                     await self._finish_from_task(

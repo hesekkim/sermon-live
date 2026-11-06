@@ -70,3 +70,15 @@ export function appendSentenceDelta(lines: string[], delta: string): string[] {
   const remainder = combined.slice(segmentStart).trimStart();
   return remainder ? [...completed, remainder] : completed;
 }
+
+export function appendSentenceAfterGap(
+  lines: string[],
+  delta: string,
+): string[] {
+  const last = lines.at(-1);
+  if (last === undefined) return appendSentenceDelta(lines, delta.trimStart());
+  const closed = /[.!?…。！？]["'”’»›)\]}]*\s*$/.test(last)
+    ? last.trimEnd()
+    : `${last.trimEnd()} …`;
+  return appendSentenceDelta([...lines.slice(0, -1), closed, ''], delta.trimStart());
+}

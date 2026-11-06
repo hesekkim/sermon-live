@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { mergeOddPcmByte, pcm16ToFloat32 } from '../../shared/audio/pcm';
-import { appendSentenceDelta } from '../../utils/appendSentenceDelta';
+import {
+  appendSentenceAfterGap,
+  appendSentenceDelta,
+} from '../../utils/appendSentenceDelta';
 
 const DEFAULT_SAMPLE_RATE = 24000;
 const RECONNECT_DELAY_MS = 1200;
+const MAX_RECONNECT_DELAY_MS = 5000;
 const CONNECT_TIMEOUT_MS = 8000;
-const MAX_SCHEDULED_AUDIO_SECONDS = 2;
+const HEARTBEAT_INTERVAL_MS = 5000;
+const STALE_CONNECTION_MS = 12000;
+const MAX_SCHEDULED_AUDIO_SECONDS = 6;
+const JITTER_BUFFER_SECONDS = 0.25;
+const MIN_SCHEDULE_LEAD_SECONDS = 0.02;
 
 interface ScheduledAudioSource {
   startAt: number;
@@ -52,7 +60,13 @@ interface SessionEvent {
   sampleRate?: number;
   session_status?: SessionStatus;
   last_termination_reason?: string | null;
+  session_id?: string | null;
+  interpreter_reconnecting?: boolean;
   reason?: string;
+}
+
+function isErrorTermination(reason: string | null | undefined): boolean {
+  return reason === 'interpreter_error' || reason === 'device_error';
 }
 
 function parseScripturePayload(payload: SessionEvent): ScripturePassage | null {
@@ -90,6 +104,8 @@ export function useListenAudio() {
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('unknown');
   const [hasSessionStatus, setHasSessionStatus] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [sessionKey, setSessionKey] = useState(0);
+  const [interpreterReconnecting, setInterpreterReconnecting] = useState(false);
   const [subtitleLines, setSubtitleLines] = useState<string[]>([]);
   const [scripture, setScripture] = useState<ScripturePassage | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -116,7 +132,12 @@ export function useListenAudio() {
   const isListeningRef = useRef(false);
   const hasConnectedRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
+  const reconnectAttemptRef = useRef(0);
   const connectTimeoutTimerRef = useRef<number | null>(null);
+  const heartbeatTimerRef = useRef<number | null>(null);
+  const lastMessageAtRef = useRef(0);
+  const sessionIdRef = useRef<string | null>(null);
+  const subtitleGapRef = useRef(false);
   const connectSocketRef = useRef<((isReconnect: boolean) => void) | null>(
     null,
   );
@@ -143,6 +164,10 @@ export function useListenAudio() {
       if (connectTimeoutTimerRef.current !== null) {
         window.clearTimeout(connectTimeoutTimerRef.current);
         connectTimeoutTimerRef.current = null;
+      }
+      if (heartbeatTimerRef.current !== null) {
+        window.clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
       }
       const socket = socketRef.current;
       socketRef.current = null;
@@ -314,10 +339,10 @@ export function useListenAudio() {
       nextPlayTimeRef.current = activeAudioEnd;
     }
 
-    const startAt = Math.max(
-      context.currentTime + 0.05,
-      nextPlayTimeRef.current,
-    );
+    const startAt =
+      nextPlayTimeRef.current > context.currentTime + MIN_SCHEDULE_LEAD_SECONDS
+        ? nextPlayTimeRef.current
+        : context.currentTime + JITTER_BUFFER_SECONDS;
     source.start(startAt);
     nextPlayTimeRef.current = startAt + audioBuffer.duration;
     playingSourcesRef.current.set(source, {
@@ -326,14 +351,26 @@ export function useListenAudio() {
     });
   }, [resumeAudioContext]);
 
+  const sendSocketMessage = useCallback((payload: object) => {
+    const socket = socketRef.current;
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    try {
+      socket.send(JSON.stringify(payload));
+    } catch {
+      return;
+    }
+  }, []);
+
   const stopListening = useCallback(() => {
+    const wasListening = isListeningRef.current;
     listenGenerationRef.current += 1;
     isListeningRef.current = false;
     setIsListening(false);
     setAudioRecoveryRequired(false);
     pendingPcmRef.current = null;
     clearScheduledAudio();
-  }, [clearScheduledAudio]);
+    if (wasListening) sendSocketMessage({ type: 'audio', enabled: false });
+  }, [clearScheduledAudio, sendSocketMessage]);
 
   const recoverAudio = useCallback(async () => {
     if (!isListeningRef.current) {
@@ -430,10 +467,22 @@ export function useListenAudio() {
           return;
         }
         setConnectionState(retryState);
+        const delay = Math.min(
+          RECONNECT_DELAY_MS * 2 ** reconnectAttemptRef.current,
+          MAX_RECONNECT_DELAY_MS,
+        );
+        reconnectAttemptRef.current += 1;
         reconnectTimerRef.current = window.setTimeout(() => {
           reconnectTimerRef.current = null;
           connectSocketRef.current?.(true);
-        }, RECONNECT_DELAY_MS);
+        }, delay);
+      };
+
+      const stopHeartbeat = () => {
+        if (heartbeatTimerRef.current !== null) {
+          window.clearInterval(heartbeatTimerRef.current);
+          heartbeatTimerRef.current = null;
+        }
       };
 
       const failSocket = (retryState: RetryState) => {
@@ -441,6 +490,7 @@ export function useListenAudio() {
           return;
         }
         socketRef.current = null;
+        stopHeartbeat();
         if (connectTimeoutTimerRef.current !== null) {
           window.clearTimeout(connectTimeoutTimerRef.current);
           connectTimeoutTimerRef.current = null;
@@ -466,14 +516,31 @@ export function useListenAudio() {
           window.clearTimeout(connectTimeoutTimerRef.current);
           connectTimeoutTimerRef.current = null;
         }
+        if (hasConnectedRef.current) subtitleGapRef.current = true;
         setConnectionState('connected');
         hasConnectedRef.current = true;
+        reconnectAttemptRef.current = 0;
+        pendingPcmRef.current = null;
+        lastMessageAtRef.current = Date.now();
+        if (isListeningRef.current) {
+          sendSocketMessage({ type: 'audio', enabled: true });
+        }
+        stopHeartbeat();
+        heartbeatTimerRef.current = window.setInterval(() => {
+          if (socketRef.current !== socket) return;
+          if (Date.now() - lastMessageAtRef.current > STALE_CONNECTION_MS) {
+            failSocket('reconnecting');
+            return;
+          }
+          sendSocketMessage({ type: 'ping' });
+        }, HEARTBEAT_INTERVAL_MS);
       });
 
       socket.addEventListener('message', (event) => {
         if (socketRef.current !== socket) {
           return;
         }
+        lastMessageAtRef.current = Date.now();
         if (typeof event.data === 'string') {
           let payload: SessionEvent;
           try {
@@ -485,38 +552,52 @@ export function useListenAudio() {
             sampleRateRef.current = payload.sampleRate;
           }
           if (payload.type === 'translation_status' && payload.session_status) {
+            const status = payload.session_status;
+            const sessionId =
+              typeof payload.session_id === 'string' ? payload.session_id : null;
+            const missedSessionChange =
+              status !== 'starting' &&
+              sessionId !== null &&
+              sessionIdRef.current !== null &&
+              sessionId !== sessionIdRef.current;
+            if (sessionId !== null) sessionIdRef.current = sessionId;
             setHasSessionStatus(true);
-            setSessionStatus(payload.session_status);
-            if (payload.session_status === 'starting') {
+            setSessionStatus(status);
+            setInterpreterReconnecting(
+              status === 'live' && payload.interpreter_reconnecting === true,
+            );
+            if (status === 'starting' || missedSessionChange) {
               setSubtitleLines([]);
               setScripture(null);
-              setSessionEnded(false);
-            } else if (
-              payload.session_status === 'off' ||
-              payload.session_status === 'error'
-            ) {
+              setSessionKey((key) => key + 1);
+              subtitleGapRef.current = false;
+            }
+            if (status === 'off' || missedSessionChange) {
               stopListening();
             }
             setSessionEnded(
-              payload.session_status === 'off' &&
-                Boolean(payload.last_termination_reason),
+              status === 'off' && Boolean(payload.last_termination_reason),
             );
           } else if (payload.type === 'session_ended') {
-            const endedWithError =
-              payload.reason === 'interpreter_error' ||
-              payload.reason === 'device_error';
+            const endedWithError = isErrorTermination(payload.reason);
             setSessionEnded(!endedWithError);
             setSessionStatus(endedWithError ? 'error' : 'off');
-            stopListening();
+            setInterpreterReconnecting(false);
+            if (!endedWithError) stopListening();
           } else if (payload.type === 'error') {
             setSessionStatus('error');
-            stopListening();
+            setInterpreterReconnecting(false);
           } else if (payload.type === 'scripture') {
             const passage = parseScripturePayload(payload);
             if (passage) setScripture(passage);
           } else if (payload.text) {
+            const text = payload.text;
+            const afterGap = subtitleGapRef.current;
+            subtitleGapRef.current = false;
             setSubtitleLines((current) =>
-              appendSentenceDelta(current, payload.text ?? ''),
+              afterGap
+                ? appendSentenceAfterGap(current, text)
+                : appendSentenceDelta(current, text),
             );
           }
           return;
@@ -540,6 +621,7 @@ export function useListenAudio() {
           return;
         }
         socketRef.current = null;
+        stopHeartbeat();
         if (connectTimeoutTimerRef.current !== null) {
           window.clearTimeout(connectTimeoutTimerRef.current);
           connectTimeoutTimerRef.current = null;
@@ -561,7 +643,7 @@ export function useListenAudio() {
         );
       });
     },
-    [queueAudioChunk, stopListening],
+    [queueAudioChunk, sendSocketMessage, stopListening],
   );
   connectSocketRef.current = connectSocket;
 
@@ -589,11 +671,12 @@ export function useListenAudio() {
       listenGenerationRef.current += 1;
       isListeningRef.current = true;
       setIsListening(true);
+      sendSocketMessage({ type: 'audio', enabled: true });
     } catch (error) {
       setAudioError(error instanceof Error ? error.message : String(error));
       setIsListening(false);
     }
-  }, [canStartListening, ensureAudioContext]);
+  }, [canStartListening, ensureAudioContext, sendSocketMessage]);
 
   const dismissScripture = useCallback(() => {
     setScripture(null);
@@ -615,7 +698,11 @@ export function useListenAudio() {
         unknown: 'Ready to listen',
         off: 'Translation OFF',
         starting: 'Starting translation',
-        live: subtitle ? 'Live translation' : 'Waiting for translation',
+        live: interpreterReconnecting
+          ? 'Translation reconnecting'
+          : subtitle
+            ? 'Live translation'
+            : 'Waiting for translation',
         stopping: 'Broadcast ending',
         error: 'Translation unavailable',
       }[sessionStatus];
@@ -627,8 +714,10 @@ export function useListenAudio() {
     connectionLabel,
     connectionState,
     dismissScripture,
+    interpreterReconnecting,
     isListening,
     sessionEnded,
+    sessionKey,
     sessionLabel,
     sessionStatus,
     scripture,

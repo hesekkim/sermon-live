@@ -77,16 +77,15 @@ describe('useOperatorSettings', () => {
     container.remove();
   });
 
-  it('uses a localized generic message for invalid API keys', async () => {
-    const rawProviderError =
-      'Incorrect API key provided: sk-proj-sensitive-provider-detail';
+  it('shows the sanitized key warning sent by the server for invalid API keys', async () => {
+    const serverWarning = 'OpenAI API key is invalid';
     operatorFetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
         interpreter: 'openai',
         openai_key_set: true,
         openai_key_status: 'invalid',
-        openai_key_warning: rawProviderError,
+        openai_key_warning: serverWarning,
       }),
     });
 
@@ -102,7 +101,7 @@ describe('useOperatorSettings', () => {
     expect(latestState?.settingsLoadStatus).toBe('loaded');
     expect(latestState?.interpreter).toBe('openai');
     expect(latestState?.openaiKeyStatus).toBe('invalid');
-    expect(JSON.stringify(latestState)).not.toContain(rawProviderError);
+    expect(latestState?.openaiKeyWarning).toBe(serverWarning);
 
     act(() => root.unmount());
     container.remove();

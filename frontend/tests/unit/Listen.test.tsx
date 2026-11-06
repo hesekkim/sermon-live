@@ -76,10 +76,15 @@ class MockWebSocket extends EventTarget {
 
   binaryType = 'blob';
   readyState = MockWebSocket.CONNECTING;
+  sent: unknown[] = [];
 
   constructor(readonly url: string) {
     super();
     MockWebSocket.instances.push(this);
+  }
+
+  send(data: string) {
+    this.sent.push(JSON.parse(data));
   }
 
   open() {
@@ -256,7 +261,7 @@ describe('Listener experience', () => {
   it('does not render a scripture card before receiving a scripture event', () => {
     const container = renderListener();
 
-    expect(container.querySelector('h1')).toHaveTextContent('Seanuree Live');
+    expect(container.querySelector('h1')).toHaveTextContent('Sermon Live');
 
     expect(
       container.querySelector('[aria-label="Bibeltext schließen"]'),
@@ -889,18 +894,51 @@ describe('Listener experience', () => {
     const chunk = new Uint8Array(24000 * 2 * 2).buffer;
 
     await act(async () => {
-      for (let index = 0; index < 3; index += 1) {
+      for (let index = 0; index < 4; index += 1) {
         socket.dispatchEvent(new MessageEvent('message', { data: chunk }));
         await Promise.resolve();
       }
       await Promise.resolve();
     });
 
-    expect(MockAudioContext.sources).toHaveLength(3);
-    expect(MockAudioContext.sources[0].stop).toHaveBeenCalledOnce();
-    expect(MockAudioContext.sources[1].stop).toHaveBeenCalledOnce();
-    expect(MockAudioContext.sources[2].stop).not.toHaveBeenCalled();
-    expect(MockAudioContext.sources[2].start).toHaveBeenCalledWith(0.05);
+    expect(MockAudioContext.sources).toHaveLength(4);
+    expect(MockAudioContext.sources[0].start).toHaveBeenCalledWith(0.25);
+    expect(MockAudioContext.sources[1].start).toHaveBeenCalledWith(2.25);
+    expect(MockAudioContext.sources[2].start).toHaveBeenCalledWith(4.25);
+    for (const source of MockAudioContext.sources.slice(0, 3)) {
+      expect(source.stop).toHaveBeenCalledOnce();
+    }
+    expect(MockAudioContext.sources[3].stop).not.toHaveBeenCalled();
+    expect(MockAudioContext.sources[3].start).toHaveBeenCalledWith(0.25);
+  });
+
+  it('buffers briefly after an underrun and plays following chunks back to back', async () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+    const context = MockAudioContext.instances[0];
+    const chunk = new Uint8Array(2400 * 2).buffer;
+
+    await act(async () => {
+      socket.dispatchEvent(new MessageEvent('message', { data: chunk }));
+      socket.dispatchEvent(new MessageEvent('message', { data: chunk }));
+      await Promise.resolve();
+    });
+    context.currentTime = 1;
+    await act(async () => {
+      socket.dispatchEvent(new MessageEvent('message', { data: chunk }));
+      await Promise.resolve();
+    });
+
+    expect(MockAudioContext.sources[0].start).toHaveBeenCalledWith(0.25);
+    expect(MockAudioContext.sources[1].start.mock.calls[0][0]).toBeCloseTo(0.35);
+    expect(MockAudioContext.sources[2].start).toHaveBeenCalledWith(1.25);
   });
 
   it('shows Translation OFF separately from a broadcast that has ended', async () => {
@@ -1034,6 +1072,228 @@ describe('Listener experience', () => {
       });
     });
     expect(container).toHaveTextContent('VERBUNDEN · ÜBERSETZUNG AUS');
+  });
+
+  it('resumes audio after reconnecting to the same live session', async () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const firstSocket = MockWebSocket.instances[0];
+    act(() => {
+      firstSocket.open();
+      firstSocket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        session_id: 'a',
+      });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+    expect(firstSocket.sent).toContainEqual({ type: 'audio', enabled: true });
+
+    act(() => firstSocket.close());
+    act(() => vi.advanceTimersByTime(1200));
+    const secondSocket = MockWebSocket.instances[1];
+    act(() => {
+      secondSocket.open();
+      secondSocket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        session_id: 'a',
+      });
+    });
+
+    expect(secondSocket.sent).toContainEqual({ type: 'audio', enabled: true });
+    expect(
+      container.querySelector('button[aria-label="Stop listening"]'),
+    ).toBeEnabled();
+    await act(async () => {
+      secondSocket.audio([1, 0, 2, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(1);
+  });
+
+  it('resets captions and listening when the session changed while disconnected', async () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const firstSocket = MockWebSocket.instances[0];
+    act(() => {
+      firstSocket.open();
+      firstSocket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        session_id: 'a',
+      });
+      firstSocket.message({ text: 'Alte Predigt.' });
+      firstSocket.message({
+        type: 'scripture',
+        reference: 'Römer 3,28',
+        version: 'Lutherbibel 1912',
+        verses: [{ verse: 28, text: 'Old passage.' }],
+      });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+
+    act(() => firstSocket.close());
+    act(() => vi.advanceTimersByTime(1200));
+    const secondSocket = MockWebSocket.instances[1];
+    act(() => {
+      secondSocket.open();
+      secondSocket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        session_id: 'b',
+      });
+    });
+
+    expect(container).not.toHaveTextContent('Alte Predigt.');
+    expect(container).not.toHaveTextContent('Old passage.');
+    expect(
+      container.querySelector('button[aria-label="Start listening"]'),
+    ).toBeEnabled();
+    expect(secondSocket.sent).toContainEqual({ type: 'audio', enabled: false });
+  });
+
+  it('keeps listening through an interpreter failure so a restart resumes audio', async () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        session_id: 'a',
+      });
+    });
+    await click(
+      container.querySelector('button[aria-label="Start listening"]'),
+    );
+
+    act(() => {
+      socket.message({ type: 'error', session_status: 'error' });
+      socket.message({
+        type: 'translation_status',
+        session_status: 'error',
+        last_termination_reason: 'interpreter_error',
+        session_id: 'a',
+      });
+      socket.message({ type: 'session_ended', reason: 'interpreter_error' });
+    });
+    expect(container).toHaveTextContent('ÜBERSETZUNG NICHT VERFÜGBAR');
+    expect(
+      container.querySelector('button[aria-label="Stop listening"]'),
+    ).toBeEnabled();
+
+    act(() => {
+      socket.message({
+        type: 'translation_status',
+        session_status: 'starting',
+        session_id: 'b',
+      });
+      socket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        session_id: 'b',
+      });
+    });
+    await act(async () => {
+      socket.audio([1, 0, 2, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(1);
+  });
+
+  it('shows when the translation service connection is being restored', () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        interpreter_reconnecting: true,
+      });
+    });
+    expect(container).toHaveTextContent('ÜBERSETZUNG WIRD WIEDERHERGESTELLT');
+
+    act(() => {
+      socket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        interpreter_reconnecting: false,
+      });
+    });
+    expect(container).not.toHaveTextContent('WIEDERHERGESTELLT');
+  });
+
+  it('pings the server and reconnects a socket that stopped delivering messages', () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'off' });
+    });
+
+    act(() => vi.advanceTimersByTime(5000));
+    expect(socket.sent).toContainEqual({ type: 'ping' });
+    act(() => socket.message({ type: 'pong' }));
+    act(() => vi.advanceTimersByTime(10000));
+    expect(MockWebSocket.instances).toHaveLength(1);
+
+    act(() => vi.advanceTimersByTime(5000));
+    expect(socket.readyState).toBe(MockWebSocket.CLOSED);
+    expect(container).toHaveTextContent('Connection lost · reconnecting');
+    act(() => vi.advanceTimersByTime(1200));
+    expect(MockWebSocket.instances).toHaveLength(2);
+  });
+
+  it('marks the caption gap left by a reconnect instead of merging sentences', () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const firstSocket = MockWebSocket.instances[0];
+    act(() => {
+      firstSocket.open();
+      firstSocket.message({ type: 'translation_status', session_status: 'live' });
+      firstSocket.message({ text: 'Gott ist' });
+    });
+
+    act(() => firstSocket.close());
+    act(() => vi.advanceTimersByTime(1200));
+    const secondSocket = MockWebSocket.instances[1];
+    act(() => {
+      secondSocket.open();
+      secondSocket.message({ type: 'translation_status', session_status: 'live' });
+      secondSocket.message({ text: 'und deshalb beten wir.' });
+    });
+
+    const lines = Array.from(
+      container.querySelectorAll('[aria-label="German translation"] p'),
+    ).map((line) => line.textContent);
+    expect(lines).toEqual(['Gott ist …', 'und deshalb beten wir.']);
+  });
+
+  it('backs off repeated reconnect attempts up to five seconds', () => {
+    vi.useFakeTimers();
+    renderListener();
+
+    act(() => MockWebSocket.instances[0].close());
+    act(() => vi.advanceTimersByTime(1200));
+    expect(MockWebSocket.instances).toHaveLength(2);
+    act(() => MockWebSocket.instances[1].close());
+    act(() => vi.advanceTimersByTime(2399));
+    expect(MockWebSocket.instances).toHaveLength(2);
+    act(() => vi.advanceTimersByTime(1));
+    expect(MockWebSocket.instances).toHaveLength(3);
+    act(() => MockWebSocket.instances[2].close());
+    act(() => vi.advanceTimersByTime(4800));
+    expect(MockWebSocket.instances).toHaveLength(4);
+    act(() => MockWebSocket.instances[3].close());
+    act(() => vi.advanceTimersByTime(5000));
+    expect(MockWebSocket.instances).toHaveLength(5);
   });
 
   it('retries a socket that never completes its handshake and ignores late events', () => {

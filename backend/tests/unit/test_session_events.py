@@ -240,6 +240,61 @@ async def test_openai_session_streams_audio_and_flushes_final_events_before_stop
 
 
 @pytest.mark.asyncio
+async def test_interpreter_reconnect_is_published_without_ending_session(
+    tmp_path, monkeypatch
+):
+    store = OperatorSettingsStore(tmp_path / "reconnect.json")
+    store.save(interpreter="openai", openai_api_key="test-key")
+    hub = FakeHub()
+    interpreter = FakeOpenAIInterpreter()
+    monkeypatch.setattr(
+        session_service_module, "create_interpreter", lambda _settings: interpreter
+    )
+    service = SessionService(Settings(interpreter="echo"), hub, FakeAudioRuntime(), store)
+    await service.start()
+
+    await interpreter._events.put(InterpreterEvent(kind="reconnecting"))
+    await asyncio.sleep(0.01)
+    assert service.state == "live"
+    assert service.status()["interpreter_reconnecting"] is True
+    assert hub.operator[-1]["type"] == "translation_status"
+    assert hub.operator[-1]["interpreter_reconnecting"] is True
+
+    await interpreter._events.put(InterpreterEvent(kind="reconnected"))
+    await asyncio.sleep(0.01)
+    assert service.status()["interpreter_reconnecting"] is False
+
+    await service.stop()
+    assert service.status()["interpreter_reconnecting"] is False
+
+
+@pytest.mark.asyncio
+async def test_each_session_start_gets_a_new_session_id(tmp_path, monkeypatch):
+    store = OperatorSettingsStore(tmp_path / "session-id.json")
+    store.save(interpreter="openai", openai_api_key="test-key")
+    hub = FakeHub()
+    monkeypatch.setattr(
+        session_service_module,
+        "create_interpreter",
+        lambda _settings: FakeOpenAIInterpreter(),
+    )
+    service = SessionService(Settings(interpreter="echo"), hub, FakeAudioRuntime(), store)
+    assert service.status()["session_id"] is None
+
+    await service.start()
+    first_id = service.status()["session_id"]
+    await service.stop()
+    assert service.status()["session_id"] == first_id
+    assert hub.operator[-1] == {**hub.operator[-1], "session_id": first_id}
+
+    await service.start()
+    second_id = service.status()["session_id"]
+    await service.stop()
+
+    assert first_id and second_id and first_id != second_id
+
+
+@pytest.mark.asyncio
 async def test_openai_invalid_key_prevents_session_start(tmp_path, monkeypatch):
     class InvalidKeyInterpreter(FakeOpenAIInterpreter):
         async def validate_key(self):

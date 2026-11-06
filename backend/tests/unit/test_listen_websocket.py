@@ -100,27 +100,164 @@ async def test_four_listener_endpoints_connect_and_disconnect_concurrently(
     assert hub.listener_count == 0
 
 
+class ScriptedWebSocket(FakeWebSocket):
+    def __init__(self, incoming):
+        super().__init__()
+        self.incoming = list(incoming)
+        self.closed_with = None
+        self.done = asyncio.Event()
+
+    async def receive_text(self):
+        if self.incoming:
+            await asyncio.sleep(0)
+            return self.incoming.pop(0)
+        self.done.set()
+        await asyncio.Event().wait()
+
+    async def close(self, **kwargs):
+        self.closed_with = kwargs
+
+
 @pytest.mark.asyncio
 async def test_listener_sends_are_serialized_per_socket():
     hub = BroadcastHub()
-    listener = FakeWebSocket()
-    hub._listen_clients.add(listener)
     hub._sample_rate = 24000
+    listener = FakeWebSocket()
+    hub._add_listener(listener)
+    hub.set_listener_audio(listener, True)
 
     await asyncio.gather(
         hub.broadcast_audio(b"pcm", 24000),
         hub.broadcast_text("translation"),
     )
+    await hub.flush_listeners(1)
 
     assert listener.max_active_sends == 1
-    assert sorted(
-        (
-            "audio"
-            if isinstance(message, bytes)
-            else message.get("text", "")
+    assert listener.messages == [{"sampleRate": 24000}, b"pcm", {"text": "translation"}]
+
+
+@pytest.mark.asyncio
+async def test_audio_is_sent_only_to_listeners_that_subscribed():
+    hub = BroadcastHub()
+    hub._sample_rate = 24000
+    reader = FakeWebSocket()
+    listener = FakeWebSocket()
+    hub._add_listener(reader)
+    hub._add_listener(listener)
+    hub.set_listener_audio(listener, True)
+
+    await hub.broadcast_audio(b"pcm", 24000)
+    await hub.broadcast_text("Hallo")
+    await hub.flush_listeners(1)
+
+    assert reader.messages == [{"sampleRate": 24000}, {"text": "Hallo"}]
+    assert listener.messages == [{"sampleRate": 24000}, b"pcm", {"text": "Hallo"}]
+
+
+@pytest.mark.asyncio
+async def test_slow_listener_does_not_block_broadcast_for_others():
+    class StalledWebSocket(FakeWebSocket):
+        async def send_bytes(self, payload):
+            await asyncio.Event().wait()
+
+    hub = BroadcastHub()
+    hub._sample_rate = 24000
+    stalled = StalledWebSocket()
+    healthy = FakeWebSocket()
+    for websocket in (stalled, healthy):
+        hub._add_listener(websocket)
+        hub.set_listener_audio(websocket, True)
+
+    for index in range(5):
+        await asyncio.wait_for(
+            hub.broadcast_audio(bytes([index, 0]), 24000), timeout=0.05
         )
-        for message in listener.messages
-    ) == ["audio", "translation"]
+    await asyncio.sleep(0.01)
+
+    assert [m for m in healthy.messages if isinstance(m, bytes)] == [
+        bytes([index, 0]) for index in range(5)
+    ]
+    hub.unregister(stalled)
+    hub.unregister(healthy)
+
+
+@pytest.mark.asyncio
+async def test_listener_audio_backlog_drops_oldest_audio_but_keeps_text(monkeypatch):
+    monkeypatch.setattr(BroadcastHub, "_LISTEN_MAX_QUEUED_AUDIO_SECONDS", 2 / 24000)
+    gate = asyncio.Event()
+
+    class GatedWebSocket(FakeWebSocket):
+        async def send_json(self, payload):
+            await gate.wait()
+            await super().send_json(payload)
+
+    hub = BroadcastHub()
+    hub._sample_rate = 24000
+    listener = GatedWebSocket()
+    hub._add_listener(listener)
+    hub.set_listener_audio(listener, True)
+    await asyncio.sleep(0)
+
+    await hub.broadcast_audio(b"\x01\x00", 24000)
+    await hub.broadcast_text("Hallo")
+    await hub.broadcast_audio(b"\x02\x00", 24000)
+    await hub.broadcast_audio(b"\x03\x00", 24000)
+    gate.set()
+    await hub.flush_listeners(1)
+
+    assert listener.messages == [
+        {"sampleRate": 24000},
+        {"text": "Hallo"},
+        b"\x02\x00",
+        b"\x03\x00",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_listener_ping_and_audio_subscription_messages(monkeypatch):
+    hub = BroadcastHub()
+    hub._sample_rate = 24000
+    listener = ScriptedWebSocket(
+        [
+            '{"type": "ping"}',
+            '{"type": "audio", "enabled": true}',
+            "not json",
+        ]
+    )
+    monkeypatch.setattr(listen_endpoint, "hub", hub)
+    monkeypatch.setattr(listen_endpoint, "session", FakeSession())
+    task = asyncio.create_task(listen_endpoint.listen_socket(listener))
+
+    await asyncio.wait_for(listener.done.wait(), timeout=1)
+    await hub.broadcast_audio(b"pcm", 24000)
+    await hub.flush_listeners(1)
+
+    assert listener.messages == [
+        {"sampleRate": 24000},
+        {"type": "translation_status", "session_status": "off"},
+        {"type": "pong"},
+        b"pcm",
+    ]
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
+@pytest.mark.asyncio
+async def test_listener_without_heartbeat_is_closed(monkeypatch):
+    hub = BroadcastHub()
+    listener = ScriptedWebSocket([])
+    monkeypatch.setattr(listen_endpoint, "hub", hub)
+    monkeypatch.setattr(listen_endpoint, "session", FakeSession())
+    monkeypatch.setattr(listen_endpoint, "LISTEN_IDLE_TIMEOUT_SECONDS", 0.01)
+
+    await asyncio.wait_for(listen_endpoint.listen_socket(listener), timeout=1)
+
+    assert listener.closed_with == {
+        "code": 1001,
+        "reason": "Listener heartbeat timeout",
+    }
+    assert hub.listener_count == 0
 
 
 @pytest.mark.asyncio

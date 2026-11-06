@@ -3,6 +3,7 @@ import base64
 import json
 
 import pytest
+from websockets.exceptions import ConnectionClosedError
 
 from core.config import Settings
 from services.interpreters.openai_realtime import OpenAIRealtimeInterpreter
@@ -340,3 +341,124 @@ def test_error_event_redacts_configured_api_key():
 
 async def collect_events(adapter: OpenAIRealtimeInterpreter):
     return [event async for event in adapter.events()]
+
+
+class DroppingWebSocket(FakeWebSocket):
+    def __init__(self, incoming: list[dict[str, object]]) -> None:
+        super().__init__(incoming)
+        self.drop_now = asyncio.Event()
+        self.dropped = False
+
+    async def send(self, message: str) -> None:
+        if self.dropped:
+            raise ConnectionClosedError(None, None)
+        await super().send(message)
+
+    async def __anext__(self) -> str:
+        if self.incoming:
+            return self.incoming.pop(0)
+        await self.drop_now.wait()
+        self.dropped = True
+        raise ConnectionClosedError(None, None)
+
+
+def factory_sequence(*results):
+    pending = list(results)
+
+    async def factory(*_args, **_kwargs):
+        result = pending.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    return factory
+
+
+def handshake(*events: dict[str, object]) -> list[dict[str, object]]:
+    return [{"type": "session.created"}, {"type": "session.updated"}, *events]
+
+
+@pytest.mark.asyncio
+async def test_unexpected_disconnect_reconnects_and_keeps_streaming():
+    first = DroppingWebSocket(
+        handshake({"type": "session.output_transcript.delta", "delta": "Hallo "})
+    )
+    second = FakeWebSocket(
+        handshake({"type": "session.output_transcript.delta", "delta": "Welt"})
+    )
+    adapter = OpenAIRealtimeInterpreter(
+        Settings(interpreter="openai", openai_api_key="test-key"),
+        websocket_factory=factory_sequence(first, second),
+    )
+    adapter._RECONNECT_DELAYS_SECONDS = (0,)
+    await adapter.start()
+    first.drop_now.set()
+
+    events = []
+    async for event in adapter.events():
+        events.append(event)
+        if len(events) == 4:
+            break
+    await adapter.send_pcm(b"\x01\x02")
+
+    assert [(event.kind, event.text) for event in events] == [
+        ("output_text", "Hallo "),
+        ("reconnecting", None),
+        ("reconnected", None),
+        ("output_text", "Welt"),
+    ]
+    assert first.closed
+    assert second.sent[0]["type"] == "session.update"
+    assert second.sent[1]["type"] == "session.input_audio_buffer.append"
+    await adapter.close()
+    assert second.closed
+
+
+@pytest.mark.asyncio
+async def test_audio_sent_during_disconnect_is_resent_after_reconnect():
+    first = DroppingWebSocket(handshake())
+    second = FakeWebSocket(handshake())
+    adapter = OpenAIRealtimeInterpreter(
+        Settings(interpreter="openai", openai_api_key="test-key"),
+        websocket_factory=factory_sequence(first, second),
+    )
+    adapter._RECONNECT_DELAYS_SECONDS = (0,)
+    await adapter.start()
+    first.dropped = True
+
+    send_task = asyncio.create_task(adapter.send_pcm(b"\x03\x04"))
+    await asyncio.sleep(0)
+    assert not send_task.done()
+    first.drop_now.set()
+    await asyncio.wait_for(send_task, timeout=1)
+
+    assert second.sent[-1] == {
+        "type": "session.input_audio_buffer.append",
+        "audio": base64.b64encode(b"\x03\x04").decode("ascii"),
+    }
+    await adapter.close()
+
+
+@pytest.mark.asyncio
+async def test_reconnect_failure_ends_with_connection_lost_error():
+    first = DroppingWebSocket(handshake())
+    adapter = OpenAIRealtimeInterpreter(
+        Settings(interpreter="openai", openai_api_key="test-key"),
+        websocket_factory=factory_sequence(
+            first, OSError("offline"), OSError("offline")
+        ),
+    )
+    adapter._RECONNECT_DELAYS_SECONDS = (0, 0)
+    await adapter.start()
+    first.drop_now.set()
+
+    events = await asyncio.wait_for(collect_events(adapter), timeout=1)
+
+    assert [(event.kind, event.text) for event in events] == [
+        ("reconnecting", None),
+        ("error", "OpenAI Realtime connection lost"),
+    ]
+    with pytest.raises(RuntimeError, match="connection lost"):
+        await adapter.send_pcm(b"\x01\x02")
+    await adapter.close()
+    assert first.closed

@@ -11,7 +11,11 @@ export type OperatorConnectionStatus =
   | 'connecting'
   | 'connected'
   | 'reconnecting';
-export type InterpreterStatus = 'connected' | 'disconnected' | 'error';
+export type InterpreterStatus =
+  | 'connected'
+  | 'reconnecting'
+  | 'disconnected'
+  | 'error';
 export type TranslationSessionStatus =
   | 'off'
   | 'starting'
@@ -56,6 +60,7 @@ interface SessionStatus {
   audio_dropped_chunks?: number;
   audio_dropped_duration_seconds?: number;
   input_transcript_enabled?: boolean;
+  interpreter_reconnecting?: boolean;
   timer?: SessionTimerState;
 }
 
@@ -86,6 +91,15 @@ interface OperatorMessage {
   audio_dropped_chunks?: number;
   audio_dropped_duration_seconds?: number;
   input_transcript_enabled?: boolean;
+  interpreter_reconnecting?: boolean;
+}
+
+function liveInterpreterStatus(
+  running: boolean,
+  reconnecting: boolean | undefined,
+): InterpreterStatus {
+  if (!running) return 'disconnected';
+  return reconnecting ? 'reconnecting' : 'connected';
 }
 
 const AUDIO_LEVEL_MIN_DBFS = -60;
@@ -256,9 +270,7 @@ export function useBroadcastSession(
       setInterpreterStatus((current) =>
         current === 'error'
           ? current
-          : data.running
-            ? 'connected'
-            : 'disconnected',
+          : liveInterpreterStatus(data.running, data.interpreter_reconnecting),
       );
       if (
         !data.running ||
@@ -338,12 +350,14 @@ export function useBroadcastSession(
             if (sessionEndedRef.current && isLiveStatus) return;
             if (typeof payload.running === 'boolean') {
               setRunning(payload.running);
+              const running = payload.running;
               setInterpreterStatus((current) =>
                 current === 'error'
                   ? current
-                  : payload.running
-                    ? 'connected'
-                    : 'disconnected',
+                  : liveInterpreterStatus(
+                      running,
+                      payload.interpreter_reconnecting,
+                    ),
               );
               if (!payload.running) clearAudioLevel();
             }

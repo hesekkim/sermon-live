@@ -10,6 +10,16 @@
 
 이 문서는 새 UX/안정성 티켓만 완료된 상태를 기술한다. 기존 backlog에 남은 OpenAI 실제 장비 end-to-end 확인, Glossary 기능은 완료된 것으로 간주하지 않는다. Sermon Session은 현재 애플리케이션에서 비활성화되며 번역 context로 사용하지 않는다.
 
+### 목표 구조 이후 추가된 기능
+
+다음 기능은 위 티켓 이후 구현되어 현재 코드에 포함되어 있다.
+
+- **Scripture popup**: SessionService가 독일어 번역 text에서 성경 구절 참조를 감지(`services/scripture.py`)하고 Lutherbibel 1912 본문을 `scripture` event로 Listen에 보낸다. Listen은 번역 자막을 가리지 않는 카드 stack으로 표시한다. 입력(한국어) transcript는 감지 대상이 아니다.
+- **Listen QR 공유**: Operator layout에서 LAN Listen URL을 QR로 보여준다.
+- **Listen 화면 유지**: 듣는 중에는 Screen Wake Lock을 요청하고 화면 복귀 시 다시 요청한다.
+- **오디오 복구**: AudioContext가 OS/브라우저에 의해 suspended/interrupted되면 예약된 오디오를 비우고 사용자 gesture 기반 "오디오 다시 재생" 버튼을 보여준다.
+- **Listen 연결 안정성**: heartbeat, 재연결 backoff, 청취자별 전송 큐, 오디오 구독, session id, OpenAI upstream 재연결. 자세한 계약은 [Listen 연결과 재연결](#listen-연결과-재연결)을 따른다.
+
 ## 제품 경계
 
 ```text
@@ -63,6 +73,8 @@ Operator shell은 Broadcast 상태 구독과 조작을 route component보다 상
 Listen은 로그인 없이 접근할 수 있다. 연결 상태, translation 상태, 독일어 자막, 명시적인 Listen 시작, 글자 크기와 listener theme을 제공한다. 재연결, 대기, 정상 종료, 통역 오류를 구분한다.
 
 오디오 playback은 Listen Browser의 AudioContext에서 수행한다. 사용자 음량은 기기의 하드웨어/OS 조절을 사용하며 앱에 별도의 volume control을 두지 않는다. Listen Browser에는 Operator 설정이나 API key가 전달되지 않는다.
+
+모바일 브라우저(특히 iOS Safari)는 화면이 잠기거나 앱이 background로 가면 AudioContext와 WebSocket을 중단한다. 따라서 청취자는 화면을 켠 채로 들어야 하며, 화면 복귀 시 socket은 자동 재연결되고 오디오는 자동 resume 또는 복구 버튼으로 재개된다. 이 제한은 운영 안내에 포함한다.
 
 ### Operator Broadcast
 
@@ -209,7 +221,9 @@ OpenAI adapter는 다음을 내부에서 처리한다.
 - provider audio/transcript/error event parsing
 - session close 및 `session.closed` flush 순서
 
-OpenAI event명과 payload는 adapter 경계를 넘어가지 않는다. SessionService/BroadcastHub/UI에는 audio, input transcript, translated text, error/close 등 application event만 전달된다. Translation Session은 voice-agent `/v1/realtime`의 `response.create` lifecycle을 사용하지 않는다.
+OpenAI event명과 payload는 adapter 경계를 넘어가지 않는다. SessionService/BroadcastHub/UI에는 audio, input transcript, translated text, error/close, `reconnecting`/`reconnected` 등 application event만 전달된다. Translation Session은 voice-agent `/v1/realtime`의 `response.create` lifecycle을 사용하지 않는다.
+
+OpenAI websocket이 `session.closed` 없이 끊기면(network 순단, server close) adapter는 즉시 오류로 끝내지 않고 backoff(0.5, 1, 2, 4초)로 새 translation session을 열어 재연결한다. 재연결 중 `send_pcm`은 연결이 복구될 때까지 대기하므로 AudioRuntime queue가 기존 duration 제한/drop telemetry 규칙대로 오래된 audio를 버린다. 전송 도중 끊긴 chunk는 새 연결로 다시 보낸다. 모든 시도가 실패하거나 key가 거부되면 `OpenAI Realtime connection lost` error event를 내고 SessionService가 `interpreter_error`로 종료한다. Provider가 보낸 `error` event와 정상 종료 요청 중의 끊김은 재연결 대상이 아니다. 새 OpenAI session은 이전 session의 문맥을 이어받지 않는다.
 
 ### BroadcastHub
 
@@ -219,6 +233,13 @@ BroadcastHub는 application event/audio를 등록 client에 fan-out한다.
 - Operator clients: session/audio status, input level, listener count, latency, queue drop telemetry, input/output transcript, errors, localized 가능한 종료 reason code
 
 BroadcastHub는 OpenAI websocket/payload 또는 API key를 알지 않는다. Listener count는 등록/해제 시 갱신한다. 하나의 listener 연결 실패가 다른 client 전달을 막지 않는다.
+
+Listen client마다 FIFO 전송 큐와 전용 sender task를 둔다. `broadcast_audio`/`broadcast_text`는 큐에 넣고 즉시 반환하므로 느린 청취자가 event pump나 다른 청취자를 지연시키지 않는다. 같은 socket으로의 전송은 sender task 하나가 순서대로 수행한다.
+
+- 바이너리 audio는 오디오를 구독한 청취자(`{"type":"audio","enabled":true}`)에게만 보낸다. 자막만 보는 청취자에게는 audio bandwidth(24 kHz PCM16 약 384 kbps)를 쓰지 않는다.
+- 청취자별 대기 audio는 3초로 제한하고 넘치면 가장 오래된 audio chunk부터 버린다. JSON(status/text/scripture)은 버리지 않는다.
+- 대기 message가 256개를 넘거나 한 전송이 5초를 넘으면 해당 청취자를 code 1013으로 닫고 count를 갱신한다. 청취자는 자동 재연결한다.
+- Server shutdown 시 마지막 `session_ended`가 전달되도록 짧게(0.5초) 큐를 flush한 뒤 socket을 닫는다.
 
 ## Data flow
 
@@ -269,7 +290,7 @@ Backend는 HTTP polling snapshot과 WebSocket event를 같은 application-level 
 
 | Event | 목적 | 대상 |
 | --- | --- | --- |
-| `translation_status` | session state, listener count, start availability, timer | Operator, Listen snapshot |
+| `translation_status` | session state, listener count, start availability, timer, `session_id`, `interpreter_reconnecting` | Operator, Listen snapshot(공개 field만) |
 | `audio_status` | input runtime ready/error | Operator |
 | `audio_level` | throttled dBFS input measurement | Operator |
 | `listener_count` | 현재 Listen 연결 수 변경 | Operator |
@@ -277,12 +298,54 @@ Backend는 HTTP polling snapshot과 WebSocket event를 같은 application-level 
 | `transcript` | `input` Korean 또는 `output` German text delta | Operator |
 | `audio_overflow` | 누적 dropped chunk/duration과 최근 drop | Operator |
 | `error` | 이해 가능한 오류 상태 | Operator, 필요 시 Listen |
-| `session_ended` | 최종 reason code | Operator, Listen |
-| binary audio + sample-rate metadata | translated PCM playback | Listen |
+| `session_ended` | 최종 reason code, `session_id` | Operator, Listen |
+| `scripture` | 감지된 성경 구절과 Lutherbibel 1912 본문 | Listen |
+| `pong` | Listen heartbeat 응답 | Listen |
+| binary audio + sample-rate metadata | translated PCM playback | 오디오를 구독한 Listen |
+
+Listen에 전달되는 `translation_status`는 `type`, `session_status`, `last_termination_reason`, `session_id`, `interpreter_reconnecting`만 포함한다. `error`는 Listen에 `type`/`session_status`만 전달하고 오류 상세는 Operator에만 보낸다.
+
+Listen client가 서버로 보내는 message는 다음 두 가지뿐이며 나머지는 무시한다.
+
+| Message | 의미 |
+| --- | --- |
+| `{"type":"ping"}` | heartbeat. 서버는 `{"type":"pong"}`으로 응답한다. |
+| `{"type":"audio","enabled":true\|false}` | 이 연결로 바이너리 audio를 받을지 여부. 연결 기본값은 `false`. |
+
+`session_id`는 Translation Session을 시작할 때마다 새로 발급되고 종료 후에도 마지막 값을 유지한다. `interpreter_reconnecting`은 live 중 OpenAI upstream을 재연결하는 동안만 `true`다.
 
 HTTP status와 WebSocket 종료 이벤트의 도착 순서가 달라도 Operator의 최종 UI 상태는 일관돼야 한다. `session_ended`를 받은 뒤 정상 종료는 OFF, fatal error 종료는 error로 정규화한다. `auto_stop` 같은 내부 code는 UI에서 localization된 label로 변환한다.
 
 `audio_overflow`의 구현 field name은 backend/frontend ticket에서 하나의 contract로 확정하고, status snapshot과 event update가 서로 모순되지 않게 한다. 모든 overflow마다 toast를 반복하지 않고 누적 정보와 제한된 빈도의 경고를 제공한다.
+
+## Listen 연결과 재연결
+
+### 연결 유지와 끊김 감지
+
+- Listen client는 연결 후 5초마다 `ping`을 보내고, 12초 동안 서버 message(status, text, audio, `pong` 등)를 하나도 받지 못하면 socket을 half-open으로 보고 닫은 뒤 재연결한다. Live 중에는 서버가 매초 `translation_status`를 보내므로 끊김을 더 빨리 알아챌 수 있다.
+- 서버는 30초 동안 client message가 없는 Listen socket을 code 1001로 닫는다. Uvicorn WebSocket ping은 보조 수단이다.
+- 연결 시도가 8초 안에 열리지 않으면 timeout으로 보고 재시도한다.
+- 재연결 지연은 1.2초에서 시작해 2배씩 늘고 최대 5초다. 연결에 성공하면 초기화한다.
+- UI는 최초 연결 실패, 연결 시간 초과, 서버의 정상 close, 연결 끊김을 구분해 표시한다.
+
+### 재연결 후 상태 복구
+
+서버는 새 Listen 연결마다 `sampleRate`(알려진 경우)와 현재 `translation_status` snapshot을 큐 순서대로 먼저 보낸다. Client는 다음 규칙으로 복구한다.
+
+- **같은 session에 재접속**: 듣는 중이던 client는 open 직후 `audio: true`를 다시 보내고, 사용자 조작 없이 audio를 계속 재생한다. 끊긴 동안의 자막/audio는 복구하지 않는다. 미완성 자막 줄은 `…`로 닫고, 재접속 후 첫 text는 새 줄로 시작해 서로 다른 문장이 섞이지 않게 한다. 남아 있던 홀수 PCM byte는 버린다.
+- **끊긴 사이 session이 바뀜**: snapshot의 `session_id`가 마지막으로 본 값과 다르고 `starting`이 아니면, client는 이전 방송의 종료를 놓친 것으로 본다. 그래서 자막과 scripture card를 초기화하고 듣기를 멈춘다. 사용자는 새 방송에서 다시 "anhören"을 누른다.
+- **`starting` 수신**: 자막과 scripture card를 초기화한다.
+
+### 종료와 오류에서의 듣기 상태
+
+- 정상 종료(`manual`, `auto_stop`, `hard_limit`, `server_shutdown`, `off` status): 듣기를 멈추고 "Sendung beendet"를 표시한다.
+- 오류 종료(`interpreter_error`, `device_error`, `error` event/status): 듣기 의도를 유지한다. "ÜBERSETZUNG NICHT VERFÜGBAR"를 표시하고, Operator가 다시 시작하면 사용자가 버튼을 다시 누르지 않아도 audio가 재개된다.
+- OpenAI upstream 재연결 중(`interpreter_reconnecting: true`): session은 live 상태로 유지하고 Listen은 "ÜBERSETZUNG WIRD WIEDERHERGESTELLT", Operator는 interpreter 상태 "재연결 중"을 표시한다.
+
+### 재생 버퍼
+
+- 재생이 비어 있는 상태(underrun)에서 도착한 chunk는 250ms jitter buffer 뒤에 시작하고, 이후 chunk는 앞 chunk 끝에 이어 붙인다. Wi-Fi 지터로 인한 끊김을 줄이기 위해서다.
+- 예약된 재생이 6초를 넘으면 아직 시작하지 않은 chunk를 버리고 최신 chunk부터 다시 재생한다. 지연이 계속 쌓이는 것을 막는 상한이며, 서버 쪽 청취자별 3초 제한 덕분에 평소에는 도달하지 않는다.
 
 ## 설정과 데이터 저장
 
@@ -305,9 +368,10 @@ Sermon Session JSON store/API implementation은 파일로 남을 수 있으나 a
 - Device open 실패: capture/audio status에 device error 표시, Start 비활성화.
 - Audio signal 없음: input level은 floor에 머물고 device ready 상태와 구분. Audio Test에서만 측정 결과 `silent`로 보고.
 - Interpreter connect/API key failure: SessionService error 종료, Operator에 오류 표시. key 값은 노출하지 않음.
-- Interpreter stream/network failure: adapter event로 변환, SessionService가 error/cleanup 수행, Listen은 unavailable/reconnect state를 표시.
+- Interpreter stream/network failure: adapter가 먼저 OpenAI session을 재연결하고 `interpreter_reconnecting`을 publish한다. 재연결이 최종 실패하면 adapter error event로 변환하고, SessionService가 error/cleanup을 수행하며, Listen은 unavailable 상태를 표시하되 듣기 의도를 유지한다.
 - Queue overflow: 최신 audio 유지, 오래된 audio drop 누계 및 warning을 Operator에 전달.
-- WebSocket reconnect: Operator가 status snapshot으로 복구하고 Listen은 공개 endpoint에 재접속.
+- 느린 Listen client: 해당 청취자의 대기 audio만 버리고, 계속 밀리면 그 청취자 연결만 닫는다. 다른 청취자와 event pump에는 영향이 없다.
+- WebSocket reconnect: Operator가 status snapshot으로 복구하고 Listen은 heartbeat/backoff 규칙에 따라 공개 endpoint에 재접속한 뒤 `session_id` 기준으로 상태를 복구한다.
 - Auto Stop: 정상 종료, control OFF, localised reason. 오류 종료와 혼동하지 않음.
 
 ## 배포 및 신뢰 경계
@@ -333,7 +397,8 @@ Sermon Session JSON store/API implementation은 파일로 남을 수 있으나 a
 - Audio: device capability/open negotiation, native tuple report, PCM conversion/resampling, interpreter target contract
 - Runtime: queue duration limit, drop policy/telemetry, bounded shutdown drain
 - SessionService: 실제 활성 class의 event routing, lifecycle, auto-stop, close/flush, device/interpreter errors
-- Interpreter: OpenAI event mapping과 mocked websocket만 검증. 실제 OpenAI API key/network 호출은 하지 않음
+- Interpreter: OpenAI event mapping, 예기치 않은 끊김 후 재연결/재전송/최종 실패를 mocked websocket으로만 검증. 실제 OpenAI API key/network 호출은 하지 않음
+- BroadcastHub/Listen endpoint: 청취자별 전송 순서, audio 구독, 느린 청취자 격리, audio backlog drop, ping/pong, heartbeat timeout
 - Router registration: Sermon Session route가 앱에 등록되지 않는지 확인
 
 ### Frontend unit tests
@@ -342,7 +407,7 @@ Sermon Session JSON store/API implementation은 파일로 남을 수 있으나 a
 - auto-stop 후 OFF state, 종료 reason localization, 다음 click의 start 동작
 - sidebar control과 session ownership, Listener count/input level/queue warning state
 - Settings 탭 이동, per-section request payload 격리, immediate apply/rollback
-- Listen reconnect와 transcript/audio core state
+- Listen reconnect와 transcript/audio core state: 같은 session 재접속 시 audio 자동 재개, 끊긴 사이 session 변경, 오류 종료 후 재시작 시 재개, heartbeat watchdog, backoff, 자막 gap, jitter buffer
 
 레이아웃 스타일, className, snapshot 테스트는 두지 않는다.
 
@@ -352,6 +417,9 @@ Unit test는 실제 microphone/device/OpenAI API를 대신하지 않는다. 배�
 
 - 비인증 Operator 요청 거부와 로그인 후 설정/Start/Stop 성공
 - Listen 공개 접속 및 여러 동시 listener의 audio/text broadcast
+- 듣는 중 폰 Wi-Fi off/on, AP 이동, 화면 잠금/복귀 후 자막과 audio가 자동 복구되는지
+- 설교 중 Local PC의 인터넷을 잠시 끊었을 때 OpenAI 재연결 표시와 복구
+- OpenAI가 실제로 audio를 실시간보다 빠르게 몰아서 보내는지와 Listen 6초 상한 도달 여부
 - 자동 종료 후 button OFF와 사용자용 reason 표시
 - Laptop microphone 및 실제 USB/Mixer에서 capture stream format, input level, 24 kHz conversion 확인
 - 장치 unavailable, silence, interpreter/network failure, queue overflow, shutdown final-output 동작

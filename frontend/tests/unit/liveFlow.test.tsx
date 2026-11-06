@@ -11,7 +11,7 @@ import { operatorCopy } from '../../src/pages/Operator/translations';
   }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-class MockAudioContext {
+class MockAudioContext extends EventTarget {
   state: AudioContextState = 'suspended';
   currentTime = 0;
   destination = {} as AudioDestinationNode;

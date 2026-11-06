@@ -75,6 +75,7 @@ export default function BroadcastHeader({
   }[serverStatus];
   const interpreterLabel = {
     connected: labels.connectionConnected,
+    reconnecting: labels.operatorReconnecting,
     disconnected: labels.connectionDisconnected,
     error: labels.connectionError,
   }[interpreterStatus];
