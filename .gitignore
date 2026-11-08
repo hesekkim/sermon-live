@@ -1,5 +1,6 @@
 .env
 backend/data/*.json
+backend/logs/
 .venv/
 venv/
 __pycache__/

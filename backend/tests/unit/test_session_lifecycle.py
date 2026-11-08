@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import pytest
 
@@ -376,7 +377,9 @@ async def test_extension_is_rejected_after_auto_stop_deadline(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_operator_timer_settings_are_used_for_session_deadline(tmp_path):
+async def test_operator_timer_settings_are_used_for_session_deadline(
+    tmp_path, caplog
+):
     settings = Settings(interpreter="echo")
     operator_store = OperatorSettingsStore(tmp_path / "operator.json")
     operator_store.save(
@@ -395,12 +398,21 @@ async def test_operator_timer_settings_are_used_for_session_deadline(tmp_path):
     clock = {"value": 10.0}
     service._clock = lambda: clock["value"]
 
-    await service.start()
+    with caplog.at_level(logging.INFO, logger="services.session_service"):
+        await service.start()
 
     assert service.status()["timer"]["remainingSeconds"] == 120
     assert service.status()["timer"]["extensionMinutes"] == 3
     assert service._hard_limit_seconds() == 300
-    await service.stop()
+    assert "auto_stop_minutes=2" in caplog.text
+    assert "warning_minutes=1" in caplog.text
+    assert "extension_minutes=3" in caplog.text
+    assert "hard_limit_minutes=5" in caplog.text
+
+    with caplog.at_level(logging.INFO, logger="services.session_service"):
+        await service.stop()
+    assert "reason=manual" in caplog.text
+    assert "elapsed_seconds=" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -732,4 +744,3 @@ async def test_broadcast_hub_disconnects_slow_listen_without_blocking_healthy_cl
     assert slow not in hub._listen_clients
     assert healthy in hub._listen_clients
     assert operator.messages[-1] == {"type": "listener_count", "listener_count": 1}
-

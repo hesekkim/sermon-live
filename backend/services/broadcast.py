@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections import deque
 from typing import Any, Literal
 
@@ -23,6 +24,8 @@ class _ListenClient:
         self.audio_enabled = False
         self.items: deque[_ListenItem] = deque()
         self.audio_bytes = 0
+        self.dropped_audio_bytes = 0
+        self.last_audio_overflow_log: float | None = None
         self.wakeup = asyncio.Event()
         self.idle = asyncio.Event()
         self.idle.set()
@@ -37,6 +40,7 @@ class BroadcastHub:
     _LISTEN_MAX_QUEUED_AUDIO_SECONDS = 3.0
     _LISTEN_MAX_QUEUED_MESSAGES = 256
     _LISTEN_FLUSH_TIMEOUT_SECONDS = 0.5
+    _LISTEN_OVERFLOW_WARNING_INTERVAL_SECONDS = 10.0
 
     def __init__(self) -> None:
         self._listen_clients: dict[WebSocket, _ListenClient] = {}
@@ -85,6 +89,11 @@ class BroadcastHub:
         client = self._listen_clients.pop(websocket, None)
         if client is None:
             return False
+        if client.dropped_audio_bytes:
+            logger.warning(
+                "Listener disconnected with unreported audio backlog drops (%s queued bytes)",
+                client.dropped_audio_bytes,
+            )
         task = client.task
         if task is not None and task is not asyncio.current_task():
             task.cancel()
@@ -96,10 +105,21 @@ class BroadcastHub:
         client = self._listen_clients.get(websocket)
         if client is None:
             return False
+        if client.audio_enabled != enabled:
+            logger.debug(
+                "Listener audio subscription changed (enabled=%s, %s listeners connected)",
+                enabled,
+                self.listener_count,
+            )
         client.audio_enabled = enabled
         if not enabled and client.audio_bytes:
+            discarded_bytes = client.audio_bytes
             client.items = deque(item for item in client.items if item[0] != "audio")
             client.audio_bytes = 0
+            logger.debug(
+                "Cleared queued Listener audio after subscription was disabled (%s bytes)",
+                discarded_bytes,
+            )
         return True
 
     async def broadcast_audio(self, pcm: bytes, sample_rate: int) -> None:
@@ -183,7 +203,7 @@ class BroadcastHub:
             return False
         if self._enqueue_json(client, payload):
             return True
-        await self._drop_listeners([client])
+        await self._drop_listeners([client], reason="message_queue_full")
         return False
 
     async def flush_listeners(self, timeout: float) -> None:
@@ -243,6 +263,21 @@ class BroadcastHub:
             _, dropped = client.items[oldest]
             del client.items[oldest]
             client.audio_bytes -= len(dropped)
+            client.dropped_audio_bytes += len(dropped)
+        if client.dropped_audio_bytes:
+            now = time.monotonic()
+            if (
+                client.last_audio_overflow_log is None
+                or now - client.last_audio_overflow_log
+                >= self._LISTEN_OVERFLOW_WARNING_INTERVAL_SECONDS
+            ):
+                logger.warning(
+                    "Listener audio backlog exceeded limit; discarded %s queued bytes (%s listeners connected)",
+                    client.dropped_audio_bytes,
+                    self.listener_count,
+                )
+                client.dropped_audio_bytes = 0
+                client.last_audio_overflow_log = now
         self._wake(client)
 
     @staticmethod
@@ -270,11 +305,22 @@ class BroadcastHub:
                         send, timeout=self._LISTEN_SEND_TIMEOUT_SECONDS
                     )
                 except asyncio.TimeoutError:
-                    await self._close_slow_listener(websocket)
+                    logger.warning(
+                        "Listener send timed out (message_type=%s)",
+                        kind,
+                    )
+                    await self._close_slow_listener(
+                        websocket, reason="send_timeout"
+                    )
                     break
                 except asyncio.CancelledError:
                     raise
-                except Exception:
+                except Exception as exc:
+                    logger.warning(
+                        "Listener send failed (message_type=%s, error_type=%s)",
+                        kind,
+                        type(exc).__name__,
+                    )
                     break
         finally:
             client.idle.set()
@@ -291,24 +337,30 @@ class BroadcastHub:
             if not self._enqueue_json(client, payload)
         ]
         if overflowed:
-            await self._drop_listeners(overflowed)
+            await self._drop_listeners(overflowed, reason="message_queue_full")
 
-    async def _drop_listeners(self, clients: list[_ListenClient]) -> None:
+    async def _drop_listeners(
+        self, clients: list[_ListenClient], reason: str
+    ) -> None:
         for client in clients:
-            await self._close_slow_listener(client.websocket)
+            await self._close_slow_listener(client.websocket, reason=reason)
             self.unregister(client.websocket)
         await self.broadcast_operator(
             {"type": "listener_count", "listener_count": self.listener_count}
         )
 
-    async def _close_slow_listener(self, client: WebSocket) -> None:
+    async def _close_slow_listener(self, client: WebSocket, reason: str) -> None:
+        logger.warning("Closing slow Listener connection (reason=%s)", reason)
         try:
             await asyncio.wait_for(
                 client.close(code=1013, reason="Listen connection is too slow"),
                 timeout=self._LISTEN_CLOSE_TIMEOUT_SECONDS,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug(
+                "Could not close Listener connection cleanly (error_type=%s)",
+                type(exc).__name__,
+            )
 
     async def _safe_send_json(
         self, websocket: WebSocket, payload: dict[str, Any]

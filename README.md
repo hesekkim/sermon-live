@@ -16,7 +16,9 @@
 
 저장소 루트에서 `build.bat`을 실행하면 frontend가 `frontend/dist`에 빌드되고 backend Python 모듈의 문법을 검사합니다. Backend는 별도로 컴파일된 바이너리가 아닌 Python 애플리케이션입니다. `run.bat`을 실행하면 backend가 시작되고 같은 프로세스에서 빌드된 frontend를 제공합니다.
 
-빌드가 끝나면 `run.bat`을 실행하세요. 운영자 노트북에서는 `http://localhost:8080/operator`를 열고, 같은 네트워크의 청중 기기에서는 `http://<LAN-IP>:8080/listen`을 엽니다.
+빌드가 끝나면 `run.bat`을 실행하세요. 백엔드 진단 로그를 파일에도 저장하려면 `run.bat --verbose`로 실행하세요. 로그는 `backend/logs/sermon-live.log`에 저장되고 5 MB마다 회전하며 이전 파일 3개를 보관합니다. 세션 시작 시 실제 타이머 설정, 타이머 경고·연장, 종료 사유와 경과 시간 및 백엔드 서비스 로그가 기록됩니다. 상세 모드는 애플리케이션 서비스와 서버 로그를 DEBUG로 설정하며, 외부 API 라이브러리의 상세 요청 로그는 켜지지 않습니다.
+
+운영자 노트북에서는 `http://localhost:8080/operator`를 열고, 같은 네트워크의 청중 기기에서는 `http://<LAN-IP>:8080/listen`을 엽니다.
 
 Backend를 직접 실행하려면:
 

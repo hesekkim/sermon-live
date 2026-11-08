@@ -137,13 +137,14 @@ async def test_listener_sends_are_serialized_per_socket():
 
 
 @pytest.mark.asyncio
-async def test_audio_is_sent_only_to_listeners_that_subscribed():
+async def test_audio_is_sent_only_to_listeners_that_subscribed(caplog):
     hub = BroadcastHub()
     hub._sample_rate = 24000
     reader = FakeWebSocket()
     listener = FakeWebSocket()
     hub._add_listener(reader)
     hub._add_listener(listener)
+    caplog.set_level("DEBUG", logger="services.broadcast")
     hub.set_listener_audio(listener, True)
 
     await hub.broadcast_audio(b"pcm", 24000)
@@ -152,6 +153,7 @@ async def test_audio_is_sent_only_to_listeners_that_subscribed():
 
     assert reader.messages == [{"sampleRate": 24000}, {"text": "Hallo"}]
     assert listener.messages == [{"sampleRate": 24000}, b"pcm", {"text": "Hallo"}]
+    assert "Listener audio subscription changed (enabled=True" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -182,7 +184,9 @@ async def test_slow_listener_does_not_block_broadcast_for_others():
 
 
 @pytest.mark.asyncio
-async def test_listener_audio_backlog_drops_oldest_audio_but_keeps_text(monkeypatch):
+async def test_listener_audio_backlog_drops_oldest_audio_but_keeps_text(
+    monkeypatch, caplog
+):
     monkeypatch.setattr(BroadcastHub, "_LISTEN_MAX_QUEUED_AUDIO_SECONDS", 2 / 24000)
     gate = asyncio.Event()
 
@@ -195,6 +199,7 @@ async def test_listener_audio_backlog_drops_oldest_audio_but_keeps_text(monkeypa
     hub._sample_rate = 24000
     listener = GatedWebSocket()
     hub._add_listener(listener)
+    caplog.set_level("WARNING", logger="services.broadcast")
     hub.set_listener_audio(listener, True)
     await asyncio.sleep(0)
 
@@ -211,6 +216,8 @@ async def test_listener_audio_backlog_drops_oldest_audio_but_keeps_text(monkeypa
         b"\x02\x00",
         b"\x03\x00",
     ]
+    assert "Listener audio backlog exceeded limit" in caplog.text
+    assert "discarded 2 queued bytes" in caplog.text
 
 
 @pytest.mark.asyncio

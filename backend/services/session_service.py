@@ -183,6 +183,11 @@ class _TranslationSessionService:
         warning = bool(timer["warning"])
         if warning and not self._timer_warning_sent:
             self._timer_warning_sent = True
+            logger.info(
+                "Translation session timer warning: session_id=%s remaining_seconds=%s",
+                self._session_id,
+                timer["remainingSeconds"],
+            )
             await self._publish_timer()
         elif not warning:
             self._timer_warning_sent = False
@@ -248,6 +253,20 @@ class _TranslationSessionService:
                 self._timer_deadline_at = self._timer_started_at + self._auto_stop_seconds()
                 self._timer_warning_sent = False
                 self._timer_extension_count = 0
+                logger.info(
+                    "Translation session started: session_id=%s auto_stop_minutes=%s "
+                    "warning_minutes=%s extension_minutes=%s hard_limit_minutes=%s",
+                    self._session_id,
+                    runtime.translation_session_auto_stop_minutes,
+                    runtime.translation_session_warning_minutes,
+                    runtime.translation_session_extension_minutes,
+                    runtime.translation_session_hard_limit_minutes,
+                )
+                logger.debug(
+                    "Translation timer scheduled: session_id=%s deadline_in_seconds=%.1f",
+                    self._session_id,
+                    self._timer_deadline_at - self._timer_started_at,
+                )
                 self._audio_task = asyncio.create_task(
                     self._pump_audio(audio_queue), name="pump-translation-audio"
                 )
@@ -324,6 +343,13 @@ class _TranslationSessionService:
             self._timer_warning_sent = False
             self._timer_extension_count += 1
             timer = self._timer_status()
+            logger.info(
+                "Translation session extended: session_id=%s extension_count=%s "
+                "remaining_seconds=%s",
+                self._session_id,
+                self._timer_extension_count,
+                timer["remainingSeconds"] if timer else None,
+            )
             await self._publish_timer()
             await self._publish_status()
             return timer or {}
@@ -368,9 +394,28 @@ class _TranslationSessionService:
     ) -> None:
         if error is not None:
             error = self._safe_error_message(error)
+        elapsed_seconds = (
+            max(0.0, self._clock() - self._timer_started_at)
+            if self._timer_started_at is not None
+            else None
+        )
+        logger.info(
+            "Translation session ended: session_id=%s reason=%s elapsed_seconds=%s",
+            self._session_id,
+            reason,
+            f"{elapsed_seconds:.1f}" if elapsed_seconds is not None else "unknown",
+        )
         discard_pending = current_task is self._audio_task or reason in (
             "interpreter_error",
             "device_error",
+        )
+        logger.debug(
+            "Finishing translation pipeline: session_id=%s reason=%s "
+            "discard_pending=%s error_present=%s",
+            self._session_id,
+            reason,
+            discard_pending,
+            error is not None,
         )
         queue = await self._audio.finish_translation(
             discard_pending=discard_pending

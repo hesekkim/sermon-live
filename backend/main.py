@@ -1,4 +1,6 @@
+import argparse
 import logging
+from logging.handlers import RotatingFileHandler
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -24,6 +26,28 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
+
+
+def configure_verbose_logging(log_directory: Path | None = None) -> Path:
+    directory = log_directory or backend_dir / "logs"
+    directory.mkdir(parents=True, exist_ok=True)
+    log_path = directory / "sermon-live.log"
+    handler = RotatingFileHandler(
+        log_path,
+        maxBytes=5 * 1024 * 1024,
+        backupCount=3,
+        encoding="utf-8",
+    )
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+    )
+    logging.getLogger().addHandler(handler)
+    for logger_name in ("services", "api", "core", "__main__", "main"):
+        logging.getLogger(logger_name).setLevel(logging.DEBUG)
+    return log_path
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -77,6 +101,17 @@ app = create_application()
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run the Sermon Live server.")
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="enable debug logs for application services",
+    )
+    args = parser.parse_args()
+    if args.verbose:
+        log_path = configure_verbose_logging()
+        logger.info("Verbose diagnostic logging enabled: %s", log_path)
+
     logger.info("HTTP http://%s:%s", settings.host, settings.port)
     address = detect_lan_ip()
     if address:
@@ -88,4 +123,6 @@ if __name__ == "__main__":
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
+        log_level="debug" if args.verbose else "info",
+        log_config=None if args.verbose else "default",
     )
