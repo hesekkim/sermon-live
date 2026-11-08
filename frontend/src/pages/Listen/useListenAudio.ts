@@ -223,36 +223,42 @@ export function useListenAudio() {
     return context;
   }, [clearScheduledAudio]);
 
-  const resumeAudioContext = useCallback((context: AudioContext) => {
-    if (context.state === 'running') {
-      return Promise.resolve();
-    }
-    if (context.state === 'closed') {
-      return Promise.reject(
-        new Error(`AudioContext state is ${context.state}`),
-      );
-    }
-    const currentResume = audioResumeRef.current;
-    if (currentResume?.context === context) {
-      return currentResume.promise;
-    }
-    const promise = context.resume().then(() => {
-      if (context.state !== 'running') {
-        throw new Error(`AudioContext state is ${context.state}`);
+  const resumeAudioContext = useCallback(
+    (context: AudioContext, fromUserGesture = false) => {
+      if (context.state === 'running') {
+        return Promise.resolve();
       }
-    }).finally(() => {
-      if (audioResumeRef.current?.promise === promise) {
-        audioResumeRef.current = null;
+      if (context.state === 'closed') {
+        return Promise.reject(
+          new Error(`AudioContext state is ${context.state}`),
+        );
       }
-    });
-    audioResumeRef.current = { context, promise };
-    return promise;
-  }, []);
+      const currentResume = audioResumeRef.current;
+      if (!fromUserGesture && currentResume?.context === context) {
+        return currentResume.promise;
+      }
+      const promise = context
+        .resume()
+        .then(() => {
+          if (context.state !== 'running') {
+            throw new Error(`AudioContext state is ${context.state}`);
+          }
+        })
+        .finally(() => {
+          if (audioResumeRef.current?.promise === promise) {
+            audioResumeRef.current = null;
+          }
+        });
+      audioResumeRef.current = { context, promise };
+      return promise;
+    },
+    [],
+  );
 
   const ensureAudioContext = useCallback(async () => {
     const context = getAudioContext();
     if (context.state !== 'running') {
-      await resumeAudioContext(context);
+      await resumeAudioContext(context, true);
     }
     if (context.state !== 'running') {
       throw new Error(`AudioContext state is ${context.state}`);
@@ -274,7 +280,8 @@ export function useListenAudio() {
           if (
             isListeningRef.current &&
             generation === listenGenerationRef.current &&
-            audioContextRef.current === context
+            audioContextRef.current === context &&
+            context.state !== 'running'
           ) {
             setAudioError(
               error instanceof Error ? error.message : String(error),
@@ -377,10 +384,11 @@ export function useListenAudio() {
       return;
     }
     const generation = listenGenerationRef.current;
+    let context: AudioContext | null = null;
     try {
-      const context = getAudioContext();
+      context = getAudioContext();
       if (context.state !== 'running') {
-        await resumeAudioContext(context);
+        await resumeAudioContext(context, true);
       }
       if (
         !isListeningRef.current ||
@@ -394,7 +402,8 @@ export function useListenAudio() {
     } catch (error) {
       if (
         isListeningRef.current &&
-        generation === listenGenerationRef.current
+        generation === listenGenerationRef.current &&
+        (!context || context.state !== 'running')
       ) {
         setAudioRecoveryRequired(true);
         setAudioError(error instanceof Error ? error.message : String(error));
@@ -423,7 +432,8 @@ export function useListenAudio() {
         if (
           isListeningRef.current &&
           generation === listenGenerationRef.current &&
-          audioContextRef.current === context
+          audioContextRef.current === context &&
+          context.state !== 'running'
         ) {
           setAudioRecoveryRequired(true);
           setAudioError(error instanceof Error ? error.message : String(error));

@@ -69,6 +69,10 @@ class MockWebSocket extends EventTarget {
 }
 
 const storedValues = new Map<string, string>();
+const originalNavigatorLanguage = Object.getOwnPropertyDescriptor(
+  navigator,
+  'language',
+);
 const localStorageMock: Storage = {
   get length() {
     return storedValues.size;
@@ -112,6 +116,10 @@ async function click(element: HTMLElement | null) {
 }
 
 beforeEach(() => {
+  Object.defineProperty(navigator, 'language', {
+    configurable: true,
+    value: 'de-DE',
+  });
   MockWebSocket.instances = [];
   storedValues.clear();
   Object.defineProperty(window, 'localStorage', {
@@ -132,6 +140,15 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.replaceChildren();
+  if (originalNavigatorLanguage) {
+    Object.defineProperty(
+      navigator,
+      'language',
+      originalNavigatorLanguage,
+    );
+  } else {
+    Reflect.deleteProperty(navigator, 'language');
+  }
   vi.unstubAllGlobals();
 });
 
@@ -164,7 +181,7 @@ describe('core live broadcast flow', () => {
     expect(operator.sessionRef.current?.sessionStatus).toBe('off');
     expect(listener.container).toHaveTextContent('VERBUNDEN · ÜBERSETZUNG AUS');
     expect(
-      listener.container.querySelector('button[aria-label="Start listening"]'),
+      listener.container.querySelector('button[aria-label="anhören"]'),
     ).toBeDisabled();
 
     act(() => {
@@ -188,10 +205,10 @@ describe('core live broadcast flow', () => {
     expect(listener.container).toHaveTextContent('Guten Morgen.');
 
     await click(
-      listener.container.querySelector('button[aria-label="Start listening"]'),
+      listener.container.querySelector('button[aria-label="anhören"]'),
     );
     expect(
-      listener.container.querySelector('button[aria-label="Stop listening"]'),
+      listener.container.querySelector('button[aria-label="stoppen"]'),
     ).not.toBeNull();
 
     act(() => {
@@ -265,7 +282,7 @@ describe('core live broadcast flow', () => {
     const firstSocket = MockWebSocket.instances[0];
 
     await click(
-      listener.container.querySelector('button[aria-label="Listen"]'),
+      listener.container.querySelector('button[aria-label="anhören"]'),
     );
 
     act(() => {
@@ -278,7 +295,9 @@ describe('core live broadcast flow', () => {
     expect(listener.container).toHaveTextContent('VERBUNDEN · ÜBERSETZUNG AUS');
 
     act(() => firstSocket?.close());
-    expect(listener.container).toHaveTextContent('Connection lost · reconnecting');
+    expect(listener.container).toHaveTextContent(
+      'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
+    );
 
     act(() => vi.advanceTimersByTime(1200));
     const secondSocket = MockWebSocket.instances[1];

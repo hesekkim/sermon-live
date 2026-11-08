@@ -11,57 +11,151 @@ import { ScripturePopup } from './ScripturePopup/ScripturePopup';
 import { useListenAudio, type ScripturePassage } from './useListenAudio';
 import { useListenerPreferences } from './useListenerPreferences';
 
-const RETRY_LABELS = {
-  initialRetrying: {
-    ko: '최초 연결 실패 · 다시 연결 중',
-    en: 'Initial connection failed · retrying',
-    de: 'ERSTVERBINDUNG FEHLGESCHLAGEN · NEUER VERSUCH',
+type ListenerLanguage = 'de' | 'en' | 'ko';
+type RetryState =
+  | 'initialRetrying'
+  | 'timedOutRetrying'
+  | 'serverRetrying'
+  | 'reconnecting';
+
+const LISTENER_COPY = {
+  de: {
+    retry: {
+      initialRetrying: 'ERSTVERBINDUNG FEHLGESCHLAGEN · NEUER VERSUCH',
+      timedOutRetrying: 'VERBINDUNGSZEITÜBERSCHREITUNG · NEUER VERSUCH',
+      serverRetrying: 'SERVER HAT DIE VERBINDUNG BEENDET · NEUER VERSUCH',
+      reconnecting: 'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
+    },
+    status: {
+      connecting: 'VERBINDET...',
+      ended: 'SENDUNG BEENDET · DEUTSCH',
+      interpreterReconnecting: 'ÜBERSETZUNG WIRD WIEDERHERGESTELLT',
+      live: 'SESSION LIVE · DEUTSCH',
+      waitingForTranslation: 'WARTEN AUF ÜBERSETZUNG',
+      starting: 'ÜBERSETZUNG STARTET',
+      stopping: 'SENDUNG WIRD BEENDET',
+      unavailable: 'ÜBERSETZUNG NICHT VERFÜGBAR',
+      connectedOff: 'VERBUNDEN · ÜBERSETZUNG AUS',
+      off: 'ÜBERSETZUNG AUS',
+      waitingForStart: 'WARTEN AUF SENDUNGSSTART',
+    },
+    placeholder: {
+      live: 'Warten auf Übersetzung...',
+      off: 'Die Übersetzung ist ausgeschaltet.',
+      waiting: 'Die Übersetzung erscheint hier.',
+    },
+    changeToDark: 'Dunkles Design aktivieren',
+    changeToLight: 'Helles Design aktivieren',
+    transcript: 'Deutsche Übersetzung',
+    ended: 'Sendung beendet',
+    startListening: 'anhören',
+    stopListening: 'stoppen',
+    resumeAudio: 'Audio fortsetzen',
+    fontSize: 'Schriftgröße',
+    smallerText: 'Kleinerer Text',
+    defaultTextSize: 'Standardgröße',
+    largerText: 'Größerer Text',
+    recoveryMessage:
+      'Die Audiowiedergabe wurde unterbrochen. Tippen Sie auf „anhören“, um sie fortzusetzen.',
+    recoveryFailed: 'Audio konnte nicht fortgesetzt werden',
+    dismissScripture: 'Bibeltext schließen',
   },
-  timedOutRetrying: {
-    ko: '연결 시간 초과 · 다시 연결 중',
-    en: 'Connection timed out · retrying',
-    de: 'VERBINDUNGSZEITÜBERSCHREITUNG · NEUER VERSUCH',
+  en: {
+    retry: {
+      initialRetrying: 'Initial connection failed · retrying',
+      timedOutRetrying: 'Connection timed out · retrying',
+      serverRetrying: 'Server closed the connection · retrying',
+      reconnecting: 'Connection lost · reconnecting',
+    },
+    status: {
+      connecting: 'CONNECTING...',
+      ended: 'BROADCAST ENDED · GERMAN',
+      interpreterReconnecting: 'TRANSLATION RECONNECTING',
+      live: 'SESSION LIVE · GERMAN',
+      waitingForTranslation: 'WAITING FOR TRANSLATION',
+      starting: 'STARTING TRANSLATION',
+      stopping: 'ENDING BROADCAST',
+      unavailable: 'TRANSLATION UNAVAILABLE',
+      connectedOff: 'CONNECTED · TRANSLATION OFF',
+      off: 'TRANSLATION OFF',
+      waitingForStart: 'WAITING FOR BROADCAST',
+    },
+    placeholder: {
+      live: 'Waiting for translation...',
+      off: 'Translation is off.',
+      waiting: 'The translation will appear here.',
+    },
+    changeToDark: 'Change to dark theme',
+    changeToLight: 'Change to light theme',
+    transcript: 'German translation',
+    ended: 'Broadcast ended',
+    startListening: 'Start listening',
+    stopListening: 'Stop listening',
+    resumeAudio: 'Resume audio',
+    fontSize: 'Font size',
+    smallerText: 'Smaller text',
+    defaultTextSize: 'Default text size',
+    largerText: 'Larger text',
+    recoveryMessage:
+      'Audio playback stopped. Tap “Start listening” to resume listening.',
+    recoveryFailed: 'Audio could not be resumed',
+    dismissScripture: 'Close Bible passage',
   },
-  serverRetrying: {
-    ko: '서버 연결 종료 · 다시 연결 중',
-    en: 'Server closed the connection · retrying',
-    de: 'SERVER HAT DIE VERBINDUNG BEENDET · NEUER VERSUCH',
-  },
-  reconnecting: {
-    ko: '연결 끊김 · 다시 연결 중',
-    en: 'Connection lost · reconnecting',
-    de: 'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
+  ko: {
+    retry: {
+      initialRetrying: '최초 연결 실패 · 다시 연결 중',
+      timedOutRetrying: '연결 시간 초과 · 다시 연결 중',
+      serverRetrying: '서버 연결 종료 · 다시 연결 중',
+      reconnecting: '연결 끊김 · 다시 연결 중',
+    },
+    status: {
+      connecting: '연결 중...',
+      ended: '방송 종료 · 독일어',
+      interpreterReconnecting: '통역 다시 연결 중',
+      live: '방송 중 · 독일어',
+      waitingForTranslation: '통역 대기 중',
+      starting: '통역 시작 중',
+      stopping: '방송 종료 중',
+      unavailable: '통역을 사용할 수 없음',
+      connectedOff: '연결됨 · 통역 꺼짐',
+      off: '통역 꺼짐',
+      waitingForStart: '방송 시작 대기 중',
+    },
+    placeholder: {
+      live: '통역을 기다리는 중...',
+      off: '통역이 꺼져 있습니다.',
+      waiting: '통역 내용이 여기에 표시됩니다.',
+    },
+    changeToDark: '어두운 테마로 변경',
+    changeToLight: '밝은 테마로 변경',
+    transcript: '독일어 통역',
+    ended: '방송 종료',
+    startListening: '듣기',
+    stopListening: '듣기 중지',
+    resumeAudio: '오디오 다시 시작',
+    fontSize: '글자 크기',
+    smallerText: '글자 작게',
+    defaultTextSize: '기본 글자 크기',
+    largerText: '글자 크게',
+    recoveryMessage:
+      '오디오 재생이 중단되었습니다. 듣기 버튼을 눌러 다시 시작하세요.',
+    recoveryFailed: '오디오를 다시 재생할 수 없습니다',
+    dismissScripture: '성경 본문 닫기',
   },
 } as const;
 
-function connectionRetryLabel(
-  state: keyof typeof RETRY_LABELS,
-): string {
+function getListenerLanguage(): ListenerLanguage {
   const language = navigator.language.split('-')[0].toLowerCase();
-  if (language === 'ko' || language === 'de') {
-    return RETRY_LABELS[state][language];
-  }
-  return RETRY_LABELS[state].en;
+  return language === 'de' || language === 'ko' ? language : 'en';
 }
 
-function audioRecoveryCopy() {
-  const language = navigator.language.split('-')[0].toLowerCase();
-  if (language === 'ko') {
-    return {
-      message: '오디오 재생이 중단되었습니다. 버튼을 눌러 다시 시작하세요.',
-      button: '오디오 다시 재생',
-    };
-  }
-  if (language === 'de') {
-    return {
-      message: 'Die Audiowiedergabe wurde unterbrochen. Tippen Sie, um sie fortzusetzen.',
-      button: 'Audio fortsetzen',
-    };
-  }
-  return {
-    message: 'Audio playback stopped. Tap to resume listening.',
-    button: 'Resume audio',
-  };
+function isRetryState(state: string): state is RetryState {
+  return (
+    state === 'initialRetrying' ||
+    state === 'timedOutRetrying' ||
+    state === 'serverRetrying' ||
+    state === 'reconnecting'
+  );
 }
 
 export default function Listen() {
@@ -85,6 +179,7 @@ export default function Listen() {
     subtitleLines,
   } = useListenAudio();
   const { fontSize, setFontSize, setTheme, theme } = useListenerPreferences();
+  const copy = LISTENER_COPY[getListenerLanguage()];
   const [scriptureCards, setScriptureCards] = useState<ScripturePassage[]>([]);
   useLayoutEffect(() => {
     if (subtitleLines.length === 0) return;
@@ -152,40 +247,36 @@ export default function Listen() {
     dismissScripture();
     setScriptureCards([]);
   };
-  const isRetrying =
-    connectionState === 'initialRetrying' ||
-    connectionState === 'timedOutRetrying' ||
-    connectionState === 'serverRetrying' ||
-    connectionState === 'reconnecting';
+  const isRetrying = isRetryState(connectionState);
   const statusLabel = isRetrying
-    ? connectionRetryLabel(connectionState)
+    ? copy.retry[connectionState]
     : connectionState === 'connecting'
-      ? 'VERBINDET...'
+      ? copy.status.connecting
         : sessionEnded
-          ? 'SENDUNG BEENDET · DEUTSCH'
+          ? copy.status.ended
           : sessionStatus === 'live'
             ? interpreterReconnecting
-              ? 'ÜBERSETZUNG WIRD WIEDERHERGESTELLT'
+              ? copy.status.interpreterReconnecting
               : subtitle
-                ? 'SESSION LIVE · DEUTSCH'
-                : 'WARTEN AUF ÜBERSETZUNG'
+                ? copy.status.live
+                : copy.status.waitingForTranslation
             : sessionStatus === 'starting'
-              ? 'ÜBERSETZUNG STARTET'
+              ? copy.status.starting
               : sessionStatus === 'stopping'
-                ? 'SENDUNG WIRD BEENDET'
+                ? copy.status.stopping
                 : sessionStatus === 'error'
-                  ? 'ÜBERSETZUNG NICHT VERFÜGBAR'
+                  ? copy.status.unavailable
                   : sessionStatus === 'off'
                     ? connectionState === 'connected'
-                      ? 'VERBUNDEN · ÜBERSETZUNG AUS'
-                      : 'ÜBERSETZUNG AUS'
-                    : 'WARTEN AUF SENDUNGSSTART';
+                      ? copy.status.connectedOff
+                      : copy.status.off
+                    : copy.status.waitingForStart;
   const subtitlePlaceholder =
     sessionStatus === 'live'
-      ? 'Warten auf Übersetzung...'
+      ? copy.placeholder.live
       : sessionStatus === 'off'
-        ? 'Die Übersetzung ist ausgeschaltet.'
-        : 'Die Übersetzung erscheint hier.';
+        ? copy.placeholder.off
+        : copy.placeholder.waiting;
   const badgeStateClass =
     connectionState === 'connecting' ||
     connectionState === 'initialRetrying' ||
@@ -196,8 +287,6 @@ export default function Listen() {
       : sessionEnded || sessionStatus === 'off' || sessionStatus === 'error'
         ? styles.inactive
         : '';
-  const recoveryCopy = audioRecoveryCopy();
-
   return (
     <main className={styles.page} data-theme={theme}>
       <header className={styles.header}>
@@ -216,7 +305,7 @@ export default function Listen() {
           type="button"
           className={styles.themeButton}
           aria-label={
-            theme === 'light' ? 'Change to dark theme' : 'Change to light theme'
+            theme === 'light' ? copy.changeToDark : copy.changeToLight
           }
           onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         >
@@ -228,7 +317,7 @@ export default function Listen() {
         </button>
       </header>
 
-      <section className={styles.transcript} aria-label="German translation">
+      <section className={styles.transcript} aria-label={copy.transcript}>
         {subtitleLines.length > 0 ? (
           subtitleLines.map((line, index) => (
             <p
@@ -260,6 +349,7 @@ export default function Listen() {
             scriptures={scriptureCardsForDisplay}
             onDismiss={dismissTopScriptureCard}
             onDismissAll={dismissAllScriptureCards}
+            dismissLabel={copy.dismissScripture}
           />
         ) : null}
       </section>
@@ -271,28 +361,40 @@ export default function Listen() {
             className={styles.listenButton}
             aria-label={
               sessionEnded
-                ? 'Sendung beendet'
-                : isListening
-                  ? 'Stop listening'
-                  : 'Start listening'
+                ? copy.ended
+                : isListening && !audioRecoveryRequired
+                  ? copy.stopListening
+                  : audioRecoveryRequired
+                    ? copy.resumeAudio
+                    : copy.startListening
             }
-            title={sessionEnded ? 'Sendung beendet' : undefined}
-            onClick={() =>
-              isListening ? stopListening() : void startListening()
-            }
+            title={sessionEnded ? copy.ended : undefined}
+            onClick={() => {
+              if (audioRecoveryRequired) {
+                void recoverAudio();
+              } else if (isListening) {
+                stopListening();
+              } else {
+                void startListening();
+              }
+            }}
             disabled={!isListening && !canStartListening}
           >
             <FiHeadphones aria-hidden="true" />
-            <span>{isListening ? 'stoppen' : 'anhören'}</span>
+            <span>
+              {isListening && !audioRecoveryRequired
+                ? copy.stopListening
+                : copy.startListening}
+            </span>
           </button>
           <div
             className={styles.fontControl}
             role="group"
-            aria-label="Schriftgröße"
+            aria-label={copy.fontSize}
           >
             <button
               type="button"
-              aria-label="Smaller text"
+              aria-label={copy.smallerText}
               aria-pressed={fontSize === 16}
               onClick={() => setFontSize(16)}
             >
@@ -300,7 +402,7 @@ export default function Listen() {
             </button>
             <button
               type="button"
-              aria-label="Default text size"
+              aria-label={copy.defaultTextSize}
               aria-pressed={fontSize === 20}
               onClick={() => setFontSize(20)}
             >
@@ -308,7 +410,7 @@ export default function Listen() {
             </button>
             <button
               type="button"
-              aria-label="Larger text"
+              aria-label={copy.largerText}
               aria-pressed={fontSize === 24}
               onClick={() => setFontSize(24)}
             >
@@ -318,18 +420,14 @@ export default function Listen() {
         </div>
         {audioRecoveryRequired && (
           <div className={styles.audioRecovery} role="alert">
-            <p>{recoveryCopy.message}</p>
-            <button
-              type="button"
-              className={styles.listenButton}
-              aria-label={recoveryCopy.button}
-              onClick={() => void recoverAudio()}
-            >
-              {recoveryCopy.button}
-            </button>
+            <p>{copy.recoveryMessage}</p>
           </div>
         )}
-        {audioError && <p className={styles.audioError}>{audioError}</p>}
+        {audioError && (
+          <p className={styles.audioError}>
+            {copy.recoveryFailed}: {audioError}
+          </p>
+        )}
         <div className={styles.powered}>POWERED BY CHURCHTRANSLATOR.AT</div>
       </footer>
     </main>

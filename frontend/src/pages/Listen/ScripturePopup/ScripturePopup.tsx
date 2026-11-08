@@ -7,12 +7,14 @@ interface ScripturePopupProps {
   scriptures: ScripturePassage[];
   onDismiss: () => void;
   onDismissAll: () => void;
+  dismissLabel: string;
 }
 
 export function ScripturePopup({
   scriptures,
   onDismiss,
   onDismissAll,
+  dismissLabel,
 }: ScripturePopupProps) {
   const {
     handleDismiss,
@@ -40,7 +42,7 @@ export function ScripturePopup({
               role={isInteractive ? 'button' : undefined}
               tabIndex={isInteractive ? 0 : -1}
               aria-hidden={isInteractive ? undefined : true}
-              aria-label={isInteractive ? 'Bibeltext schließen' : undefined}
+              aria-label={isInteractive ? dismissLabel : undefined}
               aria-live={isInteractive ? 'polite' : undefined}
               style={
                 {
