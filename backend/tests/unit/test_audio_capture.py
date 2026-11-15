@@ -95,7 +95,36 @@ async def test_audio_capture_uses_system_default_for_default_alias(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_audio_capture_fails_when_selected_device_name_is_missing(monkeypatch):
+async def test_audio_capture_falls_back_to_system_default_when_selector_is_missing(monkeypatch):
+    audio = FakePyAudio(
+        [
+            {
+                "name": "Built-in microphone",
+                "maxInputChannels": 1,
+                "defaultSampleRate": 44100,
+            },
+            {
+                "name": "USB Microphone",
+                "maxInputChannels": 2,
+                "defaultSampleRate": 48000,
+            },
+        ]
+    )
+    monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
+
+    capture = AudioCapture(Settings(audio_device=selector("Missing USB microphone")))
+    await capture.start()
+
+    assert capture.device_setting == "default"
+    assert capture.device_name == "Built-in microphone"
+    assert capture.fallback_to_default is True
+    assert "input_device_index" not in audio.open_kwargs
+    assert capture.input_format == (16000, 1, 2)
+    await capture.stop()
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_falls_back_to_system_default_for_missing_name(monkeypatch):
     audio = FakePyAudio(
         {
             "name": "Built-in microphone",
@@ -106,11 +135,63 @@ async def test_audio_capture_fails_when_selected_device_name_is_missing(monkeypa
     monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
 
     capture = AudioCapture(Settings(audio_device="Missing USB microphone"))
+    await capture.start()
 
-    with pytest.raises(RuntimeError, match="Missing USB microphone"):
+    assert capture.device_setting == "default"
+    assert capture.device_name == "Built-in microphone"
+    assert capture.fallback_to_default is True
+    assert "input_device_index" not in audio.open_kwargs
+    assert capture.input_format == (16000, 1, 2)
+    await capture.stop()
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_surfaces_default_fallback_failure(monkeypatch):
+    audio = FakePyAudio(
+        {
+            "name": "Built-in microphone",
+            "maxInputChannels": 1,
+            "defaultSampleRate": 44100,
+        }
+    )
+
+    def raise_default_error() -> dict[str, object]:
+        raise RuntimeError("default device unavailable")
+
+    audio.get_default_input_device_info = raise_default_error
+    monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
+
+    capture = AudioCapture(Settings(audio_device=selector("Missing USB microphone")))
+
+    with pytest.raises(RuntimeError, match="system default input device"):
         await capture.start()
 
-    assert audio.open_kwargs == {}
+    assert audio.terminated is True
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_surfaces_default_stream_open_failure(monkeypatch):
+    audio = FakePyAudio(
+        {
+            "name": "Built-in microphone",
+            "maxInputChannels": 1,
+            "defaultSampleRate": 44100,
+        }
+    )
+
+    def raise_open_error(**_kwargs: object) -> FakeStream:
+        raise RuntimeError("stream unavailable")
+
+    audio.open = raise_open_error
+    monkeypatch.setattr(audio_capture_module.pyaudio, "PyAudio", lambda: audio)
+    capture = AudioCapture(Settings(audio_device=selector("Missing USB microphone")))
+
+    with pytest.raises(
+        RuntimeError,
+        match="Unable to open audio input on device 'Built-in microphone'",
+    ):
+        await capture.start()
+
     assert audio.terminated is True
 
 

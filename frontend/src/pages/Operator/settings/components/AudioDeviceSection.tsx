@@ -25,6 +25,8 @@ interface AudioDeviceSectionProps {
   isLoading: boolean;
   isAudioReady: boolean;
   audioError: string | null;
+  audioEffectiveDeviceName: string | null;
+  audioFallbackToDefault: boolean;
   isRetryingCapture: boolean;
   captureRetryError: string | null;
   isSettingsLoaded: boolean;
@@ -62,6 +64,8 @@ export default function AudioDeviceSection({
   isLoading,
   isAudioReady,
   audioError,
+  audioEffectiveDeviceName,
+  audioFallbackToDefault,
   isRetryingCapture,
   captureRetryError,
   isSettingsLoaded,
@@ -161,6 +165,15 @@ export default function AudioDeviceSection({
         <p role="status">{labels.audioDeviceEmpty}</p>
       ) : null}
       {deviceSaveError ? <p role="alert">{deviceSaveError}</p> : null}
+      {isAudioReady && audioFallbackToDefault ? (
+        <div role="status">
+          <p>{labels.audioDeviceFallbackActive}</p>
+          <p>
+            {labels.audioDeviceEffective}:{' '}
+            {audioEffectiveDeviceName || labels.audioDeviceDefault}
+          </p>
+        </div>
+      ) : null}
       {!isAudioReady && !isSessionBusy && isSettingsLoaded ? (
         <div>
           <p role="status">{labels.audioCaptureUnavailable}</p>

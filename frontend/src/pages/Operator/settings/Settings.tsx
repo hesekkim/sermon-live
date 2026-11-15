@@ -201,6 +201,12 @@ export default function Settings() {
           isLoading={isLoadingDevices}
           isAudioReady={outletContext?.audioReady ?? false}
           audioError={outletContext?.audioError ?? null}
+          audioEffectiveDeviceName={
+            outletContext?.audioEffectiveDeviceName ?? null
+          }
+          audioFallbackToDefault={
+            outletContext?.audioFallbackToDefault ?? false
+          }
           isRetryingCapture={isRetryingCapture}
           captureRetryError={captureRetryError}
           isSettingsLoaded={settingsLoadStatus === 'loaded'}

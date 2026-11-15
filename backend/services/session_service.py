@@ -84,6 +84,18 @@ class _TranslationSessionService:
             "listener_count": self._hub.listener_count,
             "audio_ready": self._audio.ready,
             "audio_error": self._audio.error,
+            "audio_stored_device_setting": getattr(
+                self._audio, "stored_device_setting", None
+            ),
+            "audio_effective_device_setting": getattr(
+                self._audio, "device_setting", None
+            ),
+            "audio_effective_device_name": getattr(
+                self._audio, "effective_device_name", None
+            ),
+            "audio_fallback_to_default": bool(
+                getattr(self._audio, "fallback_to_default", False)
+            ),
             "error": self._error,
             "session_id": self._session_id,
             "interpreter_reconnecting": self._interpreter_reconnecting,

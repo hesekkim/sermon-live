@@ -28,6 +28,8 @@ import {
 export interface OperatorOutletContext {
   audioReady: boolean;
   audioError: string | null;
+  audioEffectiveDeviceName: string | null;
+  audioFallbackToDefault: boolean;
   audioLevel: number | null;
   audioLevelStale: boolean;
   isSessionBusy: boolean;
@@ -196,6 +198,8 @@ export default function OperatorLayout({
               {
                 audioReady: session.audioReady,
                 audioError: session.audioError,
+                audioEffectiveDeviceName: session.audioEffectiveDeviceName,
+                audioFallbackToDefault: session.audioFallbackToDefault,
                 audioLevel: session.audioLevel,
                 audioLevelStale: session.audioLevelStale,
                 isSessionBusy,

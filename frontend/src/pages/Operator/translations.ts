@@ -41,6 +41,8 @@ export interface OperatorCopy {
   audioDeviceRefresh: string;
   audioDeviceShowAll: string;
   audioDeviceReselect: string;
+  audioDeviceFallbackActive: string;
+  audioDeviceEffective: string;
   audioDeviceSessionConflict: string;
   audioDeviceLoadFailed: string;
   audioCaptureUnavailable: string;
@@ -233,6 +235,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDeviceRefresh: '장치 새로고침',
     audioDeviceShowAll: '모든 오디오 경로 표시',
     audioDeviceReselect: '저장된 입력 장치를 찾을 수 없습니다. 다시 선택하세요.',
+    audioDeviceFallbackActive:
+      '저장된 입력 장치를 찾지 못해 시스템 기본 장치를 사용 중입니다. 저장된 선택은 변경되지 않았습니다.',
+    audioDeviceEffective: '현재 사용 중인 입력 장치',
     audioDeviceSessionConflict:
       '통역 세션을 중지한 뒤 입력 장치를 바꾸거나 테스트하세요.',
     audioDeviceLoadFailed: '입력 장치를 불러오지 못했습니다',
@@ -434,6 +439,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDeviceRefresh: 'Refresh devices',
     audioDeviceShowAll: 'Show all audio paths',
     audioDeviceReselect: 'The saved input device was not found. Select it again.',
+    audioDeviceFallbackActive:
+      'The saved input device was not found. The system default is in use; your saved selection has not changed.',
+    audioDeviceEffective: 'Input device currently in use',
     audioDeviceSessionConflict:
       'Stop the translation session before changing or testing the input device.',
     audioDeviceLoadFailed: 'Could not load input devices',
@@ -637,6 +645,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDeviceRefresh: 'Geräte aktualisieren',
     audioDeviceShowAll: 'Alle Audiopfade anzeigen',
     audioDeviceReselect: 'Das gespeicherte Eingabegerät wurde nicht gefunden. Bitte erneut auswählen.',
+    audioDeviceFallbackActive:
+      'Das gespeicherte Eingabegerät wurde nicht gefunden. Der Systemstandard wird verwendet; Ihre gespeicherte Auswahl bleibt unverändert.',
+    audioDeviceEffective: 'Aktuell verwendetes Eingabegerät',
     audioDeviceSessionConflict:
       'Beenden Sie die Übersetzungssitzung, bevor Sie das Eingabegerät ändern oder testen.',
     audioDeviceLoadFailed: 'Eingabegeräte konnten nicht geladen werden',

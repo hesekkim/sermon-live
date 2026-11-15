@@ -53,6 +53,10 @@ interface SessionStatus {
   session_status?: TranslationSessionStatus;
   audio_ready?: boolean;
   audio_error?: string | null;
+  audio_stored_device_setting?: string | null;
+  audio_effective_device_setting?: string | null;
+  audio_effective_device_name?: string | null;
+  audio_fallback_to_default?: boolean;
   start_available?: boolean;
   start_block_reason?: string | null;
   error?: string | null;
@@ -75,6 +79,10 @@ interface OperatorMessage {
   audioReady?: boolean;
   audio_error?: string | null;
   audioError?: string | null;
+  audio_stored_device_setting?: string | null;
+  audio_effective_device_setting?: string | null;
+  audio_effective_device_name?: string | null;
+  audio_fallback_to_default?: boolean;
   start_available?: boolean;
   startAvailable?: boolean;
   start_block_reason?: string | null;
@@ -142,6 +150,10 @@ export function useBroadcastSession(
     useState<TranslationSessionStatus>('off');
   const [audioReady, setAudioReady] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioEffectiveDeviceName, setAudioEffectiveDeviceName] = useState<
+    string | null
+  >(null);
+  const [audioFallbackToDefault, setAudioFallbackToDefault] = useState(false);
   const [startAvailable, setStartAvailable] = useState(false);
   const [startBlockReason, setStartBlockReason] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -240,6 +252,10 @@ export function useBroadcastSession(
       if (typeof data.audio_ready === 'boolean')
         setAudioReady(data.audio_ready);
       if ('audio_error' in data) setAudioError(data.audio_error ?? null);
+      if ('audio_effective_device_name' in data)
+        setAudioEffectiveDeviceName(data.audio_effective_device_name ?? null);
+      if (typeof data.audio_fallback_to_default === 'boolean')
+        setAudioFallbackToDefault(data.audio_fallback_to_default);
       if (typeof data.start_available === 'boolean')
         setStartAvailable(data.start_available);
       if ('start_block_reason' in data)
@@ -375,6 +391,12 @@ export function useBroadcastSession(
               setAudioError(audioError ?? null);
               if (audioError) clearAudioLevel();
             }
+            if ('audio_effective_device_name' in payload)
+              setAudioEffectiveDeviceName(
+                payload.audio_effective_device_name ?? null,
+              );
+            if (typeof payload.audio_fallback_to_default === 'boolean')
+              setAudioFallbackToDefault(payload.audio_fallback_to_default);
             const startAvailable =
               payload.start_available ?? payload.startAvailable;
             if (typeof startAvailable === 'boolean')
@@ -499,6 +521,12 @@ export function useBroadcastSession(
                 clearAudioLevel();
               }
             }
+            if ('audio_effective_device_name' in payload)
+              setAudioEffectiveDeviceName(
+                payload.audio_effective_device_name ?? null,
+              );
+            if (typeof payload.audio_fallback_to_default === 'boolean')
+              setAudioFallbackToDefault(payload.audio_fallback_to_default);
             return;
           }
           if (payload.type === 'error' && payload.text) {
@@ -623,6 +651,8 @@ export function useBroadcastSession(
     sessionStatus,
     audioReady,
     audioError,
+    audioEffectiveDeviceName,
+    audioFallbackToDefault,
     startAvailable,
     startBlockReason,
     sessionError,

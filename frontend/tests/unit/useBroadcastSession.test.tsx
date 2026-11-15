@@ -94,6 +94,43 @@ describe('useBroadcastSession', () => {
     act(() => root.unmount());
   });
 
+  it('tracks the effective input device and fallback state from audio status', async () => {
+    const latestSession: {
+      current: ReturnType<typeof useBroadcastSession> | null;
+    } = { current: null };
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    function StateProbe() {
+      latestSession.current = useBroadcastSession(operatorCopy.ko);
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<StateProbe />);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      FakeWebSocket.latest?.emit(
+        'message',
+        JSON.stringify({
+          type: 'audio_status',
+          ready: true,
+          audio_effective_device_name: 'Built-in microphone',
+          audio_fallback_to_default: true,
+        }),
+      );
+    });
+
+    expect(latestSession.current?.audioEffectiveDeviceName).toBe(
+      'Built-in microphone',
+    );
+    expect(latestSession.current?.audioFallbackToDefault).toBe(true);
+    act(() => root.unmount());
+  });
+
   it('keeps the last audio level stale during reconnect and clears it after timeout', async () => {
     vi.useFakeTimers();
     let latestAudioLevel: number | null = null;

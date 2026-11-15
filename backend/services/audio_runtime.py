@@ -62,7 +62,10 @@ class AudioRuntime:
         self._translation_queue: _DurationTrackedQueue | None = None
         self._test_queues: set[asyncio.Queue[bytes | None]] = set()
         self._input_format: tuple[int, int, int] | None = None
+        self._stored_device_setting = ""
         self._device_setting = ""
+        self._effective_device_name: str | None = None
+        self._fallback_to_default = False
         self._channel_setting: int | None = None
         self._error: str | None = None
         self._last_audio_level_broadcast: float | None = None
@@ -96,8 +99,20 @@ class AudioRuntime:
         return self._input_format
 
     @property
+    def stored_device_setting(self) -> str:
+        return self._stored_device_setting
+
+    @property
     def device_setting(self) -> str:
         return self._device_setting
+
+    @property
+    def effective_device_name(self) -> str | None:
+        return self._effective_device_name
+
+    @property
+    def fallback_to_default(self) -> bool:
+        return self._fallback_to_default
 
     @property
     def dropped_chunks(self) -> int:
@@ -137,7 +152,14 @@ class AudioRuntime:
                 raise RuntimeError("Audio capture format is unavailable")
             self._capture = capture
             self._input_format = input_format
-            self._device_setting = runtime.audio_device
+            self._stored_device_setting = runtime.audio_device
+            self._device_setting = getattr(
+                capture, "device_setting", runtime.audio_device
+            )
+            self._effective_device_name = getattr(capture, "device_name", None)
+            self._fallback_to_default = bool(
+                getattr(capture, "fallback_to_default", False)
+            )
             self._channel_setting = runtime.audio_channel
             self._processor = self._new_processor(input_format, input_format)
             self._error = None
@@ -161,6 +183,10 @@ class AudioRuntime:
             self._capture = None
             self._input_format = None
             self._processor = None
+            self._stored_device_setting = ""
+            self._device_setting = ""
+            self._effective_device_name = None
+            self._fallback_to_default = False
             self._error = str(exc) or "Audio input is not available"
             logger.exception("Audio capture could not start")
             await self._broadcast_audio_status()
@@ -255,6 +281,10 @@ class AudioRuntime:
         self._capture = None
         self._input_format = None
         self._processor = None
+        self._stored_device_setting = ""
+        self._device_setting = ""
+        self._effective_device_name = None
+        self._fallback_to_default = False
         if capture is not None:
             await capture.stop()
         for test_queue in tuple(self._test_queues):
@@ -535,6 +565,10 @@ class AudioRuntime:
             "type": "audio_status",
             "ready": self.ready,
             "error": self._error,
+            "audio_stored_device_setting": self._stored_device_setting or None,
+            "audio_effective_device_setting": self._device_setting or None,
+            "audio_effective_device_name": self._effective_device_name,
+            "audio_fallback_to_default": self._fallback_to_default,
         }
         await self._hub.broadcast_session(payload)
 

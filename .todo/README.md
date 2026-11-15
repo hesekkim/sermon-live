@@ -20,9 +20,8 @@
 
 1. `064-openai-translation-audio-output-diagnostics.md` — OpenAI Translation audio delta부터 mixer·Listener 재생까지 음성 누락 진단
 2. `066-backend-audio-device-hotplug-refresh.md` — 서버 재시작 없이 새 입력 장치 재검색 및 캡처 복구
-3. `067-backend-audio-device-default-fallback.md` — 저장된 입력 장치가 없을 때 OS System default로 fallback
-4. `068-listen-ios-resume-without-refresh.md` — iOS Safari/Chrome 복귀 후 페이지 새로고침 없는 청취 복구
-5. `069-listen-background-audio-capability.md` — 화면 잠금 중 브라우저 백그라운드 오디오 가능성 검증
+3. `068-listen-ios-resume-without-refresh.md` — iOS Safari/Chrome 복귀 후 페이지 새로고침 없는 청취 복구
+4. `069-listen-background-audio-capability.md` — 화면 잠금 중 브라우저 백그라운드 오디오 가능성 검증
 
 ## 보류 (`hold/`)
 
@@ -94,6 +93,7 @@
 56. `065-operator-safety-settings-loading.md` — 안전 설정 로딩 및 Settings GET 지연 분리, API 키 재검증 상태 안전화
 57. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
 58. `063-listen-audio-context-recovery.md` — 모바일 Safari 화면 잠금/복귀 후 Listen 오디오 재생 복구 (구현·자동 검증 완료; iOS 실기기 검증은 미수행)
+59. `067-backend-audio-device-default-fallback.md` — 저장 장치 부재 시 OS 기본 입력으로 fallback하고 Operator에 effective device 표시
 
 ## 결정 사항
 

@@ -1,6 +1,6 @@
 # 067 저장 입력 장치 부재 시 System default fallback
 
-상태: 대기
+상태: 완료
 우선순위: 높음 (저장 장치 부재로 서버 오디오 입력이 준비되지 않음)
 
 ## Goal
@@ -50,6 +50,14 @@ Operator가 마지막으로 선택한 입력 장치가 현재 연결되어 있�
 - `backend/tests/unit/test_operator_store.py`
 - `frontend/tests/unit/useAudioDevices.test.tsx`
 - `.todo/done/058-cross-platform-audio-device-selection.md`
+
+## Progress
+
+- 저장 selector가 사라지면 OS System default를 열고, runtime에 저장 selector·effective device·fallback 상태를 보존한다. 저장 설정은 자동 변경하지 않는다.
+- Operator Settings에 실제 사용 중인 기본 입력 장치명과 fallback 안내를 추가하고, 한국어·영어·독일어 문구를 갱신했다.
+- 기본 장치 부재와 stream open 실패, runtime 상태 전파를 mock 기반 단위 테스트로 검증했다.
+- Backend audio/session 관련 테스트 64개, frontend broadcast hook 테스트 18개, TypeScript 및 Vite production build를 통과했다.
+- 실장비 분리/재연결 수동 검증은 수행하지 않았다.
 
 ## Acceptance criteria
 

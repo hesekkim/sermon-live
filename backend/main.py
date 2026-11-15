@@ -124,5 +124,5 @@ if __name__ == "__main__":
         port=settings.port,
         reload=settings.debug,
         log_level="debug" if args.verbose else "info",
-        log_config=None if args.verbose else "default",
+        log_config=None if args.verbose else uvicorn.config.LOGGING_CONFIG,
     )

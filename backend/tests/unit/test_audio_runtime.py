@@ -5,6 +5,7 @@ import pytest
 from core.config import Settings
 from services import audio_runtime as audio_runtime_module
 from services.audio_runtime import AudioRuntime
+from services.operator_store import OperatorSettingsStore
 
 
 class FakeHub:
@@ -73,6 +74,34 @@ async def test_capture_and_processor_remain_ready_when_translation_detaches(monk
     assert runtime.running is True
     await runtime.stop()
     assert runtime.ready is False
+
+
+@pytest.mark.asyncio
+async def test_runtime_tracks_effective_device_when_capture_falls_back(
+    monkeypatch, tmp_path
+):
+    capture = FakeCapture(Settings(audio_device='Missing USB microphone'))
+    capture.device_setting = 'default'
+    capture.device_name = 'Built-in microphone'
+    capture.fallback_to_default = True
+    monkeypatch.setattr(audio_runtime_module, "AudioCapture", lambda _settings: capture)
+    settings = Settings(audio_device='Missing USB microphone')
+    runtime = AudioRuntime(
+        settings,
+        FakeHub(),
+        OperatorSettingsStore(tmp_path / 'operator.json'),
+    )
+
+    await runtime.start()
+
+    assert runtime.device_setting == 'default'
+    assert runtime.effective_device_name == 'Built-in microphone'
+    assert runtime.stored_device_setting
+    status = runtime._hub.session_events[-1]
+    assert status['audio_effective_device_name'] == 'Built-in microphone'
+    assert status['audio_fallback_to_default'] is True
+    assert status['audio_stored_device_setting'] == 'Missing USB microphone'
+    await runtime.stop()
 
 
 @pytest.mark.asyncio

@@ -43,6 +43,9 @@ class AudioCapture:
         self._stream_channels = 1
         self._stream_sample_width = 2
         self._selected_channel_index = settings.audio_channel - 1
+        self._device_setting = settings.audio_device.strip() or "default"
+        self._device_name: str | None = None
+        self._fallback_to_default = False
 
     @property
     def native_format(self) -> tuple[int, int, int] | None:
@@ -65,6 +68,18 @@ class AudioCapture:
         return self.native_format
 
     @property
+    def device_setting(self) -> str:
+        return self._device_setting
+
+    @property
+    def device_name(self) -> str | None:
+        return self._device_name
+
+    @property
+    def fallback_to_default(self) -> bool:
+        return self._fallback_to_default
+
+    @property
     def dropped_chunks(self) -> int:
         return self._dropped_chunks
 
@@ -77,6 +92,8 @@ class AudioCapture:
 
     def _resolve_device_index(self, audio: pyaudio.PyAudio) -> int | None:
         raw = self._settings.audio_device.strip()
+        self._device_setting = raw or "default"
+        self._fallback_to_default = False
         if not raw or raw.lower() == "default":
             return None
         if raw.isdigit():
@@ -114,16 +131,26 @@ class AudioCapture:
                 device["host_api"],
                 device["name"],
             )
+            self._device_setting = raw
             return int(device["index"])
         if len(name_matches) > 1:
             raise RuntimeError(
                 f"Audio input device {raw!r} is ambiguous; "
                 "select it again in Operator settings"
             )
-        raise RuntimeError(
-            f"Audio input device {raw!r} was not found; "
-            "select it again in Operator settings"
+        try:
+            audio.get_default_input_device_info()
+        except Exception as exc:
+            raise RuntimeError(
+                f"Audio input device {raw!r} was not found and the system default input device is unavailable: {exc}"
+            ) from exc
+        logger.warning(
+            "Audio input device %r was not found; falling back to the system default input device",
+            raw,
         )
+        self._device_setting = "default"
+        self._fallback_to_default = True
+        return None
 
     @staticmethod
     def _sample_width_format(sample_width: int) -> int:
@@ -188,6 +215,10 @@ class AudioCapture:
                 )
             except Exception as exc:
                 requested_device = settings.audio_device.strip() or "system default"
+                if capture.fallback_to_default:
+                    raise RuntimeError(
+                        f"Unable to access the system default input device after the saved selector {requested_device!r} was not found: {exc}"
+                    ) from exc
                 raise RuntimeError(
                     f"Unable to access audio input device {requested_device!r}: {exc}"
                 ) from exc
@@ -326,9 +357,19 @@ class AudioCapture:
                 )
             except Exception as exc:
                 requested_device = self._settings.audio_device.strip() or "system default"
+                if self.fallback_to_default:
+                    raise RuntimeError(
+                        f"Unable to access the system default input device after the saved selector {requested_device!r} was not found: {exc}"
+                    ) from exc
                 raise RuntimeError(
                     f"Unable to access audio input device {requested_device!r}: {exc}"
                 ) from exc
+            device_name = device_info.get("name")
+            self._device_name = (
+                device_name.decode("utf-8", errors="replace")
+                if isinstance(device_name, bytes)
+                else str(device_name or "System default input device")
+            )
             self._input_format = self._open_compatible_stream(audio, device_index, device_info)
         except Exception:
             logger.exception(
@@ -393,6 +434,7 @@ class AudioCapture:
                 pass
             self._stream = None
         self._input_format = None
+        self._device_name = None
         if self._pyaudio is not None:
             try:
                 self._pyaudio.terminate()
