@@ -10,7 +10,11 @@ from fastapi.testclient import TestClient
 from core.config import Settings
 from api.v1.endpoints.audio import _audio_test_result, _collect_audio_until_disconnected
 from main import app
-from services.audio_devices import enumerate_input_devices, list_input_devices
+from services.audio_devices import (
+    _list_input_devices_in_current_process,
+    enumerate_input_devices,
+    list_input_devices,
+)
 from services.runtime import session
 
 
@@ -46,7 +50,7 @@ def test_list_input_devices_filters_output_only_devices():
             name=audio.devices[index]["name"].encode("utf-8")
         ),
     ):
-        devices = list_input_devices()
+        devices = _list_input_devices_in_current_process()
 
     assert devices == [
         {
@@ -85,7 +89,7 @@ def test_list_input_devices_keeps_mixed_input_output_devices_even_when_name_ment
             name=audio.devices[index]["name"].encode("utf-8")
         ),
     ):
-        devices = list_input_devices()
+        devices = _list_input_devices_in_current_process()
 
     assert devices == [
         {
@@ -131,7 +135,7 @@ def test_list_input_devices_keeps_input_devices_even_when_name_mentions_output()
             name=audio.devices[index]["name"].encode("utf-8")
         ),
     ):
-        devices = list_input_devices()
+        devices = _list_input_devices_in_current_process()
 
     assert devices == [
         {
@@ -169,7 +173,7 @@ def test_list_input_devices_keeps_input_capability_when_name_mentions_output():
             name=audio.devices[index]["name"].encode("utf-8")
         ),
     ):
-        devices = list_input_devices()
+        devices = _list_input_devices_in_current_process()
 
     assert [device["name"] for device in devices] == [
         "PC-Lautsprecher (Realtek HD Audio output with HAP)",
@@ -256,7 +260,7 @@ def test_list_input_devices_decodes_utf8_names_before_system_encoding(
         lambda do_setlocale=False: "cp1252",
     )
 
-    devices = list_input_devices()
+    devices = _list_input_devices_in_current_process()
 
     assert devices[0]["name"] == device_name
 
@@ -281,38 +285,51 @@ def test_list_input_devices_falls_back_to_system_encoding(monkeypatch):
         lambda do_setlocale=False: "cp1252",
     )
 
-    devices = list_input_devices()
+    devices = _list_input_devices_in_current_process()
 
     assert devices[0]["name"] == "Kopfhörer"
 
 
-def test_audio_devices_endpoint_reports_pyaudio_failure(operator_client):
-    with patch("services.audio_devices.pyaudio.PyAudio", side_effect=RuntimeError):
-        response = operator_client.get("/api/v1/audio/devices")
+def test_audio_devices_endpoint_reports_enumeration_failure(monkeypatch, operator_client):
+    def fail_enumeration(*_args, **_kwargs):
+        raise OSError("Python executable is unavailable")
+
+    monkeypatch.setattr(
+        "services.audio_devices.subprocess.run",
+        fail_enumeration,
+    )
+
+    response = operator_client.get("/api/v1/audio/devices")
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Failed to enumerate audio input devices"}
 
 
 def test_device_enumeration_refresh_discovers_newly_connected_input(monkeypatch):
-    initial = FakePyAudio([])
-    refreshed = FakePyAudio(
-        [
-            {
-                "name": "USB Microphone",
-                "maxInputChannels": 1,
-                "defaultSampleRate": 48000,
-            }
-        ]
+    calls = []
+    snapshots = iter(
+        (
+            [],
+            [
+                {
+                    "index": 0,
+                    "name": "USB Microphone",
+                    "host_api": "Windows WASAPI",
+                    "selector": '{"host_api":"Windows WASAPI","name":"USB Microphone","version":1}',
+                    "input_channels": 1,
+                    "default_sample_rate": 48000.0,
+                }
+            ],
+        )
     )
-    instances = iter((initial, refreshed))
+
+    def run_enumerator(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(stdout=json.dumps(next(snapshots)))
+
     monkeypatch.setattr(
-        "services.audio_devices.pyaudio.PyAudio",
-        lambda: next(instances),
-    )
-    monkeypatch.setattr(
-        "services.audio_devices.pyaudio.pa.get_device_info",
-        lambda _index: SimpleNamespace(name=b"USB Microphone"),
+        "services.audio_devices.subprocess.run",
+        run_enumerator,
     )
 
     first = list_input_devices()
@@ -320,6 +337,12 @@ def test_device_enumeration_refresh_discovers_newly_connected_input(monkeypatch)
 
     assert first == []
     assert [device["name"] for device in second] == ["USB Microphone"]
+    assert len(calls) == 2
+    assert all(
+        command[1:3] == ["-m", "services.audio_device_enumerator"]
+        and command[3] == "standard"
+        for command, _kwargs in calls
+    )
 
 
 def test_audio_capture_retry_does_not_restart_ready_capture(monkeypatch, operator_client):

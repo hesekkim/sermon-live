@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import locale
 import logging
+import subprocess
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Protocol
 
 import pyaudio
@@ -113,7 +115,9 @@ def enumerate_input_devices(
     return devices
 
 
-def list_input_devices(mode: str = "standard") -> list[dict[str, object]]:
+def _list_input_devices_in_current_process(
+    mode: str = "standard",
+) -> list[dict[str, object]]:
     audio: pyaudio.PyAudio | None = None
     try:
         audio = pyaudio.PyAudio()
@@ -131,3 +135,30 @@ def list_input_devices(mode: str = "standard") -> list[dict[str, object]]:
                 audio.terminate()
             except Exception:
                 logger.warning("Failed to terminate PyAudio after device enumeration")
+
+
+def list_input_devices(mode: str = "standard") -> list[dict[str, object]]:
+    command = [
+        sys.executable,
+        "-m",
+        "services.audio_device_enumerator",
+        mode,
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=Path(__file__).resolve().parent.parent,
+            capture_output=True,
+            check=True,
+            text=True,
+            timeout=30,
+        )
+        devices = json.loads(result.stdout)
+        if not isinstance(devices, list) or any(
+            not isinstance(device, dict) for device in devices
+        ):
+            raise ValueError("Audio device enumeration returned an invalid payload")
+        return devices
+    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+        logger.exception("Failed to enumerate audio input devices in isolated process")
+        raise RuntimeError("Failed to enumerate audio input devices") from exc
