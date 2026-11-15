@@ -75,6 +75,7 @@ class AudioRuntime:
         self._target_sample_rate: int | None = None
         self._target_frame_size: int | None = None
         self._queue_max_seconds = settings.translation_queue_max_seconds
+        self._capture_retry_lock = asyncio.Lock()
         self.on_device_error: Callable[[str], Awaitable[None]] | None = None
 
     @property
@@ -169,6 +170,21 @@ class AudioRuntime:
         await self.start()
         if not self.ready:
             raise RuntimeError(self._error or "Audio input device is not available")
+
+    async def retry_capture(self) -> None:
+        async with self._capture_retry_lock:
+            if self.ready:
+                return
+            if self._translation_queue is not None:
+                raise RuntimeError(
+                    "Cannot retry audio capture during a translation session"
+                )
+            await self.stop()
+            await self.start()
+            if not self.ready:
+                raise RuntimeError(
+                    self._error or "Audio input device is not available"
+                )
 
     @asynccontextmanager
     async def using_device(

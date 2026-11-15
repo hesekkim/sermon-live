@@ -34,6 +34,9 @@ export default function Settings() {
     isLoading: isLoadingDevices,
     error: deviceLoadError,
     refresh: refreshDevices,
+    isRetryingCapture,
+    captureRetryError,
+    retryCapture,
   } = useAudioDevices();
   const {
     result,
@@ -196,6 +199,10 @@ export default function Settings() {
           listMode={listMode}
           isSelectionStale={isSelectionStale}
           isLoading={isLoadingDevices}
+          isAudioReady={outletContext?.audioReady ?? false}
+          audioError={outletContext?.audioError ?? null}
+          isRetryingCapture={isRetryingCapture}
+          captureRetryError={captureRetryError}
           isSettingsLoaded={settingsLoadStatus === 'loaded'}
           isSaving={isSaving}
           isSessionBusy={isSessionBusy}
@@ -211,6 +218,7 @@ export default function Settings() {
           onListModeChange={setListMode}
           onRefresh={() => void refreshDevices()}
           onRetry={() => void refreshDevices()}
+          onRetryCapture={() => void retryCapture()}
           result={result}
           liveInputLevel={liveInputLevel}
           runtimeInputLevel={outletContext?.audioLevel ?? null}

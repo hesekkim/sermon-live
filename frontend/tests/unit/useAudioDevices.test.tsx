@@ -27,6 +27,9 @@ interface AudioDevicesState {
   refresh: () => Promise<void>;
   isLoading: boolean;
   error: boolean;
+  isRetryingCapture: boolean;
+  captureRetryError: string | null;
+  retryCapture: () => Promise<void>;
 }
 
 function makeDevice(index: number, name: string, inputChannels: number, rate: number) {
@@ -177,6 +180,33 @@ describe('useAudioDevices', () => {
     expect(state.deviceOptions).toHaveLength(2);
     expect(state.deviceOptions[1].label).toBe('USB Audio · Core Audio (48000 Hz)');
 
+    cleanup();
+  });
+
+  it('retries capture through a separate request and exposes the backend failure', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ detail: 'No input device' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    let state!: AudioDevicesState;
+    const cleanup = renderProbe((nextState) => {
+      state = nextState;
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await state.retryCapture();
+    });
+
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/audio/capture/retry');
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'POST' });
+    expect(state.captureRetryError).toBe('No input device');
+    expect(state.isRetryingCapture).toBe(false);
     cleanup();
   });
 

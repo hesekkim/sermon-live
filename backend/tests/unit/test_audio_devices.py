@@ -286,12 +286,73 @@ def test_list_input_devices_falls_back_to_system_encoding(monkeypatch):
     assert devices[0]["name"] == "Kopfhörer"
 
 
-def test_audio_devices_endpoint_returns_empty_list_when_pyaudio_fails(operator_client):
+def test_audio_devices_endpoint_reports_pyaudio_failure(operator_client):
     with patch("services.audio_devices.pyaudio.PyAudio", side_effect=RuntimeError):
         response = operator_client.get("/api/v1/audio/devices")
 
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Failed to enumerate audio input devices"}
+
+
+def test_device_enumeration_refresh_discovers_newly_connected_input(monkeypatch):
+    initial = FakePyAudio([])
+    refreshed = FakePyAudio(
+        [
+            {
+                "name": "USB Microphone",
+                "maxInputChannels": 1,
+                "defaultSampleRate": 48000,
+            }
+        ]
+    )
+    instances = iter((initial, refreshed))
+    monkeypatch.setattr(
+        "services.audio_devices.pyaudio.PyAudio",
+        lambda: next(instances),
+    )
+    monkeypatch.setattr(
+        "services.audio_devices.pyaudio.pa.get_device_info",
+        lambda _index: SimpleNamespace(name=b"USB Microphone"),
+    )
+
+    first = list_input_devices()
+    second = list_input_devices()
+
+    assert first == []
+    assert [device["name"] for device in second] == ["USB Microphone"]
+
+
+def test_audio_capture_retry_does_not_restart_ready_capture(monkeypatch, operator_client):
+    class ReadyAudio:
+        ready = True
+
+        async def retry_capture(self):
+            pytest.fail("Ready capture must not be restarted")
+
+    monkeypatch.setattr("api.v1.endpoints.audio.audio", ReadyAudio())
+
+    response = operator_client.post("/api/v1/audio/capture/retry")
+
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"ready": True, "error": None, "retried": False}
+
+
+def test_audio_capture_retry_rejects_live_session(monkeypatch, operator_client):
+    class UnavailableAudio:
+        ready = False
+
+        async def retry_capture(self):
+            pytest.fail("Capture must not be retried during a live session")
+
+    monkeypatch.setattr("api.v1.endpoints.audio.audio", UnavailableAudio())
+    monkeypatch.setattr(
+        "api.v1.endpoints.audio.session", SimpleNamespace(state="live")
+    )
+
+    response = operator_client.post("/api/v1/audio/capture/retry")
+
+    assert response.status_code == 409
+    assert "while a session is running" in response.json()["detail"]
 
 
 @pytest.mark.parametrize("mode", ["standard", "all"])

@@ -24,6 +24,8 @@ export function useAudioDevices() {
 	const [listMode, setListMode] = useState<AudioDeviceListMode>('standard');
 	const [error, setError] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
+	const [isRetryingCapture, setIsRetryingCapture] = useState(false);
+	const [captureRetryError, setCaptureRetryError] = useState<string | null>(null);
 
 	const setSelectedDevice = useCallback(
 		(nextValue: string) => {
@@ -90,6 +92,34 @@ export function useAudioDevices() {
 		}
 	}, [listMode]);
 
+	const retryCapture = useCallback(async () => {
+		setIsRetryingCapture(true);
+		setCaptureRetryError(null);
+		try {
+			const response = await operatorFetch('/api/v1/audio/capture/retry', {
+				method: 'POST',
+			});
+			if (!response.ok) {
+				let message = `Audio capture retry failed (${response.status})`;
+				try {
+					const payload = (await response.json()) as { detail?: unknown };
+					if (typeof payload.detail === 'string') message = payload.detail;
+				} catch {
+					message = `Audio capture retry failed (${response.status})`;
+				}
+				throw new Error(message);
+			}
+		} catch (retryError) {
+			setCaptureRetryError(
+				retryError instanceof Error
+					? retryError.message
+					: 'Audio capture retry failed',
+			);
+		} finally {
+			setIsRetryingCapture(false);
+		}
+	}, []);
+
 	useEffect(() => {
 		void refresh();
 	}, [refresh]);
@@ -122,5 +152,8 @@ export function useAudioDevices() {
 		isLoading,
 		error,
 		refresh,
+		isRetryingCapture,
+		captureRetryError,
+		retryCapture,
 	};
 }

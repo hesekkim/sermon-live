@@ -43,6 +43,9 @@ export interface OperatorCopy {
   audioDeviceReselect: string;
   audioDeviceSessionConflict: string;
   audioDeviceLoadFailed: string;
+  audioCaptureUnavailable: string;
+  audioCaptureRetry: string;
+  audioCaptureRetrying: string;
   audioTest: string;
   audioTestDevice: string;
   audioTestStatus: string;
@@ -233,6 +236,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDeviceSessionConflict:
       '통역 세션을 중지한 뒤 입력 장치를 바꾸거나 테스트하세요.',
     audioDeviceLoadFailed: '입력 장치를 불러오지 못했습니다',
+    audioCaptureUnavailable: '장치 목록 조회와 별개로 입력 캡처가 준비되지 않았습니다.',
+    audioCaptureRetry: '입력 캡처 다시 시도',
+    audioCaptureRetrying: '입력 캡처 재시도 중...',
     audioTest: '오디오 테스트',
     audioTestDevice: '장치',
     audioTestStatus: '상태',
@@ -431,6 +437,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDeviceSessionConflict:
       'Stop the translation session before changing or testing the input device.',
     audioDeviceLoadFailed: 'Could not load input devices',
+    audioCaptureUnavailable: 'Input capture is not ready; refreshing the device list does not start capture.',
+    audioCaptureRetry: 'Retry input capture',
+    audioCaptureRetrying: 'Retrying input capture...',
     audioTest: 'Audio test',
     audioTestDevice: 'Device',
     audioTestStatus: 'Status',
@@ -631,6 +640,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     audioDeviceSessionConflict:
       'Beenden Sie die Übersetzungssitzung, bevor Sie das Eingabegerät ändern oder testen.',
     audioDeviceLoadFailed: 'Eingabegeräte konnten nicht geladen werden',
+    audioCaptureUnavailable: 'Die Eingabeaufnahme ist nicht bereit; eine Geräteaktualisierung startet sie nicht.',
+    audioCaptureRetry: 'Eingabeaufnahme erneut versuchen',
+    audioCaptureRetrying: 'Eingabeaufnahme wird erneut gestartet...',
     audioTest: 'Audio-Test',
     audioTestDevice: 'Gerät',
     audioTestStatus: 'Status',

@@ -89,6 +89,84 @@ async def test_restart_raises_when_audio_capture_fails(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_retry_capture_recovers_after_device_becomes_available(monkeypatch):
+    class FailingThenReadyCapture(FakeCapture):
+        attempts = 0
+
+        async def start(self):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise RuntimeError("No input device")
+
+    capture = FailingThenReadyCapture(Settings())
+    monkeypatch.setattr(audio_runtime_module, "AudioCapture", lambda _settings: capture)
+    runtime = AudioRuntime(Settings(), FakeHub())
+
+    await runtime.start()
+    assert runtime.ready is False
+    assert runtime.error == "No input device"
+
+    await runtime.retry_capture()
+
+    assert runtime.ready is True
+    assert runtime.error is None
+    assert capture.attempts == 2
+    await runtime.stop()
+
+
+@pytest.mark.asyncio
+async def test_retry_capture_does_not_restart_ready_capture(monkeypatch):
+    runtime, capture, hub = make_runtime(monkeypatch)
+    await runtime.start()
+    events_before_retry = len(hub.session_events)
+
+    await runtime.retry_capture()
+
+    assert runtime.ready is True
+    assert runtime._capture is capture
+    assert len(hub.session_events) == events_before_retry
+    await runtime.stop()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_capture_retries_start_capture_once(monkeypatch):
+    class DelayedRetryCapture(FakeCapture):
+        def __init__(self, settings):
+            super().__init__(settings)
+            self.attempts = 0
+            self.retry_started = asyncio.Event()
+            self.allow_retry = asyncio.Event()
+
+        async def start(self):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise RuntimeError("No input device")
+            if self.attempts == 2:
+                self.retry_started.set()
+                await self.allow_retry.wait()
+
+        async def stop(self):
+            return None
+
+    capture = DelayedRetryCapture(Settings())
+    monkeypatch.setattr(audio_runtime_module, "AudioCapture", lambda _settings: capture)
+    runtime = AudioRuntime(Settings(), FakeHub())
+    await runtime.start()
+
+    first_retry = asyncio.create_task(runtime.retry_capture())
+    await asyncio.wait_for(capture.retry_started.wait(), timeout=1)
+    second_retry = asyncio.create_task(runtime.retry_capture())
+    await asyncio.sleep(0)
+    capture.allow_retry.set()
+
+    await asyncio.gather(first_retry, second_retry)
+
+    assert capture.attempts == 2
+    assert runtime.ready is True
+    await runtime.stop()
+
+
+@pytest.mark.asyncio
 async def test_slow_audio_level_broadcast_does_not_block_capture_or_translation(monkeypatch):
     class SlowLevelHub(FakeHub):
         def __init__(self):

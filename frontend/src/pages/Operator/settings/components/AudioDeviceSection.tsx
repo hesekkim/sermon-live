@@ -23,6 +23,10 @@ interface AudioDeviceSectionProps {
   listMode: AudioDeviceListMode;
   isSelectionStale: boolean;
   isLoading: boolean;
+  isAudioReady: boolean;
+  audioError: string | null;
+  isRetryingCapture: boolean;
+  captureRetryError: string | null;
   isSettingsLoaded: boolean;
   isSaving: boolean;
   isSessionBusy: boolean;
@@ -34,6 +38,7 @@ interface AudioDeviceSectionProps {
   onListModeChange: (mode: AudioDeviceListMode) => void;
   onRefresh: () => void;
   onRetry: () => void;
+  onRetryCapture: () => void;
   result: AudioTestResult | null;
   liveInputLevel: number | null;
   runtimeInputLevel: number | null;
@@ -55,6 +60,10 @@ export default function AudioDeviceSection({
   listMode,
   isSelectionStale,
   isLoading,
+  isAudioReady,
+  audioError,
+  isRetryingCapture,
+  captureRetryError,
   isSettingsLoaded,
   isSaving,
   isSessionBusy,
@@ -66,6 +75,7 @@ export default function AudioDeviceSection({
   onListModeChange,
   onRefresh,
   onRetry,
+  onRetryCapture,
   result,
   liveInputLevel,
   runtimeInputLevel,
@@ -151,6 +161,24 @@ export default function AudioDeviceSection({
         <p role="status">{labels.audioDeviceEmpty}</p>
       ) : null}
       {deviceSaveError ? <p role="alert">{deviceSaveError}</p> : null}
+      {!isAudioReady && !isSessionBusy && isSettingsLoaded ? (
+        <div>
+          <p role="status">{labels.audioCaptureUnavailable}</p>
+          {audioError ? <p role="alert">{audioError}</p> : null}
+          <Button
+            variant="secondary"
+            disabled={isLoading || isSaving || isRetryingCapture}
+            onClick={onRetryCapture}
+          >
+            {isRetryingCapture
+              ? labels.audioCaptureRetrying
+              : labels.audioCaptureRetry}
+          </Button>
+          {captureRetryError ? (
+            <p role="alert">{captureRetryError}</p>
+          ) : null}
+        </div>
+      ) : null}
       <AudioTestPanel
         labels={labels}
         result={result}

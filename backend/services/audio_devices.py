@@ -70,12 +70,9 @@ def enumerate_input_devices(
 ) -> list[dict[str, object]]:
     devices: list[dict[str, object]] = []
     host_apis: dict[int, str] = {}
-    try:
-        for index in range(audio.get_host_api_count()):
-            info = audio.get_host_api_info_by_index(index)
-            host_apis[index] = _decode_device_name(info.get("name", ""))
-    except Exception:
-        logger.exception("Failed to enumerate audio host APIs")
+    for index in range(audio.get_host_api_count()):
+        info = audio.get_host_api_info_by_index(index)
+        host_apis[index] = _decode_device_name(info.get("name", ""))
 
     for index in range(audio.get_device_count()):
         info = audio.get_device_info_by_index(index)
@@ -125,9 +122,9 @@ def list_input_devices(mode: str = "standard") -> list[dict[str, object]]:
             lambda index: pyaudio.pa.get_device_info(index).name,
             mode=mode,
         )
-    except Exception:
+    except Exception as exc:
         logger.exception("Failed to enumerate audio input devices")
-        return []
+        raise RuntimeError("Failed to enumerate audio input devices") from exc
     finally:
         if audio is not None:
             try:

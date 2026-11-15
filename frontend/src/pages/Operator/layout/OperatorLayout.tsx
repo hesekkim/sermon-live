@@ -26,6 +26,8 @@ import {
 } from '../broadcast/utils/transcriptFile';
 
 export interface OperatorOutletContext {
+  audioReady: boolean;
+  audioError: string | null;
   audioLevel: number | null;
   audioLevelStale: boolean;
   isSessionBusy: boolean;
@@ -192,6 +194,8 @@ export default function OperatorLayout({
           <Outlet
             context={
               {
+                audioReady: session.audioReady,
+                audioError: session.audioError,
                 audioLevel: session.audioLevel,
                 audioLevelStale: session.audioLevelStale,
                 isSessionBusy,

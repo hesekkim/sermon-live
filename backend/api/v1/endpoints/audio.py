@@ -52,6 +52,12 @@ class AudioDeviceResponse(BaseModel):
     default_sample_rate: float
 
 
+class AudioCaptureRetryResponse(BaseModel):
+    ready: bool
+    error: str | None
+    retried: bool
+
+
 class AudioTestRequest(BaseModel):
     audio_device: str | None = None
     audio_channel: int | None = Field(default=None, ge=1)
@@ -131,7 +137,30 @@ def _audio_test_result(
 def get_audio_devices(
     mode: Literal["standard", "all"] = Query(default="standard"),
 ) -> list[dict[str, object]]:
-    return list_input_devices(mode)
+    try:
+        return list_input_devices(mode)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post(
+    "/api/v1/audio/capture/retry",
+    response_model=AudioCaptureRetryResponse,
+    dependencies=[Depends(require_http_operator)],
+)
+async def retry_audio_capture() -> AudioCaptureRetryResponse:
+    if session.state in ("starting", "live", "stopping"):
+        raise HTTPException(
+            status_code=409,
+            detail="Audio capture cannot be retried while a session is running",
+        )
+    if audio.ready:
+        return AudioCaptureRetryResponse(ready=True, error=None, retried=False)
+    try:
+        await audio.retry_capture()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return AudioCaptureRetryResponse(ready=True, error=None, retried=True)
 
 
 @router.post(
