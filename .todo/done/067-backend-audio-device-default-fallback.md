@@ -54,7 +54,7 @@ Operator가 마지막으로 선택한 입력 장치가 현재 연결되어 있�
 ## Progress
 
 - 저장 selector가 사라지면 OS System default를 열고, runtime에 저장 selector·effective device·fallback 상태를 보존한다. 저장 설정은 자동 변경하지 않는다.
-- Operator Settings에 실제 사용 중인 기본 입력 장치명과 fallback 안내를 추가하고, 한국어·영어·독일어 문구를 갱신했다.
+- Operator Settings에서 fallback 중에는 입력 장치 Select가 System default를 표시한다. 저장 selector는 자동 변경하지 않으며, fallback에 따른 stale 경고나 실제 사용 장치명 안내는 표시하지 않는다.
 - 기본 장치 부재와 stream open 실패, runtime 상태 전파를 mock 기반 단위 테스트로 검증했다.
 - Backend audio/session 관련 테스트 64개, frontend broadcast hook 테스트 18개, TypeScript 및 Vite production build를 통과했다.
 - 실장비 분리/재연결 수동 검증은 수행하지 않았다.
@@ -64,7 +64,7 @@ Operator가 마지막으로 선택한 입력 장치가 현재 연결되어 있�
 - 저장된 selector가 정상적으로 존재하면 정확히 그 장치가 계속 사용된다.
 - 저장된 장치가 없는 경우 System default 입력을 열고 앱 서버와 audio capture가 오류 없이 준비된다.
 - 기본 장치가 실제로 없는 경우 또는 열기에 실패한 경우 UI에 명시적인 오류가 표시되며 다른 장치를 임의로 사용하지 않는다.
-- fallback 발생 시 runtime에서 실제 사용 중인 입력 장치가 설정에 표시되고, 사용자의 저장 selector는 자동으로 덮어쓰지 않는다.
+- fallback 발생 시 Select에 System default를 표시하고, 사용자의 저장 selector는 자동으로 덮어쓰지 않는다.
 - 장치 재연결 시 기존 저장 selector가 다시 유효해지고 선택 우선순위를 회복한다.
 - 058의 no-fallback 테스트를 새 정책에 맞게 변경하되, 모호한 selector/잘못된 legacy index의 안전한 오류 처리는 유지한다.
 - 테스트는 mock된 PortAudio 장치 목록 및 stream을 사용하고 실제 입력 장비를 요구하지 않는다.

@@ -183,6 +183,39 @@ describe('useAudioDevices', () => {
     cleanup();
   });
 
+  it('keeps the saved selector while refreshed devices no longer include it', async () => {
+    const usbDevice = makeDevice(1, 'USB Audio', 2, 48000);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [usbDevice],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [makeDevice(0, 'Built-in microphone', 1, 44100)],
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    let state!: AudioDevicesState;
+    const cleanup = renderProbe((nextState) => {
+      state = nextState;
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => state.setSelectedDevice(usbDevice.selector));
+
+    await act(async () => {
+      await state.refresh();
+    });
+
+    expect(state.selectedDevice).toBe(usbDevice.selector);
+    expect(state.isSelectionStale).toBe(true);
+    cleanup();
+  });
+
   it('retries capture through a separate request and exposes the backend failure', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,

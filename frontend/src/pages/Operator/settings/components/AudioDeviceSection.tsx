@@ -25,7 +25,6 @@ interface AudioDeviceSectionProps {
   isLoading: boolean;
   isAudioReady: boolean;
   audioError: string | null;
-  audioEffectiveDeviceName: string | null;
   audioFallbackToDefault: boolean;
   isRetryingCapture: boolean;
   captureRetryError: string | null;
@@ -64,7 +63,6 @@ export default function AudioDeviceSection({
   isLoading,
   isAudioReady,
   audioError,
-  audioEffectiveDeviceName,
   audioFallbackToDefault,
   isRetryingCapture,
   captureRetryError,
@@ -89,10 +87,14 @@ export default function AudioDeviceSection({
   onRunTest,
   onStopTest,
 }: AudioDeviceSectionProps) {
+  const selectedDeviceIsAvailable = options.some(
+    (option) => option.value === selectedDevice,
+  );
   const canRun =
-    !isChannelStale &&
-    Boolean(selectedDevice) &&
-    options.some((option) => option.value === selectedDevice);
+    !isChannelStale && Boolean(selectedDevice) && selectedDeviceIsAvailable;
+  const showSystemDefaultSelection =
+    isSelectionStale ||
+    (audioFallbackToDefault && !selectedDeviceIsAvailable);
 
   return (
     <section className={styles.section}>
@@ -121,7 +123,7 @@ export default function AudioDeviceSection({
       <Select
         label={labels.audioDevice}
         options={options}
-        value={selectedDevice}
+        value={showSystemDefaultSelection ? 'default' : selectedDevice}
         placeholder={labels.audioDevicePlaceholder}
         disabled={!isSettingsLoaded || isLoading || isSaving || isSessionBusy}
         onChange={onDeviceChange}
@@ -148,7 +150,7 @@ export default function AudioDeviceSection({
       {isChannelStale ? (
         <p role="alert">{labels.audioChannelReselect}</p>
       ) : null}
-      {isSelectionStale ? (
+      {isSelectionStale && !showSystemDefaultSelection ? (
         <p role="alert">{labels.audioDeviceReselect}</p>
       ) : null}
 
@@ -165,15 +167,6 @@ export default function AudioDeviceSection({
         <p role="status">{labels.audioDeviceEmpty}</p>
       ) : null}
       {deviceSaveError ? <p role="alert">{deviceSaveError}</p> : null}
-      {isAudioReady && audioFallbackToDefault ? (
-        <div role="status">
-          <p>{labels.audioDeviceFallbackActive}</p>
-          <p>
-            {labels.audioDeviceEffective}:{' '}
-            {audioEffectiveDeviceName || labels.audioDeviceDefault}
-          </p>
-        </div>
-      ) : null}
       {!isAudioReady && !isSessionBusy && isSettingsLoaded ? (
         <div>
           <p role="status">{labels.audioCaptureUnavailable}</p>
