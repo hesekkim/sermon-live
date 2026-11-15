@@ -19,6 +19,10 @@
 ### 신규 사용자 보고 이슈
 
 1. `064-openai-translation-audio-output-diagnostics.md` — OpenAI Translation audio delta부터 mixer·Listener 재생까지 음성 누락 진단
+2. `066-backend-audio-device-hotplug-refresh.md` — 서버 재시작 없이 새 입력 장치 재검색 및 캡처 복구
+3. `067-backend-audio-device-default-fallback.md` — 저장된 입력 장치가 없을 때 OS System default로 fallback
+4. `068-listen-ios-resume-without-refresh.md` — iOS Safari/Chrome 복귀 후 페이지 새로고침 없는 청취 복구
+5. `069-listen-background-audio-capability.md` — 화면 잠금 중 브라우저 백그라운드 오디오 가능성 검증
 
 ## 보류 (`hold/`)
 
@@ -110,7 +114,7 @@
 - Listener는 상태, 자막, 명시적 듣기 시작, 글자 크기, 테마만 우선 제공한다
 - 볼륨 제어는 Listener UI에 추가하지 않는다. Operator는 Input level과 Listener 수를 Broadcast 제어 sidebar에서 확인한다.
 - Operator만 앱 인증 대상으로 두고 Listen과 `/ws/listen`은 같은 Wi-Fi 청취자에게 공개한다. `/ws/operator`, Operator API 및 audio device/test API는 인증한다.
-- HTTPS/WSS는 이번 범위에서 구현하지 않는다. HTTP 인증은 같은 Wi-Fi의 능동적 도청/세션 탈취를 막지 못하므로 Windows Private Network 방화벽과 port forwarding 금지를 운영 조건으로 안내한다.
+- 기본 배포는 HTTP/WSS 미지원으로 유지한다. 단, Screen Wake Lock은 secure context가 필요하므로 069에서 모바일 LAN용 trusted HTTPS/WSS 제공 경로를 별도 검토한다. HTTP 인증은 같은 Wi-Fi의 능동적 도청/세션 탈취를 막지 못하므로 Windows Private Network 방화벽과 port forwarding 금지를 운영 조건으로 안내한다.
 - OpenAI API key는 브라우저에 보내지 않는다. 현재 Local PC JSON store의 key-at-rest 암호화는 별도 범위로 남긴다.
 - Queue overflow 시 가장 오래된 audio chunk를 폐기해 최신 음성을 유지하고, 누적 손실과 경고를 Operator에 표시한다.
 - AudioCapture는 장치가 지원하는 입력 stream format을 확인한다. 실제 app capture format과 물리 장치의 ADC format을 구분하고, OpenAI 변환 target은 `LiveInterpreter.required_*`의 24 kHz/mono/PCM16을 사용한다.
