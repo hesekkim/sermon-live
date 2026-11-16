@@ -48,10 +48,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-left: var(--cf-space-8);
-  font-family: var(--font-display);
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.125rem;
   font-weight: 600;
-  font-style: italic;
   text-align: left;
   color: var(--cms-text, var(--cf-neutral-700));
   text-decoration: none;
@@ -65,9 +64,8 @@
   overflow: hidden;
   padding-left: var(--cf-space-8);
   color: var(--cms-text, var(--cf-neutral-700));
-  font-family: var(--font-display);
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.125rem;
-  font-style: italic;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;

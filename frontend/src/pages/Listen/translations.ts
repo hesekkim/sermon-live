@@ -56,6 +56,7 @@ const listenerCopy = {
         'Das Betriebssystem hat die Bildschirmsperre freigegeben. Die automatische Bildschirmsperre wird nicht verhindert.',
     },
     dismissScripture: 'Bibeltext schließen',
+    dismissScriptureButton: 'Schließen',
   },
   en: {
     retry: {
@@ -112,6 +113,7 @@ const listenerCopy = {
         'The operating system released the screen lock. Automatic screen locking is not prevented.',
     },
     dismissScripture: 'Close Bible passage',
+    dismissScriptureButton: 'Close',
   },
   ko: {
     retry: {
@@ -168,6 +170,7 @@ const listenerCopy = {
         '운영체제가 화면 켜짐 잠금을 해제했습니다. 자동 화면 잠금을 막을 수 없습니다.',
     },
     dismissScripture: '성경 본문 닫기',
+    dismissScriptureButton: '닫기',
   },
 } as const satisfies Record<ListenerLanguage, object>;
 

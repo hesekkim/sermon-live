@@ -68,6 +68,7 @@ Listener가 backend의 scripture 이벤트를 받아 기존 OpenAI 독일어 번
 - Listener는 실제 수신된 scripture를 목록에 누적해 최신 reference를 앞에 표시하고, tap/click 시 한 장씩 제거한다. 일반 번역과 PCM playback은 변경하지 않는다.
 - 본문/참조 필드가 잘못된 이벤트는 무시한다.
 - Popup은 fixed top `12px + safe-area inset`, 좌우 `12px` 여백, footer보다 높은 z-index로 표시한다. hint가 없어져 카드가 팝업 상단 위치부터 시작한다.
+- 첫 사용자도 동작을 알아볼 수 있도록 카드 상단에 명시적인 닫기 아이콘 버튼을 표시한다. 카드 클릭 닫기와 Enter/Space/Escape 키 동작도 유지한다.
 - Card는 불투명한 동일 폭 surface로 수직 스택된다. 최상단 카드 tap/click 시 위로 `420ms` 이동하고 `100ms` 뒤 opacity가 `320ms` 동안 감소한다. hook은 `460ms` 후 카드를 제거한다.
 - Popup UI를 `ScripturePopup/ScripturePopup.tsx`로 분리하고 dismiss animation 상태와 timer를 `ScripturePopup/useScripturePopup.ts`에서 관리한다. `Listen`은 표시 데이터와 닫기 동작만 연결한다.
 - swipe hint와 pointer drag/dim 상태는 사용하지 않는다. 정적 예시 scripture fixture와 preview query 처리를 제거해 실제 이벤트 전에 카드가 렌더링되지 않도록 한다.

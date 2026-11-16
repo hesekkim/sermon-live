@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { FiX } from 'react-icons/fi';
 import type { ScripturePassage } from '../useListenAudio';
 import styles from './ScripturePopup.module.css';
 import { useScripturePopup } from './useScripturePopup';
@@ -8,6 +9,7 @@ interface ScripturePopupProps {
   onDismiss: () => void;
   onDismissAll: () => void;
   dismissLabel: string;
+  dismissText: string;
 }
 
 export function ScripturePopup({
@@ -15,6 +17,7 @@ export function ScripturePopup({
   onDismiss,
   onDismissAll,
   dismissLabel,
+  dismissText,
 }: ScripturePopupProps) {
   const {
     handleDismiss,
@@ -39,10 +42,7 @@ export function ScripturePopup({
               ]
                 .filter(Boolean)
                 .join(' ')}
-              role={isInteractive ? 'button' : undefined}
-              tabIndex={isInteractive ? 0 : -1}
               aria-hidden={isInteractive ? undefined : true}
-              aria-label={isInteractive ? dismissLabel : undefined}
               aria-live={isInteractive ? 'polite' : undefined}
               style={
                 {
@@ -51,7 +51,6 @@ export function ScripturePopup({
                 } as CSSProperties
               }
               onClick={isInteractive ? handleDismiss : undefined}
-              onKeyDown={isInteractive ? handleKeyDown : undefined}
             >
               <header className={styles.scriptureHeader}>
                 <strong className={styles.scriptureReference}>
@@ -60,6 +59,18 @@ export function ScripturePopup({
                 <span className={styles.scriptureVersion}>
                   {scripture.version}
                 </span>
+                {isInteractive ? (
+                  <button
+                    type="button"
+                    className={styles.scriptureDismissButton}
+                    aria-label={dismissLabel}
+                    title={dismissLabel}
+                    onKeyDown={handleKeyDown}
+                  >
+                    <FiX aria-hidden="true" />
+                    <span>{dismissText}</span>
+                  </button>
+                ) : null}
               </header>
               <div className={styles.scriptureVerses}>
                 {scripture.verses.map((verse) => (

@@ -16,7 +16,7 @@
 
 - **Scripture popup**: SessionService가 독일어 번역 text에서 성경 구절 참조를 감지(`services/scripture.py`)하고 Lutherbibel 1912 본문을 `scripture` event로 Listen에 보낸다. Listen은 번역 자막을 가리지 않는 카드 stack으로 표시한다. 입력(한국어) transcript는 감지 대상이 아니다.
 - **Listen QR 공유**: Operator layout에서 LAN Listen URL을 QR로 보여준다.
-- **Listen 화면 유지**: 듣는 중에는 Screen Wake Lock을 요청하고 화면 복귀 시 다시 요청한다.
+- **Listen 화면 유지**: 신뢰된 HTTPS origin에서 듣는 중 Screen Wake Lock을 요청해 페이지가 보이는 동안 자동 화면 꺼짐을 막고, 화면 복귀 시 다시 요청한다. 화면을 직접 잠그거나 앱을 백그라운드로 보낸 뒤의 재생은 보장하지 않는다.
 - **오디오 복구**: AudioContext가 OS/브라우저에 의해 suspended/interrupted되면 예약된 오디오를 비우고 사용자 gesture 기반 "오디오 다시 재생" 버튼을 보여준다.
 - **Listen 연결 안정성**: heartbeat, 재연결 backoff, 청취자별 전송 큐, 오디오 구독, session id, OpenAI upstream 재연결. 자세한 계약은 [Listen 연결과 재연결](#listen-연결과-재연결)을 따른다.
 
@@ -74,7 +74,7 @@ Listen은 로그인 없이 접근할 수 있다. 연결 상태, translation 상�
 
 오디오 playback은 Listen Browser의 AudioContext에서 수행한다. 사용자 음량은 기기의 하드웨어/OS 조절을 사용하며 앱에 별도의 volume control을 두지 않는다. Listen Browser에는 Operator 설정이나 API key가 전달되지 않는다.
 
-모바일 브라우저(특히 iOS Safari)는 화면이 잠기거나 앱이 background로 가면 AudioContext와 WebSocket을 중단한다. 따라서 청취자는 화면을 켠 채로 들어야 하며, 화면 복귀 시 socket은 자동 재연결되고 오디오는 자동 resume 또는 복구 버튼으로 재개된다. 이 제한은 운영 안내에 포함한다.
+모바일 브라우저(특히 iOS Safari)는 화면이 잠기거나 앱이 background로 가면 AudioContext와 WebSocket을 중단할 수 있다. 신뢰된 HTTPS origin에서 Wake Lock 요청에 성공하면 Listen 페이지가 보이는 동안 자동 화면 꺼짐을 막는다. Wake Lock은 직접 잠금이나 background 재생을 막지 않는다. 화면 복귀 시 socket은 자동 재연결되고 오디오는 자동 resume 또는 복구 버튼으로 재개된다. 이 제한은 운영 안내에 포함한다.
 
 ### Operator Broadcast
 
@@ -135,7 +135,7 @@ Listen 공개는 같은 Wi-Fi에 있는 누구든 진행 중인 독일어 audio�
 
 Operator password 및 세션 signing secret은 Local PC의 environment configuration에서 설정한다. 로그인 후에는 HttpOnly/SameSite cookie session을 사용하며 credential을 localStorage, URL, API response 또는 log에 넣지 않는다. Unsafe HTTP 요청에는 Origin/CSRF 검증을 적용한다. 로그인 실패 시도를 제한한다.
 
-HTTPS/WSS 인증서 배포는 이 roadmap 범위에서 하지 않는다. 따라서 HTTP LAN에서 앱 로그인은 임의 Operator 조작을 막지만, 같은 Wi-Fi의 능동적 네트워크 공격자에게 credential/session 기밀성을 보장하지 않는다. 운영은 신뢰 가능한 private Wi-Fi와 Windows 방화벽 제한을 전제로 하고 router port forwarding을 하지 않는다.
+기본 실행은 HTTP/ws이며, `APP_SSL_CERTFILE`과 `APP_SSL_KEYFILE`을 함께 설정하면 HTTPS/WSS를 사용할 수 있다. 모바일 Wake Lock에는 청중 기기에서 신뢰하는 인증서가 필요하다. HTTPS를 설정하지 않은 HTTP LAN에서는 앱 로그인은 임의 Operator 조작을 막지만, 같은 Wi-Fi의 능동적 네트워크 공격자에게 credential/session 기밀성을 보장하지 않는다. 운영은 신뢰 가능한 private Wi-Fi와 Windows 방화벽 제한을 전제로 하고 router port forwarding을 하지 않는다. 로컬 CA 신뢰 설치와 모바일 실기기 검증은 배포 환경에서 별도로 확인해야 한다.
 
 OpenAI API key는 Browser에 노출되지 않지만 현재 설정 저장소의 at-rest 암호화는 별도 범위다. Local PC 사용자 계정 또는 해당 설정 파일이 탈취되는 경우를 앱 로그인만으로 방어한다고 간주하지 않는다.
 

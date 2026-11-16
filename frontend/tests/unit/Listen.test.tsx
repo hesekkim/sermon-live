@@ -551,7 +551,7 @@ describe('Listener experience', () => {
 
     const popup = container.querySelector('[aria-label="Bibeltext schließen"]');
     act(() => popup?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(popup).toHaveClass(/scriptureDismissing/);
+    expect(popup?.closest('aside')).toHaveClass(/scriptureDismissing/);
     expect(
       container.querySelector('[aria-label="Bibeltext schließen"]'),
     ).not.toBeNull();
@@ -587,7 +587,7 @@ describe('Listener experience', () => {
         new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
       ),
     );
-    expect(card).toHaveClass(/scriptureDismissing/);
+    expect(card?.closest('aside')).toHaveClass(/scriptureDismissing/);
 
     act(() => vi.advanceTimersByTime(460));
     expect(
@@ -620,7 +620,7 @@ describe('Listener experience', () => {
       });
     });
 
-    const topCard = container.querySelector('[aria-label="Bibeltext schließen"]');
+    const topCard = container.querySelector('aside[aria-live="polite"]');
     expect(topCard).toHaveTextContent('Second passage.');
     expect(
       container.querySelectorAll('aside[aria-hidden="true"]'),
@@ -628,7 +628,7 @@ describe('Listener experience', () => {
     act(() => topCard?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     act(() => vi.advanceTimersByTime(460));
 
-    const revealedCard = container.querySelector('[aria-label="Bibeltext schließen"]');
+    const revealedCard = container.querySelector('aside[aria-live="polite"]');
     expect(revealedCard).toHaveTextContent('First passage.');
   });
 
@@ -647,7 +647,7 @@ describe('Listener experience', () => {
       });
     });
 
-    const firstCard = container.querySelector('[aria-label="Bibeltext schließen"]');
+    const firstCard = container.querySelector('aside[aria-live="polite"]');
     act(() => firstCard?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     act(() => vi.advanceTimersByTime(460));
     expect(
@@ -664,7 +664,7 @@ describe('Listener experience', () => {
     });
 
     expect(
-      container.querySelector('[aria-label="Bibeltext schließen"]'),
+      container.querySelector('aside[aria-live="polite"]'),
     ).toHaveTextContent('Next passage.');
   });
 
@@ -683,7 +683,7 @@ describe('Listener experience', () => {
       });
     });
 
-    const firstCard = container.querySelector('[aria-label="Bibeltext schließen"]');
+    const firstCard = container.querySelector('aside[aria-live="polite"]');
     act(() => firstCard?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
 
     act(() => {
@@ -697,7 +697,7 @@ describe('Listener experience', () => {
     act(() => vi.advanceTimersByTime(460));
 
     expect(
-      container.querySelector('[aria-label="Bibeltext schließen"]'),
+      container.querySelector('aside[aria-live="polite"]'),
     ).toHaveTextContent('Next passage.');
   });
 
@@ -826,12 +826,14 @@ describe('Listener experience', () => {
       '[aria-label="Deutsche Übersetzung"]',
     );
     const scripture = container.querySelector(
-      '[aria-label="Bibeltext schließen"]',
+      'aside[aria-live="polite"]',
     );
     expect(transcript).toHaveTextContent('OpenAI translation remains visible.');
     expect(scripture).toHaveTextContent('Römer 3,28');
     expect(scripture).toHaveTextContent('Canonical passage text.');
-    expect(scripture).toHaveAttribute('role', 'button');
+    expect(
+      scripture?.querySelector('button[aria-label="Bibeltext schließen"]'),
+    ).not.toBeNull();
 
     act(() => {
       socket.message({

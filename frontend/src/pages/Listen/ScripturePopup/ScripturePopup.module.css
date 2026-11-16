@@ -58,17 +58,52 @@
   transform: translateY(-120%);
 }
 
-.scripture:focus-visible {
-  outline: 2px solid var(--listener-scripture-accent);
-  outline-offset: 3px;
-}
-
 .scriptureHeader {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: 4px 10px;
   margin-bottom: 7px;
+}
+
+.scriptureDismissButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: auto;
+  min-width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--listener-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.scriptureDismissButton:active {
+  background: var(--listener-surface);
+  color: var(--listener-ink);
+}
+
+.scriptureDismissButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.scriptureDismissButton:focus-visible {
+  outline: 2px solid var(--listener-scripture-accent);
+  outline-offset: 2px;
 }
 
 .scriptureReference {

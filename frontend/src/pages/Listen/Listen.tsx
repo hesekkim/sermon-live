@@ -183,6 +183,7 @@ export default function Listen() {
             onDismiss={dismissTopScriptureCard}
             onDismissAll={dismissAllScriptureCards}
             dismissLabel={copy.dismissScripture}
+            dismissText={copy.dismissScriptureButton}
           />
         ) : null}
       </section>
