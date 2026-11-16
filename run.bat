@@ -25,8 +25,7 @@ if not exist "backend\.venv\Scripts\python.exe" (
 )
 
 echo Starting Sermon Live.
-echo Operator: http://localhost:8080/operator
-echo Listener: http://localhost:8080/listen
+echo Server URLs will be printed at startup. HTTPS is enabled when SSL certificate settings are configured.
 if defined RUN_VERBOSE (
     echo Verbose logs: backend\logs\sermon-live.log
     echo Log rotation: 5 MB per file, 3 archived files retained.

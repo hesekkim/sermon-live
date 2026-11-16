@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     debug: bool = False
     port: int = 8080
     host: str = "0.0.0.0"
+    ssl_certfile: Path | None = None
+    ssl_keyfile: Path | None = None
     allowed_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -53,6 +55,11 @@ class Settings(BaseSettings):
             return value
         return ["http://localhost:5173"]
 
+    @field_validator("ssl_certfile", "ssl_keyfile", mode="before")
+    @classmethod
+    def parse_optional_ssl_path(cls, value: object) -> object:
+        return None if value == "" else value
+
     @field_validator("input_sample_rate", mode="before")
     @classmethod
     def parse_input_sample_rate(cls, value: object) -> object:
@@ -67,6 +74,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_translation_timer_settings(self) -> "Settings":
+        if (self.ssl_certfile is None) != (self.ssl_keyfile is None):
+            raise ValueError("ssl_certfile and ssl_keyfile must be configured together")
         if self.translation_session_auto_stop_minutes <= 0:
             raise ValueError("translation_session_auto_stop_minutes must be greater than 0")
         if self.translation_session_warning_minutes <= 0:

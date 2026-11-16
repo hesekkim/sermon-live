@@ -1,7 +1,6 @@
 import {
   useEffect,
   useLayoutEffect,
-  useRef,
   useState,
   type CSSProperties,
 } from 'react';
@@ -11,6 +10,7 @@ import { ScripturePopup } from './ScripturePopup/ScripturePopup';
 import { getListenerCopy } from './translations';
 import { useListenAudio, type ScripturePassage } from './useListenAudio';
 import { useListenerPreferences } from './useListenerPreferences';
+import { useScreenWakeLock } from './useScreenWakeLock';
 
 type RetryState =
   | 'initialRetrying'
@@ -28,7 +28,6 @@ function isRetryState(state: string): state is RetryState {
 }
 
 export default function Listen() {
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const {
     audioError,
     audioOutputReady,
@@ -50,58 +49,14 @@ export default function Listen() {
   } = useListenAudio();
   const { fontSize, setFontSize, setTheme, theme } = useListenerPreferences();
   const copy = getListenerCopy();
+  const screenWakeLockStatus = useScreenWakeLock(
+    isListening && sessionStatus === 'live' && !sessionEnded,
+  );
   const [scriptureCards, setScriptureCards] = useState<ScripturePassage[]>([]);
   useLayoutEffect(() => {
     if (subtitleLines.length === 0) return;
     window.scrollTo(0, document.documentElement.scrollHeight);
   }, [subtitleLines]);
-  useEffect(() => {
-    if (!isListening || !('wakeLock' in navigator)) return;
-    let disposed = false;
-    let requestPending = false;
-
-    const requestWakeLock = async () => {
-      if (disposed || document.visibilityState !== 'visible' || requestPending) {
-        return;
-      }
-      if (wakeLockRef.current && !wakeLockRef.current.released) return;
-      wakeLockRef.current = null;
-      requestPending = true;
-      try {
-        const wakeLock = await navigator.wakeLock.request('screen');
-        if (disposed) {
-          await wakeLock.release();
-          return;
-        }
-        wakeLockRef.current = wakeLock;
-        wakeLock.addEventListener(
-          'release',
-          () => {
-            if (wakeLockRef.current === wakeLock) wakeLockRef.current = null;
-          },
-          { once: true },
-        );
-      } catch {
-        wakeLockRef.current = null;
-      } finally {
-        requestPending = false;
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') void requestWakeLock();
-    };
-
-    void requestWakeLock();
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      disposed = true;
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      const wakeLock = wakeLockRef.current;
-      wakeLockRef.current = null;
-      if (wakeLock && !wakeLock.released) void wakeLock.release();
-    };
-  }, [isListening]);
   useEffect(() => {
     setScriptureCards([]);
   }, [sessionKey]);
@@ -302,6 +257,11 @@ export default function Listen() {
           <div className={styles.audioRecovery} role="alert">
             <p>{copy.recoveryMessage}</p>
           </div>
+        )}
+        {screenWakeLockStatus !== 'inactive' && (
+          <p className={styles.screenWakeLock} role="status" aria-live="polite">
+            {copy.screenWakeLock[screenWakeLockStatus]}
+          </p>
         )}
         {audioError && (
           <p className={styles.audioError}>

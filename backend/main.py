@@ -52,7 +52,7 @@ def configure_verbose_logging(log_directory: Path | None = None) -> Path:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await audio.start()
-    logger.info("HTTP ready. Translation sessions can be started from the operator page.")
+    logger.info("Server ready. Translation sessions can be started from the operator page.")
     try:
         yield
     finally:
@@ -112,10 +112,13 @@ if __name__ == "__main__":
         log_path = configure_verbose_logging()
         logger.info("Verbose diagnostic logging enabled: %s", log_path)
 
-    logger.info("HTTP http://%s:%s", settings.host, settings.port)
+    scheme = "https" if settings.ssl_certfile else "http"
+    logger.info("%s://%s:%s", scheme, settings.host, settings.port)
     address = detect_lan_ip()
     if address:
-        logger.info("Congregation URL: http://%s:%s/listen", address, settings.port)
+        logger.info(
+            "Congregation URL: %s://%s:%s/listen", scheme, address, settings.port
+        )
     else:
         logger.warning("Could not detect a LAN address for the Listener")
     uvicorn.run(
@@ -123,6 +126,8 @@ if __name__ == "__main__":
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
+        ssl_certfile=str(settings.ssl_certfile) if settings.ssl_certfile else None,
+        ssl_keyfile=str(settings.ssl_keyfile) if settings.ssl_keyfile else None,
         log_level="debug" if args.verbose else "info",
         log_config=None if args.verbose else uvicorn.config.LOGGING_CONFIG,
     )

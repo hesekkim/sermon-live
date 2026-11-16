@@ -121,6 +121,10 @@ const originalDocumentVisibilityState = Object.getOwnPropertyDescriptor(
   document,
   'visibilityState',
 );
+const originalIsSecureContext = Object.getOwnPropertyDescriptor(
+  window,
+  'isSecureContext',
+);
 const storedValues = new Map<string, string>();
 const localStorageMock: Storage = {
   get length() {
@@ -153,6 +157,10 @@ beforeEach(() => {
   Object.defineProperty(navigator, 'language', {
     configurable: true,
     value: 'de-DE',
+  });
+  Object.defineProperty(window, 'isSecureContext', {
+    configurable: true,
+    value: true,
   });
   MockWebSocket.instances = [];
   MockAudioContext.instances = [];
@@ -192,6 +200,11 @@ afterEach(() => {
     );
   } else {
     Reflect.deleteProperty(document, 'visibilityState');
+  }
+  if (originalIsSecureContext) {
+    Object.defineProperty(window, 'isSecureContext', originalIsSecureContext);
+  } else {
+    Reflect.deleteProperty(window, 'isSecureContext');
   }
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -279,6 +292,153 @@ describe('Listener experience', () => {
 
       await click(container.querySelector('button[aria-label="stoppen"]'));
       expect(release).toHaveBeenCalledOnce();
+    } finally {
+      if (originalWakeLock) {
+        Object.defineProperty(navigator, 'wakeLock', originalWakeLock);
+      } else {
+        Reflect.deleteProperty(navigator, 'wakeLock');
+      }
+    }
+  });
+
+  it('explains when a secure context is required for the screen wake lock', async () => {
+    Object.defineProperty(window, 'isSecureContext', {
+      configurable: true,
+      value: false,
+    });
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+    });
+    await click(container.querySelector('button[aria-label="anhören"]'));
+
+    expect(container).toHaveTextContent(
+      'Für das Wachhalten des Bildschirms ist eine vertrauenswürdige HTTPS-Verbindung erforderlich.',
+    );
+  });
+
+  it('explains when the browser does not support screen wake lock', async () => {
+    const originalWakeLock = Object.getOwnPropertyDescriptor(
+      navigator,
+      'wakeLock',
+    );
+    Reflect.deleteProperty(navigator, 'wakeLock');
+
+    try {
+      const container = renderListener();
+      const socket = MockWebSocket.instances[0];
+      act(() => {
+        socket.open();
+        socket.message({ type: 'translation_status', session_status: 'live' });
+      });
+      await click(container.querySelector('button[aria-label="anhören"]'));
+
+      expect(container).toHaveTextContent(
+        'Der Browser unterstützt das Wachhalten des Bildschirms nicht.',
+      );
+    } finally {
+      if (originalWakeLock) {
+        Object.defineProperty(navigator, 'wakeLock', originalWakeLock);
+      } else {
+        Reflect.deleteProperty(navigator, 'wakeLock');
+      }
+    }
+  });
+
+  it('reports a rejected screen wake lock request', async () => {
+    const originalWakeLock = Object.getOwnPropertyDescriptor(
+      navigator,
+      'wakeLock',
+    );
+    Object.defineProperty(navigator, 'wakeLock', {
+      configurable: true,
+      value: { request: vi.fn().mockRejectedValue(new Error('denied')) },
+    });
+
+    try {
+      const container = renderListener();
+      const socket = MockWebSocket.instances[0];
+      act(() => {
+        socket.open();
+        socket.message({ type: 'translation_status', session_status: 'live' });
+      });
+      await click(container.querySelector('button[aria-label="anhören"]'));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(container).toHaveTextContent(
+        'Der Bildschirm konnte nicht wachgehalten werden.',
+      );
+    } finally {
+      if (originalWakeLock) {
+        Object.defineProperty(navigator, 'wakeLock', originalWakeLock);
+      } else {
+        Reflect.deleteProperty(navigator, 'wakeLock');
+      }
+    }
+  });
+
+  it('reports an operating-system release and retries after the page is visible', async () => {
+    const originalWakeLock = Object.getOwnPropertyDescriptor(
+      navigator,
+      'wakeLock',
+    );
+    const createWakeLock = () => ({
+      released: false,
+      release: vi.fn(async () => undefined),
+      addEventListener: vi.fn(),
+    });
+    const firstWakeLock = createWakeLock();
+    const secondWakeLock = createWakeLock();
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(firstWakeLock)
+      .mockResolvedValueOnce(secondWakeLock);
+    Object.defineProperty(navigator, 'wakeLock', {
+      configurable: true,
+      value: { request },
+    });
+
+    try {
+      const container = renderListener();
+      const socket = MockWebSocket.instances[0];
+      act(() => {
+        socket.open();
+        socket.message({ type: 'translation_status', session_status: 'live' });
+      });
+      await click(container.querySelector('button[aria-label="anhören"]'));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const releaseHandler = firstWakeLock.addEventListener.mock
+        .calls[0]?.[1] as EventListener;
+      act(() => releaseHandler(new Event('release')));
+      expect(container).toHaveTextContent(
+        'Das Betriebssystem hat die Bildschirmsperre freigegeben.',
+      );
+
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'hidden',
+      });
+      act(() => document.dispatchEvent(new Event('visibilitychange')));
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'visible',
+      });
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await Promise.resolve();
+      });
+
+      expect(request).toHaveBeenCalledTimes(2);
+      expect(container).toHaveTextContent(
+        'Bildschirm bleibt an, solange diese Seite sichtbar ist.',
+      );
     } finally {
       if (originalWakeLock) {
         Object.defineProperty(navigator, 'wakeLock', originalWakeLock);

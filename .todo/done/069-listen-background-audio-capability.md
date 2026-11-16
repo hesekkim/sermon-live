@@ -1,6 +1,6 @@
 # 069 Listen 백그라운드 오디오 및 화면 켜짐 지원
 
-상태: 대기
+상태: 완료
 우선순위: 높음 (화면 잠금 시간 초과 후 음성 청취가 끊김)
 
 ## Goal
@@ -12,7 +12,7 @@
 - Screen Wake Lock API는 화면이 꺼지거나 자동 잠금되는 것을 막을 수 있지만, **secure context(일반적으로 HTTPS)** 에서만 사용할 수 있고 문서가 visible 상태일 때만 요청할 수 있다. 탭/앱이 백그라운드가 되면 lock이 해제될 수 있고, 저전력 상태 등 OS 조건에 따라 요청이 거절되거나 해제될 수도 있다.
 - Can I Use의 현재 호환성 표에는 iOS Safari 16.4 이상이 Screen Wake Lock API를 지원하는 것으로 표시되어 있다. 따라서 이 기능을 구현할 때 Safari 미지원만을 전제로 삼지 않는다.
 - 이 프로젝트의 Listener는 로그상 `http://10.10.3.227:8080/listen` 같은 LAN IP의 HTTP origin에서 제공됐다. LAN IP의 HTTP는 secure context가 아니므로 이 origin에서는 `navigator.wakeLock`을 사용할 수 없다. `localhost` 예외는 휴대폰에서 접속할 때 휴대폰 자신을 가리키므로 서버 PC의 LAN 주소 문제를 해결하지 않는다.
-- 현재 `Listen.tsx`는 `isListening`일 때 Wake Lock을 요청하지만, API 미지원 및 요청 거절을 사용자에게 표시하지 않고 catch에서 무시한다. 따라서 기능이 실제로 활성화됐는지 알 수 없다.
+- 초기 분석 당시 `Listen.tsx`는 `isListening`일 때 Wake Lock을 요청했지만, API 미지원 및 요청 거절을 사용자에게 표시하지 않고 catch에서 무시했다. 구현 진행에서 상태별 안내를 추가했다.
 - Listener 오디오는 `/ws/listen` 이진 PCM을 `AudioContext`/`AudioBufferSourceNode`로 재생한다. Screen Wake Lock은 화면을 켜 두는 API이지, 화면을 끄거나 페이지가 백그라운드가 된 뒤 JavaScript/WebSocket/AudioContext가 계속 실행되도록 보장하는 API가 아니다.
 - 로그에는 iPhone Safari 및 iOS Chrome 연결의 heartbeat timeout과 disconnect가 있다. 이는 백그라운드 중 연결 처리가 멈출 가능성과 일치하지만, 특정 기기의 화면 잠금이 직접 원인이라고 입증하지는 않는다.
 - 근거 문서:
@@ -74,6 +74,13 @@
 - 사용자/OS가 직접 화면을 잠그거나 앱을 background로 보내면 Wake Lock이 이를 막을 수 없다는 한계를 UI/README에 정확히 설명한다.
 - UI 문구 변경 시 한국어/영어/독일어를 모두 갱신한다.
 - 자동 테스트는 오디오 객체/API 상태를 mock으로 검증하며 실제 기기나 마이크를 흉내 내어 백그라운드 재생 성공을 주장하지 않는다.
+
+## 구현 결과
+
+- Wake Lock 상태를 전용 hook에서 관리하고, secure context 아님·API 미지원·요청 실패·OS release·활성 상태를 Listener에 표시한다. live 번역 중 청취할 때만 유지하고 중지·세션 종료·페이지 이탈 시 해제하며, visible 복귀 때 재요청한다.
+- `APP_SSL_CERTFILE`과 `APP_SSL_KEYFILE`을 함께 설정하면 FastAPI가 HTTPS/WSS로 실행되며, 두 설정이 없으면 기존 HTTP 동작을 유지한다. mkcert를 사용한 모바일 LAN 인증서 신뢰 설정은 README에 기록했다.
+- Frontend Listen 단위 테스트 45개와 Backend 설정 단위 테스트 13개가 통과했다. 자동 테스트는 Wake Lock 상태 전환과 visible 복귀 시 재요청을 확인한다.
+- HTTPS 인증서 신뢰 설치, iOS/Android/desktop 실기기, 10분 화면 timeout 및 background playback은 검증하지 않았다. 완료는 코드·문서·자동 검증 범위를 의미하며, 실기기 동작을 검증했다고 주장하지 않는다.
 
 ## Manual validation
 

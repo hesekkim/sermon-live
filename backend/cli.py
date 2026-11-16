@@ -10,11 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    logger.info("Operator CLI starting on %s:%s", settings.host, settings.port)
+    scheme = "https" if settings.ssl_certfile else "http"
+    logger.info("Operator CLI starting on %s://%s:%s", scheme, settings.host, settings.port)
     address = detect_lan_ip()
     if address:
         logger.info(
-            "Congregation URL: http://%s:%s/listen", address, settings.port
+            "Congregation URL: %s://%s:%s/listen", scheme, address, settings.port
         )
     else:
         logger.warning("Could not detect a LAN address for the Listener")
@@ -23,6 +24,8 @@ def main() -> None:
         host=settings.host,
         port=settings.port,
         reload=False,
+        ssl_certfile=str(settings.ssl_certfile) if settings.ssl_certfile else None,
+        ssl_keyfile=str(settings.ssl_keyfile) if settings.ssl_keyfile else None,
     )
 
 

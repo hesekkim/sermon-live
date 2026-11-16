@@ -74,6 +74,28 @@ def test_operator_auth_secrets_have_no_development_defaults():
     assert settings.operator_session_secret is None
 
 
+def test_ssl_certificate_and_key_must_be_configured_together(tmp_path):
+    with pytest.raises(ValidationError):
+        Settings(ssl_certfile=tmp_path / "cert.pem")
+
+    settings = Settings(
+        _env_file=None,
+        ssl_certfile=tmp_path / "cert.pem",
+        ssl_keyfile=tmp_path / "key.pem",
+    )
+    assert settings.ssl_certfile == tmp_path / "cert.pem"
+    assert settings.ssl_keyfile == tmp_path / "key.pem"
+
+    env_file = tmp_path / "empty-tls.env"
+    env_file.write_text(
+        "APP_SSL_CERTFILE=\nAPP_SSL_KEYFILE=\n",
+        encoding="utf-8",
+    )
+    settings = Settings(_env_file=env_file)
+    assert settings.ssl_certfile is None
+    assert settings.ssl_keyfile is None
+
+
 @pytest.mark.parametrize(
     "overrides",
     [

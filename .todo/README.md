@@ -21,7 +21,6 @@
 1. `064-openai-translation-audio-output-diagnostics.md` — OpenAI Translation audio delta부터 mixer·Listener 재생까지 음성 누락 진단
 2. `066-backend-audio-device-hotplug-refresh.md` — 서버 재시작 없이 새 입력 장치 재검색 및 캡처 복구
 3. `068-listen-ios-resume-without-refresh.md` — iOS Safari/Chrome 복귀 후 페이지 새로고침 없는 청취 복구 (구현·자동 검증 완료, 실기기 검증 대기)
-4. `069-listen-background-audio-capability.md` — 화면 잠금 중 브라우저 백그라운드 오디오 가능성 검증
 
 ## 보류 (`hold/`)
 
@@ -94,6 +93,7 @@
 57. `008-backend-openai-e2e-verify.md` — OpenAI 및 Translation Session end-to-end 검증
 58. `063-listen-audio-context-recovery.md` — 모바일 Safari 화면 잠금/복귀 후 Listen 오디오 재생 복구 (구현·자동 검증 완료; iOS 실기기 검증은 미수행)
 59. `067-backend-audio-device-default-fallback.md` — 저장 장치 부재 시 OS 기본 입력으로 fallback하고 Operator에 effective device 표시
+60. `069-listen-background-audio-capability.md` — Listen 화면 켜짐 유지, HTTPS/WSS 설정 및 Wake Lock 상태 안내 (구현·문서·자동 검증 완료; 실기기 검증 미수행)
 
 ## 결정 사항
 
@@ -114,7 +114,7 @@
 - Listener는 상태, 자막, 명시적 듣기 시작, 글자 크기, 테마만 우선 제공한다
 - 볼륨 제어는 Listener UI에 추가하지 않는다. Operator는 Input level과 Listener 수를 Broadcast 제어 sidebar에서 확인한다.
 - Operator만 앱 인증 대상으로 두고 Listen과 `/ws/listen`은 같은 Wi-Fi 청취자에게 공개한다. `/ws/operator`, Operator API 및 audio device/test API는 인증한다.
-- 기본 배포는 HTTP/WSS 미지원으로 유지한다. 단, Screen Wake Lock은 secure context가 필요하므로 069에서 모바일 LAN용 trusted HTTPS/WSS 제공 경로를 별도 검토한다. HTTP 인증은 같은 Wi-Fi의 능동적 도청/세션 탈취를 막지 못하므로 Windows Private Network 방화벽과 port forwarding 금지를 운영 조건으로 안내한다.
+- 기본 배포는 기존 HTTP 동작을 유지하고, 069에서 `APP_SSL_CERTFILE`/`APP_SSL_KEYFILE` 설정 시 모바일 LAN용 HTTPS/WSS 실행 경로를 추가했다. 로컬 CA의 기기별 신뢰 설치와 실기기 검증은 문서화되어 있으나 수행되지 않았다. HTTP 인증은 같은 Wi-Fi의 능동적 도청/세션 탈취를 막지 못하므로 Windows Private Network 방화벽과 port forwarding 금지를 운영 조건으로 안내한다.
 - OpenAI API key는 브라우저에 보내지 않는다. 현재 Local PC JSON store의 key-at-rest 암호화는 별도 범위로 남긴다.
 - Queue overflow 시 가장 오래된 audio chunk를 폐기해 최신 음성을 유지하고, 누적 손실과 경고를 Operator에 표시한다.
 - AudioCapture는 장치가 지원하는 입력 stream format을 확인한다. 실제 app capture format과 물리 장치의 ADC format을 구분하고, OpenAI 변환 target은 `LiveInterpreter.required_*`의 24 kHz/mono/PCM16을 사용한다.

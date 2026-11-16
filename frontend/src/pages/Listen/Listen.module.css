@@ -242,6 +242,14 @@
   font-size: 12px;
 }
 
+.screenWakeLock {
+  width: min(calc(100% - 48px), 860px);
+  margin: 0 auto 8px;
+  color: var(--listener-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
 .audioRecovery {
   display: flex;
   align-items: center;
