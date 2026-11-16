@@ -14,13 +14,13 @@
 
 ### 지금
 
-현재 진행 중인 기존 작업 없음.
+`068-listen-ios-resume-without-refresh.md` 구현과 자동 검증은 완료했다. iPhone Safari/Chrome에서 화면 잠금 후 복귀하는 실기기 검증이 남아 있다.
 
 ### 신규 사용자 보고 이슈
 
 1. `064-openai-translation-audio-output-diagnostics.md` — OpenAI Translation audio delta부터 mixer·Listener 재생까지 음성 누락 진단
 2. `066-backend-audio-device-hotplug-refresh.md` — 서버 재시작 없이 새 입력 장치 재검색 및 캡처 복구
-3. `068-listen-ios-resume-without-refresh.md` — iOS Safari/Chrome 복귀 후 페이지 새로고침 없는 청취 복구
+3. `068-listen-ios-resume-without-refresh.md` — iOS Safari/Chrome 복귀 후 페이지 새로고침 없는 청취 복구 (구현·자동 검증 완료, 실기기 검증 대기)
 4. `069-listen-background-audio-capability.md` — 화면 잠금 중 브라우저 백그라운드 오디오 가능성 검증
 
 ## 보류 (`hold/`)

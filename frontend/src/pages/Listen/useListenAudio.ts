@@ -110,6 +110,7 @@ export function useListenAudio() {
   const [scripture, setScripture] = useState<ScripturePassage | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [audioRecoveryRequired, setAudioRecoveryRequired] = useState(false);
+  const [audioOutputReady, setAudioOutputReady] = useState(false);
   const [audioError, setAudioError] = useState('');
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioContextStateListenerRef = useRef<{
@@ -141,6 +142,7 @@ export function useListenAudio() {
   const connectSocketRef = useRef<((isReconnect: boolean) => void) | null>(
     null,
   );
+  const checkSocketHealthRef = useRef<(() => void) | null>(null);
 
   const clearScheduledAudio = useCallback((context?: AudioContext) => {
     for (const source of playingSourcesRef.current.keys()) {
@@ -157,6 +159,7 @@ export function useListenAudio() {
       wantsListenRef.current = false;
       isListeningRef.current = false;
       listenGenerationRef.current += 1;
+      checkSocketHealthRef.current = null;
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
@@ -215,6 +218,7 @@ export function useListenAudio() {
       } else if (isListeningRef.current) {
         clearScheduledAudio(context);
         pendingPcmRef.current = null;
+        setAudioOutputReady(false);
         setAudioRecoveryRequired(true);
       }
     };
@@ -274,6 +278,7 @@ export function useListenAudio() {
     const context = audioContextRef.current;
     if (!context || context.state !== 'running') {
       pendingPcmRef.current = null;
+      setAudioOutputReady(false);
       setAudioRecoveryRequired(true);
       if (context && context.state !== 'closed') {
         void resumeAudioContext(context).catch((error: unknown) => {
@@ -356,6 +361,7 @@ export function useListenAudio() {
       startAt,
       endAt: nextPlayTimeRef.current,
     });
+    setAudioOutputReady(true);
   }, [resumeAudioContext]);
 
   const sendSocketMessage = useCallback((payload: object) => {
@@ -373,6 +379,7 @@ export function useListenAudio() {
     listenGenerationRef.current += 1;
     isListeningRef.current = false;
     setIsListening(false);
+    setAudioOutputReady(false);
     setAudioRecoveryRequired(false);
     pendingPcmRef.current = null;
     clearScheduledAudio();
@@ -413,12 +420,9 @@ export function useListenAudio() {
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (
-        document.visibilityState !== 'visible' ||
-        !isListeningRef.current
-      ) {
-        return;
-      }
+      if (document.visibilityState !== 'visible') return;
+      checkSocketHealthRef.current?.();
+      if (!isListeningRef.current) return;
       const context = audioContextRef.current;
       if (!context || context.state === 'closed') {
         setAudioRecoveryRequired(true);
@@ -471,6 +475,7 @@ export function useListenAudio() {
       const socket = new WebSocket(`${protocol}//${location.host}/ws/listen`);
       socket.binaryType = 'arraybuffer';
       socketRef.current = socket;
+      lastMessageAtRef.current = Date.now();
 
       const scheduleReconnect = (retryState: RetryState) => {
         if (!wantsListenRef.current || reconnectTimerRef.current !== null) {
@@ -500,6 +505,10 @@ export function useListenAudio() {
           return;
         }
         socketRef.current = null;
+        checkSocketHealthRef.current = null;
+        pendingPcmRef.current = null;
+        clearScheduledAudio(audioContextRef.current ?? undefined);
+        if (isListeningRef.current) setAudioOutputReady(false);
         stopHeartbeat();
         if (connectTimeoutTimerRef.current !== null) {
           window.clearTimeout(connectTimeoutTimerRef.current);
@@ -513,6 +522,25 @@ export function useListenAudio() {
         }
         scheduleReconnect(retryState);
       };
+
+      const checkSocketHealth = () => {
+        if (socketRef.current !== socket) return;
+        if (socket.readyState === WebSocket.OPEN) {
+          if (Date.now() - lastMessageAtRef.current > STALE_CONNECTION_MS) {
+            failSocket('reconnecting');
+          }
+          return;
+        }
+        if (
+          socket.readyState === WebSocket.CLOSED ||
+          socket.readyState === WebSocket.CLOSING
+        ) {
+          failSocket(
+            hasConnectedRef.current ? 'reconnecting' : 'initialRetrying',
+          );
+        }
+      };
+      checkSocketHealthRef.current = checkSocketHealth;
 
       connectTimeoutTimerRef.current = window.setTimeout(() => {
         failSocket('timedOutRetrying');
@@ -630,21 +658,12 @@ export function useListenAudio() {
         if (socketRef.current !== socket) {
           return;
         }
-        socketRef.current = null;
-        stopHeartbeat();
-        if (connectTimeoutTimerRef.current !== null) {
-          window.clearTimeout(connectTimeoutTimerRef.current);
-          connectTimeoutTimerRef.current = null;
-        }
-        if (!wantsListenRef.current) {
-          return;
-        }
         const retryState: RetryState = event.wasClean
           ? 'serverRetrying'
           : hasConnectedRef.current
             ? 'reconnecting'
             : 'initialRetrying';
-        scheduleReconnect(retryState);
+        failSocket(retryState);
       });
 
       socket.addEventListener('error', () => {
@@ -653,7 +672,7 @@ export function useListenAudio() {
         );
       });
     },
-    [queueAudioChunk, sendSocketMessage, stopListening],
+    [clearScheduledAudio, queueAudioChunk, sendSocketMessage, stopListening],
   );
   connectSocketRef.current = connectSocket;
 
@@ -679,6 +698,7 @@ export function useListenAudio() {
       setSessionEnded(false);
       wantsListenRef.current = true;
       listenGenerationRef.current += 1;
+      setAudioOutputReady(false);
       isListeningRef.current = true;
       setIsListening(true);
       sendSocketMessage({ type: 'audio', enabled: true });
@@ -719,6 +739,7 @@ export function useListenAudio() {
 
   return {
     audioError,
+    audioOutputReady,
     audioRecoveryRequired,
     canStartListening,
     connectionLabel,

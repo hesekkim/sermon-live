@@ -117,6 +117,10 @@ const originalNavigatorLanguage = Object.getOwnPropertyDescriptor(
   navigator,
   'language',
 );
+const originalDocumentVisibilityState = Object.getOwnPropertyDescriptor(
+  document,
+  'visibilityState',
+);
 const storedValues = new Map<string, string>();
 const localStorageMock: Storage = {
   get length() {
@@ -179,6 +183,15 @@ afterEach(() => {
     );
   } else {
     Reflect.deleteProperty(navigator, 'language');
+  }
+  if (originalDocumentVisibilityState) {
+    Object.defineProperty(
+      document,
+      'visibilityState',
+      originalDocumentVisibilityState,
+    );
+  } else {
+    Reflect.deleteProperty(document, 'visibilityState');
   }
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -791,6 +804,7 @@ describe('Listener experience', () => {
     act(() => {
       socket.open();
       socket.message({ type: 'translation_status', session_status: 'live' });
+      socket.message({ text: 'Guten Morgen.' });
     });
     await click(
       container.querySelector('button[aria-label="anhören"]'),
@@ -807,12 +821,15 @@ describe('Listener experience', () => {
       await Promise.resolve();
     });
     expect(container).toHaveTextContent('Die Audiowiedergabe wurde unterbrochen');
+    expect(container).toHaveTextContent('AUDIOWIEDERGABE UNTERBROCHEN');
+    expect(container).not.toHaveTextContent('SESSION LIVE · DEUTSCH');
     expect(container).toHaveTextContent('resume blocked');
     expect(MockAudioContext.sources).toHaveLength(0);
     expect(container.querySelector('[role="alert"] button')).toBeNull();
-    expect(
-      container.querySelector('button[aria-label="Audio fortsetzen"]'),
-    ).not.toBeNull();
+    const recoveryButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Audio fortsetzen"]',
+    );
+    expect(recoveryButton).toHaveTextContent('Audio fortsetzen');
 
     await act(async () => {
       container
@@ -1338,6 +1355,128 @@ describe('Listener experience', () => {
     expect(container).toHaveTextContent('VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT');
     act(() => vi.advanceTimersByTime(1200));
     expect(MockWebSocket.instances).toHaveLength(2);
+  });
+
+  it('reconnects a closed socket when the page becomes visible', () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'off' });
+      socket.readyState = MockWebSocket.CLOSED;
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(container).toHaveTextContent(
+      'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
+    );
+    act(() => vi.advanceTimersByTime(1200));
+    expect(MockWebSocket.instances).toHaveLength(2);
+  });
+
+  it('clears scheduled audio when the socket disconnects', async () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        session_id: 'a',
+      });
+      socket.message({ text: 'Guten Morgen.' });
+    });
+    await click(
+      container.querySelector('button[aria-label="anhören"]'),
+    );
+
+    await act(async () => {
+      socket.audio([1, 0, 2, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(1);
+
+    act(() => socket.close());
+
+    expect(MockAudioContext.sources[0].stop).toHaveBeenCalledOnce();
+    expect(MockAudioContext.sources[0].disconnect).toHaveBeenCalledOnce();
+  });
+
+  it('reconnects a stale socket and resumes audio on visibility return', async () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const firstSocket = MockWebSocket.instances[0];
+    act(() => {
+      firstSocket.open();
+      firstSocket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        session_id: 'a',
+      });
+      firstSocket.message({ text: 'Guten Morgen.' });
+    });
+    await click(
+      container.querySelector('button[aria-label="anhören"]'),
+    );
+
+    const context = MockAudioContext.instances[0];
+    act(() => context.suspend());
+    expect(container).toHaveTextContent('AUDIOWIEDERGABE UNTERBROCHEN');
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    act(() => vi.setSystemTime(new Date(Date.now() + 13000)));
+    expect(firstSocket.readyState).toBe(MockWebSocket.OPEN);
+    expect(context.state).toBe('suspended');
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(firstSocket.readyState).toBe(MockWebSocket.CLOSED);
+    expect(context.state).toBe('running');
+    expect(container).toHaveTextContent(
+      'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
+    );
+    expect(container).not.toHaveTextContent('Die Audiowiedergabe wurde unterbrochen');
+
+    act(() => vi.advanceTimersByTime(1200));
+    const secondSocket = MockWebSocket.instances[1];
+    act(() => {
+      secondSocket.open();
+      secondSocket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        session_id: 'a',
+      });
+      firstSocket.message({
+        type: 'translation_status',
+        session_status: 'off',
+      });
+      firstSocket.audio([1, 0, 2, 0]);
+    });
+    expect(secondSocket.sent).toContainEqual({ type: 'audio', enabled: true });
+    expect(container).toHaveTextContent('WARTEN AUF AUDIO');
+    expect(MockAudioContext.sources).toHaveLength(0);
+
+    await act(async () => {
+      secondSocket.audio([3, 0, 4, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(1);
+    expect(container).toHaveTextContent('SESSION LIVE · DEUTSCH');
   });
 
   it('marks the caption gap left by a reconnect instead of merging sentences', () => {

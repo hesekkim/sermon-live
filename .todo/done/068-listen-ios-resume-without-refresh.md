@@ -1,6 +1,6 @@
 # 068 iOS 복귀 후 페이지 새로고침 없는 Listen 복구
 
-상태: 대기
+상태: 진행
 우선순위: 높음 (화면 잠금/복귀 후 새로고침해야 음성이 들림)
 
 ## Goal
@@ -57,6 +57,16 @@ iOS Safari와 iOS Chrome에서 Listen 페이지가 백그라운드로 갔다가 
 - Safari 및 iOS Chrome에서 정상 청취 시작/중지, 번역 종료, 자막 및 오디오 복구 회귀 테스트가 통과한다.
 - 실기기 수동 검증에서 iOS/Safari 또는 Chrome 버전, 화면 잠금 시간, WebSocket 상태, AudioContext 상태, 사용자 동작 필요 여부만 기록한다. 인증/개인정보/오디오 원문은 남기지 않는다.
 
+## 구현 현황
+
+- 페이지가 visible로 돌아올 때 현재 WebSocket을 확인한다. `OPEN` 상태에서 heartbeat 응답이 stale이거나 소켓이 `CLOSED`/`CLOSING`이면 기존 generation 검사와 재접속 timer 경로로 전환한다. `CONNECTING` 소켓은 기존 handshake timeout을 유지한다.
+- AudioContext 복구 필요 상태를 상단 상태 배지에도 표시하고, 듣기 버튼의 표시 문구 및 복구 안내를 한국어/영어/독일어로 일치시켰다.
+- 재연결 또는 AudioContext 중단 뒤 새 PCM이 AudioBufferSource로 예약될 때까지 오디오 출력 대기 상태를 표시한다. 새 PCM이 도착하기 전에 기존 자막만으로 정상 청취 중처럼 표시하지 않는다.
+- 단위 테스트에서 hidden 상태 동안 WebSocket/AudioContext를 건드리지 않고, visible 복귀 때 stale 소켓 재접속과 AudioContext 재개를 함께 검증한다. 닫힌 소켓 복구, 이전 소켓의 늦은 session/PCM 이벤트 무시, 사용자 gesture 복구, 새 PCM 예약 전후의 상태 배지도 검증했다.
+- 오디오 출력 준비 상태는 새 PCM을 AudioContext에 예약했는지를 나타내며, 실제 장치에서 소리가 들리는지를 보증하지 않는다.
+- `Listen.test.tsx` 및 `liveFlow.test.tsx` 44개 통과, Frontend 타입 검사 및 production build 통과.
+- iPhone Safari/Chrome 실기기 화면 잠금/복귀 검증은 아직 수행하지 않았다. 따라서 티켓은 진행 상태로 유지한다.
+
 ## Tests and manual validation
 
 ### Frontend unit
@@ -64,6 +74,7 @@ iOS Safari와 iOS Chrome에서 Listen 페이지가 백그라운드로 갔다가 
 - fake timers와 mock visibility events로 hidden 상태 동안 timer가 정지되거나 지연된 뒤 visible로 복귀하는 흐름을 검증한다.
 - WebSocket이 open 상태에서 heartbeat stale인 경우와 close event를 받은 경우를 나눠 재연결 여부를 확인한다.
 - AudioContext가 suspended인 경우 자동 resume 성공/실패, closed인 경우 사용자 gesture 복구를 기존 063 계약대로 검증한다.
+- 재연결 후 새 PCM이 예약되기 전에는 오디오 대기 상태를, 예약된 뒤에는 정상 상태를 표시하는지 확인한다.
 - 복구 버튼의 aria-label/status, 사용자가 중지했거나 세션이 끝난 뒤 이전 소켓이 재접속하지 않는지 검증한다.
 
 ### Manual iOS
