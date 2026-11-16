@@ -1,56 +1,31 @@
 .meter {
-  position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
-  height: 0.75rem;
-  border-radius: 999px;
-  border: 1px solid var(--cms-border);
-  background: var(--cms-surface-alt, #f3f4f6);
+  height: 0.875rem;
+  box-sizing: border-box;
   overflow: hidden;
-}
-
-.idle {
-  background: repeating-linear-gradient(
-    90deg,
-    var(--cms-surface-alt, #f3f4f6),
-    var(--cms-surface-alt, #f3f4f6) 10px,
-    var(--cms-border) 10px,
-    var(--cms-border) 12px
-  );
+  border: 0;
+  background: transparent;
 }
 
 .stale {
   opacity: 0.55;
 }
 
-.fill {
-  position: absolute;
-  inset: 0 auto 0 0;
+.bar {
   display: flex;
   align-items: stretch;
-  border-radius: inherit;
-  overflow: hidden;
-  transition: width 120ms ease-out;
+  gap: 0.12rem;
+  width: 100%;
+  height: 100%;
 }
 
 .segment {
-  position: relative;
   flex: 1 1 0;
-  height: 100%;
-  transition: opacity 120ms ease-out;
+  min-width: 0;
+  border-radius: 0.12rem;
+  background: var(--segment-color);
+  transition: opacity 100ms ease-out;
 }
 
-.segment:not(:last-child)::after {
-  position: absolute;
-  z-index: 1;
-  inset: 0 -0.375rem 0 auto;
-  width: 0.75rem;
-  background: linear-gradient(
-    90deg,
-    var(--segment-color) 0%,
-    color-mix(in srgb, var(--segment-color), var(--next-segment-color)) 50%,
-    var(--next-segment-color)
-  );
-  content: '';
-  pointer-events: none;
-}

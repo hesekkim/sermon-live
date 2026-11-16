@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import AudioLevelMeter from '../../src/shared/components/AudioLevelMeter/AudioLevelMeter';
 
 describe('AudioLevelMeter', () => {
-  it('reveals the next color band only after the matching threshold is crossed', () => {
+  it('fills one horizontal segmented bar according to the input signal', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -16,13 +16,39 @@ describe('AudioLevelMeter', () => {
     const meter = container.querySelector('[role="meter"]');
     const segments = meter?.querySelectorAll('[data-segment]');
 
-    expect(segments).toHaveLength(4);
-    expect(Array.from(segments ?? []).map((segment) => segment.getAttribute('data-visible'))).toEqual([
-      'true',
-      'true',
-      'true',
-      'false',
-    ]);
+    expect(meter?.getAttribute('data-mode')).toBe('signal');
+    expect(segments).toHaveLength(24);
+    expect(meter?.querySelectorAll('[data-visible="true"]')).toHaveLength(20);
+    expect(
+      Array.from(meter?.querySelectorAll('[data-visible="false"]') ?? []).every(
+        (segment) => segment.getAttribute('style')?.includes('opacity: 0.3'),
+      ),
+    ).toBe(true);
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('shows the idle color gradient at its default dim level', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(<AudioLevelMeter level={-55} />);
+    });
+
+    const meter = container.querySelector('[role="meter"]');
+    const segments = meter?.querySelectorAll('[data-segment]');
+
+    expect(meter?.getAttribute('data-mode')).toBe('idle');
+    expect(segments).toHaveLength(24);
+    expect(meter?.querySelectorAll('[data-visible="true"]')).toHaveLength(0);
+    expect(
+      Array.from(segments ?? []).every(
+        (segment) => segment.getAttribute('style')?.includes('opacity: 0.3'),
+      ),
+    ).toBe(true);
 
     act(() => root.unmount());
     container.remove();

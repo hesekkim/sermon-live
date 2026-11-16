@@ -3,11 +3,13 @@ import styles from './AudioLevelMeter.module.css';
 
 const MIN_DBFS = -60;
 const MAX_DBFS = 0;
+const SIGNAL_THRESHOLD_DBFS = -50;
+const SEGMENT_COUNT = 24;
 const LEVEL_BANDS = [
-  { threshold: 25, color: '#15803d' },
-  { threshold: 50, color: '#a3e635' },
-  { threshold: 75, color: '#facc15' },
-  { threshold: 100, color: '#ef4444' },
+  { color: '#15803d' },
+  { color: '#a3e635' },
+  { color: '#facc15' },
+  { color: '#ef4444' },
 ];
 
 export interface AudioLevelMeterProps {
@@ -36,20 +38,21 @@ export default function AudioLevelMeter({
     safeLevel === null
       ? 0
       : ((safeLevel - MIN_DBFS) / (MAX_DBFS - MIN_DBFS)) * 100;
-  const fillPercent =
-    safeLevel === null ? 0 : Math.max(5, Math.min(100, percent));
+  const isSignal = safeLevel !== null && safeLevel > SIGNAL_THRESHOLD_DBFS;
+  const litSegments = Math.ceil((percent / 100) * SEGMENT_COUNT);
 
   return (
     <div
       className={[
         styles.meter,
         className,
-        safeLevel === null && !isActive ? styles.idle : '',
+        isSignal ? styles.signal : '',
         isActive ? styles.active : '',
         isStale ? styles.stale : '',
       ]
         .filter(Boolean)
         .join(' ')}
+      data-mode={isSignal ? 'signal' : 'idle'}
       role="meter"
       aria-label={label}
       aria-valuemin={MIN_DBFS}
@@ -63,23 +66,29 @@ export default function AudioLevelMeter({
             : `${safeLevel.toFixed(1)} dBFS${isStale ? `, ${staleLabel}` : ''}`
       }
     >
-      <div className={styles.fill} style={{ width: `${fillPercent}%` }}>
-        {LEVEL_BANDS.map(({ threshold, color }, index) => (
-          <span
-            key={threshold}
-            data-segment
-            data-visible={String(fillPercent >= threshold)}
-            className={styles.segment}
-            style={
-              {
-                background: color,
-                '--segment-color': color,
-                '--next-segment-color': LEVEL_BANDS[index + 1]?.color ?? color,
-                opacity: fillPercent >= threshold ? 1 : 0,
-              } as CSSProperties
-            }
-          />
-        ))}
+      <div className={styles.bar} aria-hidden="true">
+        {Array.from({ length: SEGMENT_COUNT }, (_, index) => {
+          const color =
+            LEVEL_BANDS[
+              Math.floor(index / (SEGMENT_COUNT / LEVEL_BANDS.length))
+            ].color;
+          const isVisible = isSignal && index < litSegments;
+
+          return (
+            <span
+              key={index}
+              data-segment
+              data-visible={String(isVisible)}
+              className={styles.segment}
+              style={
+                {
+                  '--segment-color': color,
+                  opacity: isVisible ? 1 : 0.3,
+                } as CSSProperties
+              }
+            />
+          );
+        })}
       </div>
     </div>
   );
