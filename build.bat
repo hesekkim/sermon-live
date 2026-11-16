@@ -19,6 +19,12 @@ if not exist "backend\.venv\Scripts\python.exe" (
     set "BACKEND_ENV_CREATED=1"
 )
 
+"backend\.venv\Scripts\python.exe" -c "import pip; raise SystemExit(0 if tuple(map(int, pip.__version__.split('.')[:3])) >= (26, 1, 2) else 1)"
+if errorlevel 1 (
+    "backend\.venv\Scripts\python.exe" -m pip install --upgrade "pip>=26.1.2"
+    if errorlevel 1 exit /b 1
+)
+
 if defined BACKEND_ENV_CREATED (
     "backend\.venv\Scripts\python.exe" -m pip install -r backend\requirements.txt
     if errorlevel 1 exit /b 1

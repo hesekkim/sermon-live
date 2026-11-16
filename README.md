@@ -26,6 +26,7 @@ Backend를 직접 실행하려면:
 cd sermon-live/backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade "pip>=26.1.2"
 pip install -r requirements.txt
 copy .env.example .env
 python main.py

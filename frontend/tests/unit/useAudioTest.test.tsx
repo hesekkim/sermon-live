@@ -55,6 +55,7 @@ vi.mock('../../src/pages/Operator/settings/hooks/useOperatorSettings', () => ({
     isSafetyDirty: true,
     isApiModelDirty: true,
     setTimerValue: vi.fn(),
+    validateKey: vi.fn(),
     timerValidation: { fieldErrors: {}, hasErrors: false, message: '' },
     saveDevice: vi.fn(),
     saveSafety: vi.fn(),
