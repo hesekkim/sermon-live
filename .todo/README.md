@@ -12,6 +12,15 @@
 
 개인 예배용 실시간 통역 운영 기능. Server는 계속 실행할 수 있고, 비용이 발생하는 Translation Session만 필요할 때 실행한다.
 
+### Windows/macOS 사용자 배포
+
+1. `070-standalone-packaging-foundation.md` — Python/npm 없이 실행하기 위한 공통 패키징, 리소스 경로 및 사용자 데이터 저장 기반
+2. `071-windows-installable-package.md` — Windows 자체 포함 패키지와 LAN 운영 안내 (`070` 이후)
+3. `072-macos-installable-package.md` — macOS `.app`/DMG, CoreAudio와 마이크 권한 (`070` 이후)
+4. `073-packaged-https-wake-lock.md` — 두 OS 패키지의 HTTPS/WSS 및 모바일 Screen Wake Lock 검증 (`071`, `072` 이후)
+
+첫 대상은 Windows와 macOS다. `build.bat`은 개발자용으로 유지하며, OS별 패키지는 해당 OS에서 빌드·검증한다. HTTPS는 기존 인증서/키 설정을 유지하고, 자동 발급·갱신이나 로컬 CA 자동 생성은 범위에서 제외한다. 코드 서명·공증은 Wake Lock 조건이 아니며, 외부 일반 공개 배포 범위가 정해지면 별도로 결정한다.
+
 ### 지금
 
 `068-listen-ios-resume-without-refresh.md` 구현과 자동 검증은 완료했다. iPhone Safari/Chrome에서 화면 잠금 후 복귀하는 실기기 검증이 남아 있다.
