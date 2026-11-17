@@ -9,6 +9,17 @@ backend_dir = Path(__file__).resolve().parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
+if (
+    getattr(sys, "frozen", False)
+    and len(sys.argv) > 1
+    and sys.argv[1] == "--audio-device-enumerator"
+):
+    sys.argv = [sys.argv[0], *sys.argv[2:]]
+    from services.audio_device_enumerator import main as enumerate_audio_devices
+
+    enumerate_audio_devices()
+    raise SystemExit(0)
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +27,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.v1.api import api_router
+from core.paths import (
+    ensure_user_data_dir,
+    is_packaged,
+    log_directory as get_log_directory,
+    migrate_legacy_project,
+)
 from services.broadcast import hub
 from services.network import detect_lan_ip
 from services.runtime import audio, session, settings
@@ -29,7 +46,9 @@ logger = logging.getLogger(__name__)
 
 
 def configure_verbose_logging(log_directory: Path | None = None) -> Path:
-    directory = log_directory or backend_dir / "logs"
+    directory = log_directory or get_log_directory()
+    if is_packaged():
+        ensure_user_data_dir()
     directory.mkdir(parents=True, exist_ok=True)
     log_path = directory / "sermon-live.log"
     handler = RotatingFileHandler(
@@ -62,8 +81,18 @@ def _resolve_dist_file(dist: Path, full_path: str) -> Path | None:
     return candidate if candidate.is_file() else None
 
 
+def _operator_url(scheme: str, host: str, port: int) -> str:
+    if host in {"0.0.0.0", "::"}:
+        host = "localhost"
+    elif ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    return f"{scheme}://{host}:{port}/operator"
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    if is_packaged():
+        ensure_user_data_dir()
     await audio.start()
     logger.info("Server ready. Translation sessions can be started from the operator page.")
     try:
@@ -120,13 +149,33 @@ if __name__ == "__main__":
         action="store_true",
         help="enable debug logs for application services",
     )
+    parser.add_argument(
+        "--migrate-from",
+        type=Path,
+        help=(
+            "import legacy backend/.env and backend/data/operator.json files, "
+            "then exit"
+        ),
+    )
     args = parser.parse_args()
+    if args.migrate_from is not None:
+        if not is_packaged():
+            parser.error("--migrate-from is available only in a packaged build")
+        migrated = migrate_legacy_project(args.migrate_from)
+        print(
+            f"Imported {len(migrated)} settings file(s). "
+            "Existing user data was preserved."
+        )
+        raise SystemExit(0)
     if args.verbose:
         log_path = configure_verbose_logging()
         logger.info("Verbose diagnostic logging enabled: %s", log_path)
 
     scheme = "https" if settings.ssl_certfile else "http"
-    logger.info("%s://%s:%s", scheme, settings.host, settings.port)
+    logger.info(
+        "Operator URL: %s",
+        _operator_url(scheme, settings.host, settings.port),
+    )
     address = detect_lan_ip()
     if address:
         logger.info(
@@ -134,11 +183,12 @@ if __name__ == "__main__":
         )
     else:
         logger.warning("Could not detect a LAN address for the Listener")
+    packaged = is_packaged()
     uvicorn.run(
-        "main:app",
+        app if packaged or not settings.debug else "main:app",
         host=settings.host,
         port=settings.port,
-        reload=settings.debug,
+        reload=settings.debug and not packaged,
         ssl_certfile=str(settings.ssl_certfile) if settings.ssl_certfile else None,
         ssl_keyfile=str(settings.ssl_keyfile) if settings.ssl_keyfile else None,
         log_level="debug" if args.verbose else "info",

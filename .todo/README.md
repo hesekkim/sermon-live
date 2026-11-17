@@ -14,10 +14,9 @@
 
 ### Windows/macOS 사용자 배포
 
-1. `070-standalone-packaging-foundation.md` — Python/npm 없이 실행하기 위한 공통 패키징, 리소스 경로 및 사용자 데이터 저장 기반
-2. `071-windows-installable-package.md` — Windows 자체 포함 패키지와 LAN 운영 안내 (`070` 이후)
-3. `072-macos-installable-package.md` — macOS `.app`/DMG, CoreAudio와 마이크 권한 (`070` 이후)
-4. `073-packaged-https-wake-lock.md` — 두 OS 패키지의 HTTPS/WSS 및 모바일 Screen Wake Lock 검증 (`071`, `072` 이후)
+1. `071-windows-installable-package.md` — Windows 자체 포함 패키지와 LAN 운영 안내 (`070` 공통 기반 완료)
+2. `072-macos-installable-package.md` — macOS `.app`/DMG, CoreAudio와 마이크 권한 (`070` 공통 기반 완료)
+3. `073-packaged-https-wake-lock.md` — 두 OS 패키지의 HTTPS/WSS 및 모바일 Screen Wake Lock 검증 (`071`, `072` 이후)
 
 첫 대상은 Windows와 macOS다. `build.bat`은 개발자용으로 유지하며, OS별 패키지는 해당 OS에서 빌드·검증한다. HTTPS는 기존 인증서/키 설정을 유지하고, 자동 발급·갱신이나 로컬 CA 자동 생성은 범위에서 제외한다. 코드 서명·공증은 Wake Lock 조건이 아니며, 외부 일반 공개 배포 범위가 정해지면 별도로 결정한다.
 
@@ -103,6 +102,7 @@
 58. `063-listen-audio-context-recovery.md` — 모바일 Safari 화면 잠금/복귀 후 Listen 오디오 재생 복구 (구현·자동 검증 완료; iOS 실기기 검증은 미수행)
 59. `067-backend-audio-device-default-fallback.md` — 저장 장치 부재 시 OS 기본 입력으로 fallback하고 Operator에 effective device 표시
 60. `069-listen-background-audio-capability.md` — Listen 화면 켜짐 유지, HTTPS/WSS 설정 및 Wake Lock 상태 안내 (구현·문서·자동 검증 완료; 실기기 검증 미수행)
+61. `070-standalone-packaging-foundation.md` — 독립 실행 패키징 공통 기반, OS별 사용자 데이터 경로, 비파괴 설정 이전 및 Windows smoke package
 
 ## 결정 사항
 

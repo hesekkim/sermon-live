@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+from core.paths import app_data_dir
+
+DATA_DIR = app_data_dir()
 STORE_PATH = DATA_DIR / "sermon_session.json"
 VALID_STATUSES = {"prepare", "ready", "ended"}
 

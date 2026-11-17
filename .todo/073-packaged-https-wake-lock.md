@@ -9,7 +9,7 @@ Windows와 macOS 패키지에서 기존 HTTPS/WSS 설정을 사용할 수 있게
 
 ## Depends on
 
-- `.todo/070-standalone-packaging-foundation.md`
+- `.todo/done/070-standalone-packaging-foundation.md`
 - `.todo/071-windows-installable-package.md`
 - `.todo/072-macos-installable-package.md`
 

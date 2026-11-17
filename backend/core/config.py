@@ -6,12 +6,14 @@ from pydantic import field_validator, model_validator
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from core.paths import env_file_path, frontend_dist_path
+
 InterpreterName = Literal["echo", "openai"]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(Path(__file__).resolve().parent.parent / ".env"),
+        env_file=str(env_file_path()),
         env_file_encoding="utf-8",
         env_prefix="APP_",
         extra="ignore",
@@ -100,7 +102,7 @@ class Settings(BaseSettings):
     def frontend_dist_path(self) -> Path:
         if self.frontend_dist:
             return Path(self.frontend_dist)
-        return Path(__file__).resolve().parents[2] / "frontend" / "dist"
+        return frontend_dist_path()
 
 
 @lru_cache

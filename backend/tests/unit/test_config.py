@@ -34,6 +34,16 @@ def test_allowed_origins_accepts_comma_separated_env(monkeypatch, tmp_path):
     ]
 
 
+def test_process_environment_overrides_env_file(monkeypatch, tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("APP_PORT=8081\n", encoding="utf-8")
+    monkeypatch.setenv("APP_PORT", "8082")
+
+    settings = Settings(_env_file=env_file)
+
+    assert settings.port == 8082
+
+
 def test_interpreter_rejects_unsupported_literal():
     with pytest.raises(ValidationError):
         Settings(interpreter="unsupported")

@@ -9,7 +9,7 @@ Python과 Node.js/npm이 설치되지 않은 macOS 운영자 컴퓨터에서 설
 
 ## Depends on
 
-- `.todo/070-standalone-packaging-foundation.md`
+- `.todo/done/070-standalone-packaging-foundation.md`
 
 ## Scope
 

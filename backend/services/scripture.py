@@ -7,9 +7,11 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+from core.paths import scripture_path
+
 logger = logging.getLogger(__name__)
 
-SCRIPTURE_PATH = Path(__file__).resolve().parents[1] / "data" / "scripture" / "deu1912_vpl.xml"
+SCRIPTURE_PATH = scripture_path()
 MAX_REFERENCE_BUFFER = 512
 
 _BOOKS: tuple[tuple[str, str, tuple[str, ...]], ...] = (

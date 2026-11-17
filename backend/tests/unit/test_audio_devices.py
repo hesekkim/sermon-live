@@ -1,5 +1,6 @@
 import asyncio
 import json
+import sys
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -343,6 +344,38 @@ def test_device_enumeration_refresh_discovers_newly_connected_input(monkeypatch)
         and command[3] == "standard"
         for command, _kwargs in calls
     )
+
+
+def test_frozen_device_enumeration_uses_packaged_executable(monkeypatch):
+    calls = []
+
+    def run_enumerator(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(stdout="[]")
+
+    monkeypatch.setattr("services.audio_devices.sys.frozen", True, raising=False)
+    monkeypatch.setattr(
+        "services.audio_devices.subprocess.run",
+        run_enumerator,
+    )
+
+    assert list_input_devices("all") == []
+    assert calls == [
+        (
+            [
+                sys.executable,
+                "--audio-device-enumerator",
+                "all",
+            ],
+            {
+                "cwd": None,
+                "capture_output": True,
+                "check": True,
+                "text": True,
+                "timeout": 30,
+            },
+        )
+    ]
 
 
 def test_audio_capture_retry_does_not_restart_ready_capture(monkeypatch, operator_client):

@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from core.config import InterpreterName, Settings
+from core.paths import app_data_dir, ensure_user_data_dir, is_packaged
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+DATA_DIR = app_data_dir()
 STORE_PATH = DATA_DIR / "operator.json"
 
 
@@ -130,7 +131,10 @@ class OperatorSettingsStore:
             ),
             **timer_updates,
         )
-        self._path.parent.mkdir(parents=True, exist_ok=True)
+        if is_packaged() and self._path.parent == app_data_dir():
+            ensure_user_data_dir(self._path.parent)
+        else:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
         payload: dict[str, Any] = {
             "interpreter": record.interpreter,
             "openai_api_key": record.openai_api_key,
@@ -213,7 +217,10 @@ class OperatorSettingsStore:
             raw = {}
         raw[f"{provider}_key_status"] = status
         raw[f"{provider}_key_warning"] = warning
-        self._path.parent.mkdir(parents=True, exist_ok=True)
+        if is_packaged() and self._path.parent == app_data_dir():
+            ensure_user_data_dir(self._path.parent)
+        else:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
         self._path.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
 
     def _read_status_overrides(self) -> dict[str, tuple[str | None, str | None]]:

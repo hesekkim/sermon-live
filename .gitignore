@@ -10,6 +10,7 @@ pytest-cache-files*/
 .mypy_cache/
 node_modules/
 dist/
+build/
 *.tsbuildinfo
 .DS_Store
 frontend/test-results/

@@ -138,16 +138,21 @@ def _list_input_devices_in_current_process(
 
 
 def list_input_devices(mode: str = "standard") -> list[dict[str, object]]:
-    command = [
-        sys.executable,
-        "-m",
-        "services.audio_device_enumerator",
-        mode,
-    ]
+    if getattr(sys, "frozen", False):
+        command = [sys.executable, "--audio-device-enumerator", mode]
+        working_directory = None
+    else:
+        command = [
+            sys.executable,
+            "-m",
+            "services.audio_device_enumerator",
+            mode,
+        ]
+        working_directory = Path(__file__).resolve().parent.parent
     try:
         result = subprocess.run(
             command,
-            cwd=Path(__file__).resolve().parent.parent,
+            cwd=working_directory,
             capture_output=True,
             check=True,
             text=True,
