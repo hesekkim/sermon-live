@@ -8,6 +8,7 @@ from services.operator_auth import _login_failures
 TEST_PASSWORD = "test-only-password"
 TEST_SESSION_SECRET = "test-only-session-secret-with-at-least-32-bytes"
 SAME_ORIGIN = "http://testserver"
+HTTPS_ORIGIN = "https://testserver"
 
 
 def configure_auth(monkeypatch):
@@ -15,18 +16,20 @@ def configure_auth(monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "operator_password", SecretStr(TEST_PASSWORD))
     monkeypatch.setattr(
-        settings, "allowed_origins", [*settings.allowed_origins, SAME_ORIGIN]
+        settings,
+        "allowed_origins",
+        [*settings.allowed_origins, SAME_ORIGIN, HTTPS_ORIGIN],
     )
     monkeypatch.setattr(
         settings, "operator_session_secret", SecretStr(TEST_SESSION_SECRET)
     )
 
 
-def login(client: TestClient):
+def login(client: TestClient, origin: str = SAME_ORIGIN):
     return client.post(
         "/api/v1/auth/login",
         json={"password": TEST_PASSWORD},
-        headers={"Origin": SAME_ORIGIN},
+        headers={"Origin": origin},
     )
 
 
@@ -49,6 +52,25 @@ def test_login_sets_signed_http_only_session_and_session_endpoint_returns_csrf(
         session = client.get("/api/v1/auth/session")
         assert session.json()["authenticated"] is True
         assert session.json()["csrf_token"] == response.json()["csrf_token"]
+
+
+def test_https_login_and_logout_set_secure_session_cookie(monkeypatch):
+    configure_auth(monkeypatch)
+    with TestClient(app, base_url=HTTPS_ORIGIN) as client:
+        response = login(client, HTTPS_ORIGIN)
+        assert response.status_code == 200
+        assert "secure" in response.headers["set-cookie"].lower()
+
+        client.headers.update(
+            {
+                "Origin": HTTPS_ORIGIN,
+                "X-CSRF-Token": response.json()["csrf_token"],
+            }
+        )
+        logout = client.post("/api/v1/auth/logout")
+
+    assert logout.status_code == 200
+    assert "secure" in logout.headers["set-cookie"].lower()
 
 
 def test_invalid_password_and_untrusted_login_origin_are_rejected(monkeypatch):

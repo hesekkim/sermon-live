@@ -35,13 +35,13 @@ def _check_origin(request: Request) -> None:
         )
 
 
-def _set_session_cookie(response: Response, value: str) -> None:
+def _set_session_cookie(response: Response, value: str, *, secure: bool) -> None:
     response.set_cookie(
         key=SESSION_COOKIE,
         value=value,
         max_age=SESSION_MAX_AGE_SECONDS,
         httponly=True,
-        secure=False,
+        secure=secure,
         samesite="strict",
         path="/",
     )
@@ -65,7 +65,9 @@ async def login(body: LoginBody, request: Request, response: Response) -> dict[s
 
     clear_login_failures(request)
     cookie, csrf_token = create_session()
-    _set_session_cookie(response, cookie)
+    _set_session_cookie(
+        response, cookie, secure=request.url.scheme == "https"
+    )
     return {"authenticated": True, "csrf_token": csrf_token}
 
 
@@ -97,7 +99,7 @@ async def logout(request: Request, response: Response) -> dict[str, bool]:
     response.delete_cookie(
         key=SESSION_COOKIE,
         httponly=True,
-        secure=False,
+        secure=request.url.scheme == "https",
         samesite="strict",
         path="/",
     )

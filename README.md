@@ -8,7 +8,8 @@
 
 - `backend/` — FastAPI, 오디오 캡처, 통역 adapter, 방송
 - `frontend/` — Vite React 청취 페이지와 운영자 화면
-- `.agent/rules/` — agent 규칙 (`.cursor` 아님)
+- `.github/instructions/` — Copilot 작업 지침
+- `.cursor/rules/` — Cursor 작업 규칙
 
 ## 실행
 

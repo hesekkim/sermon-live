@@ -98,7 +98,7 @@
 ## 결정 사항
 
 - FastAPI + Vite React. Next.js 사용하지 않음
-- 룰은 `.agent/rules`. `.cursor/rules` 없음
+- Copilot 지침은 `.github/instructions`, Cursor 규칙은 `.cursor/rules`에 둔다.
 - 통역 API는 `LiveInterpreter` injection. 파이프라인에 vendor 분기 금지
 - 1차 UI: 성도 Listen + 방송실 Operator React
 - 최종 제품은 OpenAI(`gpt-realtime-translate`)만 사용. Gemini는 baseline으로만 git tag 보존 후 001에서 제거

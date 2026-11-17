@@ -49,6 +49,19 @@ def configure_verbose_logging(log_directory: Path | None = None) -> Path:
     return log_path
 
 
+def _resolve_dist_file(dist: Path, full_path: str) -> Path | None:
+    if not full_path:
+        return None
+
+    dist_root = dist.resolve()
+    candidate = (dist_root / full_path).resolve()
+    try:
+        candidate.relative_to(dist_root)
+    except ValueError:
+        return None
+    return candidate if candidate.is_file() else None
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await audio.start()
@@ -89,8 +102,8 @@ def create_application() -> FastAPI:
 
         @application.get("/{full_path:path}")
         async def spa(full_path: str):
-            candidate = dist / full_path
-            if full_path and candidate.is_file():
+            candidate = _resolve_dist_file(dist, full_path)
+            if candidate is not None:
                 return FileResponse(candidate)
             return FileResponse(dist / "index.html")
 
