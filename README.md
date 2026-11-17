@@ -50,7 +50,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 비밀번호를 변경해도 이미 발급된 쿠키는 취소되지 않으며, 12시간 후 만료됩니다. 모든 Operator 세션을 즉시 취소해야 한다면 session secret도 교체하세요.
 
-`APP_ALLOWED_ORIGINS`에는 Operator 브라우저에서 사용하는 정확한 origin을 지정해야 합니다. 기본값에는 Vite localhost URL이 포함되어 있습니다. 노트북 LAN 주소로 통합 UI를 열 경우 해당 origin을 추가하세요(예: `http://192.168.1.20:8080`). `*`는 사용하지 마세요.
+`APP_ALLOWED_ORIGINS`에는 Operator 브라우저에서 사용하는 정확한 origin을 지정해야 합니다. 기본값에는 Vite 개발 URL과 통합 UI의 `localhost:8080`, `127.0.0.1:8080`이 포함되어 있습니다. 노트북 LAN 주소로 통합 UI를 열 경우 해당 origin을 추가하세요(예: `http://192.168.1.20:8080`). `*`는 사용하지 마세요.
 
 Operator API, 오디오 도구, `/ws/operator`에는 로그인이 필요합니다. `/health`, `/listen`, `/ws/listen`은 LAN 기기에서 로그인 없이 사용할 수 있습니다. 해당 Wi-Fi에 연결된 누구나 실시간 오디오와 자막을 들을 수 있습니다. Windows에서는 연결된 네트워크를 **Private**로 설정하고, Windows Defender Firewall에서 Python/sermon-live를 **Private networks**에만 허용하세요. 이 서버를 위해 라우터 포트 포워딩을 활성화하지 마세요.
 

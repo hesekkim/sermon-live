@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     allowed_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
     ]
     interpreter: InterpreterName = "echo"
     openai_api_key: str = ""

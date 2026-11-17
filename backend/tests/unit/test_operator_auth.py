@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
-from core.config import get_settings
+from core.config import Settings, get_settings
 from main import app
 from services.operator_auth import _login_failures
 
@@ -52,6 +52,19 @@ def test_login_sets_signed_http_only_session_and_session_endpoint_returns_csrf(
         session = client.get("/api/v1/auth/session")
         assert session.json()["authenticated"] is True
         assert session.json()["csrf_token"] == response.json()["csrf_token"]
+
+
+def test_login_accepts_integrated_operator_ui_origin(monkeypatch):
+    configure_auth(monkeypatch)
+    monkeypatch.setattr(
+        get_settings(),
+        "allowed_origins",
+        Settings(_env_file=None).allowed_origins,
+    )
+    with TestClient(app) as client:
+        response = login(client, "http://localhost:8080")
+
+    assert response.status_code == 200
 
 
 def test_https_login_and_logout_set_secure_session_cookie(monkeypatch):

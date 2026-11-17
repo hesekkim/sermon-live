@@ -34,6 +34,13 @@ def test_allowed_origins_accepts_comma_separated_env(monkeypatch, tmp_path):
     ]
 
 
+def test_default_allowed_origins_include_integrated_operator_ui():
+    settings = Settings(_env_file=None)
+
+    assert "http://localhost:8080" in settings.allowed_origins
+    assert "http://127.0.0.1:8080" in settings.allowed_origins
+
+
 def test_process_environment_overrides_env_file(monkeypatch, tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text("APP_PORT=8081\n", encoding="utf-8")
