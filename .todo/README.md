@@ -21,6 +21,7 @@
 1. `064-openai-translation-audio-output-diagnostics.md` — OpenAI Translation audio delta부터 mixer·Listener 재생까지 음성 누락 진단
 2. `066-backend-audio-device-hotplug-refresh.md` — 서버 재시작 없이 새 입력 장치 재검색 및 캡처 복구
 3. `068-listen-ios-resume-without-refresh.md` — iOS Safari/Chrome 복귀 후 페이지 새로고침 없는 청취 복구 (구현·자동 검증 완료, 실기기 검증 대기)
+4. `070-operator-hotspot-qr-sharing.md` — Operator에서 Windows 핫스팟 연결 QR과 Listener QR을 함께 공유
 
 ## 보류 (`hold/`)
 

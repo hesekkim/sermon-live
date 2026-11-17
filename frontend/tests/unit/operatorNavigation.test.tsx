@@ -199,9 +199,9 @@ describe('Operator navigation', () => {
 
     let dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;
     const firstUrl = buildListenQrUrl(window.location.origin, detectedLanIp);
-    expect((dialog.querySelector('input') as HTMLInputElement).value).toBe(
-      firstUrl,
-    );
+    expect(
+      (dialog.querySelector('input[readonly]') as HTMLInputElement).value,
+    ).toBe(firstUrl);
     expect(dialog.querySelector('svg')).not.toBeNull();
 
     const copyButton = Array.from(dialog.querySelectorAll('button')).find(
@@ -224,9 +224,9 @@ describe('Operator navigation', () => {
       await Promise.resolve();
     });
     dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;
-    expect((dialog.querySelector('input') as HTMLInputElement).value).toBe(
-      buildListenQrUrl(window.location.origin, detectedLanIp),
-    );
+    expect(
+      (dialog.querySelector('input[readonly]') as HTMLInputElement).value,
+    ).toBe(buildListenQrUrl(window.location.origin, detectedLanIp));
 
     page.cleanup();
   });

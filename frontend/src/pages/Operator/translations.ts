@@ -189,6 +189,21 @@ export interface OperatorCopy {
   listenQrCopied: string;
   listenQrCopyFailed: string;
   listenQrRefresh: string;
+  hotspotQrTitle: string;
+  hotspotQrInstructions: string;
+  hotspotSsid: string;
+  hotspotSecurity: string;
+  hotspotSecurityOpen: string;
+  hotspotSecurityWpa: string;
+  hotspotSecurityWpa2: string;
+  hotspotSecurityWpa3: string;
+  hotspotPassword: string;
+  hotspotIpv4: string;
+  hotspotWifiQrTitle: string;
+  hotspotListenerQrTitle: string;
+  hotspotWifiQrUnavailable: string;
+  hotspotListenerQrUnavailable: string;
+  hotspotWpaQrNote: string;
 }
 
 export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
@@ -392,6 +407,25 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     listenQrCopied: '주소를 복사했습니다',
     listenQrCopyFailed: '주소를 복사하지 못했습니다',
     listenQrRefresh: '다시 확인',
+    hotspotQrTitle: '핫스팟 QR 공유',
+    hotspotQrInstructions:
+      'Windows Mobile Hotspot을 켜고 정보를 입력하세요. 비밀번호는 이 화면을 닫으면 폐기되며 저장되지 않습니다.',
+    hotspotSsid: 'Wi-Fi 이름(SSID)',
+    hotspotSecurity: '보안 방식',
+    hotspotSecurityOpen: '보안 없음',
+    hotspotSecurityWpa: 'WPA',
+    hotspotSecurityWpa2: 'WPA2',
+    hotspotSecurityWpa3: 'WPA3',
+    hotspotPassword: 'Wi-Fi 비밀번호',
+    hotspotIpv4: '핫스팟 IPv4 주소',
+    hotspotWifiQrTitle: '1. 핫스팟 Wi-Fi 연결',
+    hotspotListenerQrTitle: '2. 청취 페이지 열기',
+    hotspotWifiQrUnavailable:
+      'SSID와 유효한 보안 정보를 입력하세요. WPA 비밀번호는 8~63바이트 또는 64자리 16진수여야 합니다.',
+    hotspotListenerQrUnavailable:
+      '핫스팟에 연결된 기기가 접근할 수 있는 사설 IPv4 주소를 입력하세요.',
+    hotspotWpaQrNote:
+      'Wi-Fi QR 표준은 WPA, WPA2, WPA3 보안을 모두 WPA 유형으로 표시합니다. SSID는 UTF-8 기준 32바이트 이하여야 합니다.',
   },
   en: {
     brand: 'Sermon Live',
@@ -595,6 +629,25 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     listenQrCopied: 'Address copied',
     listenQrCopyFailed: 'Could not copy the address',
     listenQrRefresh: 'Check again',
+    hotspotQrTitle: 'Hotspot QR sharing',
+    hotspotQrInstructions:
+      'Turn on Windows Mobile Hotspot and enter its details. The password is discarded when this screen closes and is never saved.',
+    hotspotSsid: 'Wi-Fi name (SSID)',
+    hotspotSecurity: 'Security',
+    hotspotSecurityOpen: 'Open',
+    hotspotSecurityWpa: 'WPA',
+    hotspotSecurityWpa2: 'WPA2',
+    hotspotSecurityWpa3: 'WPA3',
+    hotspotPassword: 'Wi-Fi password',
+    hotspotIpv4: 'Hotspot IPv4 address',
+    hotspotWifiQrTitle: '1. Connect to hotspot Wi-Fi',
+    hotspotListenerQrTitle: '2. Open the Listener page',
+    hotspotWifiQrUnavailable:
+      'Enter an SSID and valid security details. WPA passwords must be 8–63 bytes or 64 hexadecimal characters.',
+    hotspotListenerQrUnavailable:
+      'Enter a private IPv4 address that devices connected to the hotspot can reach.',
+    hotspotWpaQrNote:
+      'The Wi-Fi QR standard represents WPA, WPA2, and WPA3 security with the WPA type. SSIDs must be at most 32 UTF-8 bytes.',
   },
   de: {
     brand: 'Sermon Live',
@@ -799,5 +852,24 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     listenQrCopied: 'Adresse kopiert',
     listenQrCopyFailed: 'Adresse konnte nicht kopiert werden',
     listenQrRefresh: 'Erneut prüfen',
+    hotspotQrTitle: 'Hotspot-QR teilen',
+    hotspotQrInstructions:
+      'Windows Mobile Hotspot einschalten und die Daten eingeben. Das Passwort wird beim Schließen verworfen und nie gespeichert.',
+    hotspotSsid: 'WLAN-Name (SSID)',
+    hotspotSecurity: 'Sicherheit',
+    hotspotSecurityOpen: 'Offen',
+    hotspotSecurityWpa: 'WPA',
+    hotspotSecurityWpa2: 'WPA2',
+    hotspotSecurityWpa3: 'WPA3',
+    hotspotPassword: 'WLAN-Passwort',
+    hotspotIpv4: 'Hotspot-IPv4-Adresse',
+    hotspotWifiQrTitle: '1. Mit dem Hotspot-WLAN verbinden',
+    hotspotListenerQrTitle: '2. Hörerseite öffnen',
+    hotspotWifiQrUnavailable:
+      'SSID und gültige Sicherheitsdaten eingeben. WPA-Passwörter müssen 8–63 Byte oder 64 hexadezimale Zeichen lang sein.',
+    hotspotListenerQrUnavailable:
+      'Eine private IPv4-Adresse eingeben, die Geräte im Hotspot erreichen können.',
+    hotspotWpaQrNote:
+      'Der WLAN-QR-Standard verwendet für WPA, WPA2 und WPA3 denselben WPA-Typ. SSIDs dürfen höchstens 32 UTF-8-Byte umfassen.',
   },
 };
