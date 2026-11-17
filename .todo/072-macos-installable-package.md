@@ -1,6 +1,6 @@
 # 072 macOS 설치 패키지
 
-상태: 대기
+상태: 진행
 우선순위: 높음
 
 ## Goal
@@ -35,6 +35,9 @@ Python과 Node.js/npm이 설치되지 않은 macOS 운영자 컴퓨터에서 설
 - 마이크 권한 거부 시 사용자가 설정에서 다시 허용할 방법을 명확히 안내한다.
 - 미서명 테스트 패키지는 macOS의 Gatekeeper 경고를 표시할 수 있음을 문서화한다. 외부 일반 공개 배포가 확정되면 서명·공증은 별도 범위로 다룬다.
 - HTTPS와 모바일 Screen Wake Lock 검증은 `.todo/073-packaged-https-wake-lock.md`에서 다룬다.
+- Universal package 대신 Apple Silicon `arm64`와 Intel `x86_64` DMG를 각각 빌드한다. 각 패키지는 같은 아키텍처의 Mac에서 만든다.
+- PyInstaller `.app`에는 `NSMicrophoneUsageDescription`을 넣고, Terminal이 계속 표시되도록 `.command` launcher로 실행·종료한다.
+- 개발 환경은 Windows이므로 DMG 빌드와 실제 CoreAudio/권한 검증을 수행할 수 없다. macOS에서 진행할 검증은 완료로 표시하지 않는다.
 
 ## Acceptance criteria
 
@@ -59,3 +62,9 @@ Python과 Node.js/npm이 설치되지 않은 macOS 운영자 컴퓨터에서 설
 - [ ] 실제 Mac에서 마이크 권한 요청, CoreAudio 장치 enumeration, Audio Test를 확인한다. 자동 테스트에서 실제 마이크를 사용하지 않는다.
 - [ ] 같은 Wi-Fi의 청중 브라우저에서 `/listen` 접속을 확인한다.
 - [ ] 서버 재실행과 패키지 업데이트 후 사용자 설정이 보존되는지 확인한다.
+
+## Progress
+
+- macOS용 PyInstaller `.app` spec, 아키텍처별 DMG build script, Terminal launcher와 사용자 안내를 추가했다.
+- macOS 마이크 권한 문구를 앱 bundle metadata에 포함하고 Operator 입력 장치 화면에 권한 복구 안내를 표시한다.
+- 실제 Mac 빌드 및 모든 수동 acceptance criteria는 검증되지 않았으며, macOS 환경에서 검증 후에만 완료 처리한다.

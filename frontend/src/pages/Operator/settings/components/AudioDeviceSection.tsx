@@ -87,6 +87,7 @@ export default function AudioDeviceSection({
   onRunTest,
   onStopTest,
 }: AudioDeviceSectionProps) {
+  const isMacOS = /Macintosh|Mac OS X/.test(navigator.userAgent);
   const selectedDeviceIsAvailable = options.some(
     (option) => option.value === selectedDevice,
   );
@@ -165,6 +166,9 @@ export default function AudioDeviceSection({
       ) : null}
       {!isLoading && !hasLoadError && !hasDevices ? (
         <p role="status">{labels.audioDeviceEmpty}</p>
+      ) : null}
+      {isMacOS ? (
+        <p role="note">{labels.audioDeviceMacPermissionHelp}</p>
       ) : null}
       {deviceSaveError ? <p role="alert">{deviceSaveError}</p> : null}
       {!isAudioReady && !isSessionBusy && isSettingsLoaded ? (

@@ -44,6 +44,7 @@ export interface OperatorCopy {
   audioDeviceSessionConflict: string;
   audioDeviceLoadFailed: string;
   audioCaptureUnavailable: string;
+  audioDeviceMacPermissionHelp: string;
   audioCaptureRetry: string;
   audioCaptureRetrying: string;
   audioTest: string;
@@ -237,6 +238,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
       '통역 세션을 중지한 뒤 입력 장치를 바꾸거나 테스트하세요.',
     audioDeviceLoadFailed: '입력 장치를 불러오지 못했습니다',
     audioCaptureUnavailable: '장치 목록 조회와 별개로 입력 캡처가 준비되지 않았습니다.',
+    audioDeviceMacPermissionHelp:
+      'macOS에서 장치가 보이지 않거나 캡처에 실패하면 시스템 설정 > 개인정보 보호 및 보안 > 마이크에서 Sermon Live를 허용한 뒤 앱을 다시 시작하세요.',
     audioCaptureRetry: '입력 캡처 다시 시도',
     audioCaptureRetrying: '입력 캡처 재시도 중...',
     audioTest: '오디오 테스트',
@@ -438,6 +441,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
       'Stop the translation session before changing or testing the input device.',
     audioDeviceLoadFailed: 'Could not load input devices',
     audioCaptureUnavailable: 'Input capture is not ready; refreshing the device list does not start capture.',
+    audioDeviceMacPermissionHelp:
+      'On macOS, if no device appears or capture fails, allow Sermon Live in System Settings > Privacy & Security > Microphone, then restart the app.',
     audioCaptureRetry: 'Retry input capture',
     audioCaptureRetrying: 'Retrying input capture...',
     audioTest: 'Audio test',
@@ -641,6 +646,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
       'Beenden Sie die Übersetzungssitzung, bevor Sie das Eingabegerät ändern oder testen.',
     audioDeviceLoadFailed: 'Eingabegeräte konnten nicht geladen werden',
     audioCaptureUnavailable: 'Die Eingabeaufnahme ist nicht bereit; eine Geräteaktualisierung startet sie nicht.',
+    audioDeviceMacPermissionHelp:
+      'Wenn unter macOS kein Gerät angezeigt wird oder die Aufnahme fehlschlägt, erlauben Sie Sermon Live unter Systemeinstellungen > Datenschutz & Sicherheit > Mikrofon und starten Sie die App neu.',
     audioCaptureRetry: 'Eingabeaufnahme erneut versuchen',
     audioCaptureRetrying: 'Eingabeaufnahme wird erneut gestartet...',
     audioTest: 'Audio-Test',

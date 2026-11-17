@@ -22,6 +22,8 @@ Operator의 입력 장치 목록은 기본적으로 현재 OS의 표준 capture 
 
 macOS에서는 PyAudio가 CoreAudio 지원 PortAudio와 함께 설치되어야 하고 backend를 실행하는 앱/프로세스에 Microphone 권한이 필요하다. macOS 실기기 Audio Test를 별도로 수행한다.
 
+macOS 패키지에서 입력 장치가 보이지 않거나 capture가 실패하면 `System Settings > Privacy & Security > Microphone`에서 Sermon Live를 허용하고 서버를 다시 시작한다. Operator의 입력 장치 설정에도 이 복구 경로가 표시된다.
+
 **Capture stream format**
 
 AudioCapture는 설정 sample rate, 장치 default rate 및 정해진 fallback rate를 순서대로 시도하고, mono부터 장치 metadata의 `maxInputChannels` 범위 안에서 채널 수를 시도한다. 각 조합은 PCM16, PCM24, PCM32, PCM8 순서로 실제 stream을 열어 선택한다. 성공한 PyAudio stream의 tuple `(sample_rate, channels, sample_width)`이 AudioProcessor의 source format이다.
