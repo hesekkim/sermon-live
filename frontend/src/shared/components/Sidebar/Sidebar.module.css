@@ -48,9 +48,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-left: var(--cf-space-8);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-body, inherit);
   font-size: 1.125rem;
   font-weight: 600;
+  letter-spacing: -0.02em;
   text-align: left;
   color: var(--cms-text, var(--cf-neutral-700));
   text-decoration: none;
@@ -64,9 +65,10 @@
   overflow: hidden;
   padding-left: var(--cf-space-8);
   color: var(--cms-text, var(--cf-neutral-700));
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-body, inherit);
   font-size: 1.125rem;
   font-weight: 600;
+  letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -93,7 +95,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 1.4rem;
 }
 
 .brand:hover {
