@@ -49,9 +49,19 @@ export default function Listen() {
   } = useListenAudio();
   const { fontSize, setFontSize, setTheme, theme } = useListenerPreferences();
   const copy = getListenerCopy();
-  useScreenWakeLock(
+  const screenWakeLockStatus = useScreenWakeLock(
     isListening && sessionStatus === 'live' && !sessionEnded,
   );
+  const screenWakeLockMessage =
+    screenWakeLockStatus === 'insecure'
+      ? copy.wakeLock.insecure
+      : screenWakeLockStatus === 'unsupported'
+        ? copy.wakeLock.unsupported
+        : screenWakeLockStatus === 'requestFailed'
+          ? copy.wakeLock.requestFailed
+          : screenWakeLockStatus === 'released'
+            ? copy.wakeLock.released
+            : '';
   const [scriptureCards, setScriptureCards] = useState<ScripturePassage[]>([]);
   useLayoutEffect(() => {
     if (subtitleLines.length === 0) return;
@@ -177,6 +187,11 @@ export default function Listen() {
             {subtitle || subtitlePlaceholder}
           </p>
         )}
+        {isRetrying ? (
+          <p className={styles.connectionHelp} role="note">
+            {copy.connectionHelp}
+          </p>
+        ) : null}
         {scriptureCardsForDisplay.length > 0 ? (
           <ScripturePopup
             scriptures={scriptureCardsForDisplay}
@@ -254,9 +269,12 @@ export default function Listen() {
             </button>
           </div>
         </div>
-        {audioRecoveryRequired || audioError ? (
+        {screenWakeLockMessage || audioRecoveryRequired || audioError ? (
           <div className={styles.audioRecovery} role="alert">
-            <p>{copy.recoveryMessage}</p>
+            {screenWakeLockMessage ? <p>{screenWakeLockMessage}</p> : null}
+            {audioRecoveryRequired || audioError ? (
+              <p>{copy.recoveryMessage}</p>
+            ) : null}
           </div>
         ) : null}
         <div className={styles.powered}>POWERED BY CHURCHTRANSLATOR.AT</div>

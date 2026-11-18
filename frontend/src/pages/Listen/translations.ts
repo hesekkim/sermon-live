@@ -28,6 +28,15 @@ const listenerCopy = {
       off: 'Die Übersetzung ist ausgeschaltet.',
       waiting: 'Die Übersetzung erscheint hier.',
     },
+    connectionHelp:
+      'Wenn die Verbindung weiterhin fehlschlägt, öffnen Sie diese Seite bitte in einem anderen Browser erneut, zum Beispiel Chrome.',
+    wakeLock: {
+      insecure:
+        'Für das Wachhalten des Bildschirms ist eine vertrauenswürdige HTTPS-Verbindung erforderlich.',
+      unsupported: 'Der Browser unterstützt das Wachhalten des Bildschirms nicht.',
+      requestFailed: 'Der Bildschirm konnte nicht wachgehalten werden.',
+      released: 'Das Betriebssystem hat die Bildschirmsperre freigegeben.',
+    },
     changeToDark: 'Dunkles Design aktivieren',
     changeToLight: 'Helles Design aktivieren',
     transcript: 'Deutsche Übersetzung',
@@ -71,6 +80,15 @@ const listenerCopy = {
       off: 'Translation is off.',
       waiting: 'The translation will appear here.',
     },
+    connectionHelp:
+      'If the connection keeps failing, try reopening this page in another browser, such as Chrome.',
+    wakeLock: {
+      insecure:
+        'Keeping the screen awake requires a secure HTTPS connection.',
+      unsupported: 'This browser does not support keeping the screen awake.',
+      requestFailed: 'The screen could not be kept awake.',
+      released: 'The operating system released the screen lock.',
+    },
     changeToDark: 'Change to dark theme',
     changeToLight: 'Change to light theme',
     transcript: 'German translation',
@@ -113,6 +131,14 @@ const listenerCopy = {
       live: '통역을 기다리는 중...',
       off: '통역이 꺼져 있습니다.',
       waiting: '통역 내용이 여기에 표시됩니다.',
+    },
+    connectionHelp:
+      '연결이 계속되지 않으면 Chrome 등 다른 브라우저로 다시 접속해 주세요.',
+    wakeLock: {
+      insecure: '화면을 계속 켜 두려면 안전한 HTTPS 연결이 필요합니다.',
+      unsupported: '이 브라우저는 화면 켜짐 유지를 지원하지 않습니다.',
+      requestFailed: '화면을 계속 켜 둘 수 없습니다.',
+      released: '운영체제가 화면 잠금을 해제했습니다.',
     },
     changeToDark: '어두운 테마로 변경',
     changeToLight: '밝은 테마로 변경',

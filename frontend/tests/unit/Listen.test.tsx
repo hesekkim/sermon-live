@@ -219,6 +219,24 @@ afterEach(() => {
 });
 
 describe('Listener experience', () => {
+  it('suggests another browser while the listener connection is retrying', () => {
+    vi.useFakeTimers();
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    const connectionHelp =
+      'Wenn die Verbindung weiterhin fehlschlägt, öffnen Sie diese Seite bitte in einem anderen Browser erneut, zum Beispiel Chrome.';
+
+    try {
+      expect(container).not.toHaveTextContent(connectionHelp);
+
+      act(() => socket.dispatchEvent(new Event('error')));
+
+      expect(container).toHaveTextContent(connectionHelp);
+    } finally {
+      vi.clearAllTimers();
+    }
+  });
+
   it.each([
     ['http:', 'ws:'],
     ['https:', 'wss:'],
