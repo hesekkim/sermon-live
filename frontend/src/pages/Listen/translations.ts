@@ -41,7 +41,6 @@ const listenerCopy = {
     largerText: 'Größerer Text',
     recoveryMessage:
       'Die Audiowiedergabe wurde unterbrochen. Tippen Sie auf „Audio fortsetzen“, um sie fortzusetzen.',
-    recoveryFailed: 'Audio konnte nicht fortgesetzt werden',
     screenWakeLock: {
       requesting: 'Bildschirm bleibt an: Anforderung läuft.',
       active:
@@ -98,7 +97,6 @@ const listenerCopy = {
     largerText: 'Larger text',
     recoveryMessage:
       'Audio playback stopped. Tap “Resume audio” to continue listening.',
-    recoveryFailed: 'Audio could not be resumed',
     screenWakeLock: {
       requesting: 'Keeping the screen on: request in progress.',
       active:
@@ -155,7 +153,6 @@ const listenerCopy = {
     largerText: '글자 크게',
     recoveryMessage:
       '오디오 재생이 중단되었습니다. 오디오 다시 시작 버튼을 눌러 다시 들으세요.',
-    recoveryFailed: '오디오를 다시 재생할 수 없습니다',
     screenWakeLock: {
       requesting: '화면 켜짐 요청 중입니다.',
       active:

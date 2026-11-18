@@ -17,6 +17,7 @@ class MockAudioContext extends EventTarget {
     stop: ReturnType<typeof vi.fn>;
     disconnect: ReturnType<typeof vi.fn>;
   }> = [];
+  static lifecycleEvents: string[] = [];
   static channelData: Float32Array[] = [];
 
   state: AudioContextState = 'suspended';
@@ -29,6 +30,9 @@ class MockAudioContext extends EventTarget {
   }
 
   async resume() {
+    MockAudioContext.lifecycleEvents.push(
+      `resume:${MockAudioContext.instances.indexOf(this)}`,
+    );
     const gate = MockAudioContext.resumeGates.shift();
     if (gate) await gate;
     this.state = 'running';
@@ -36,6 +40,9 @@ class MockAudioContext extends EventTarget {
   }
 
   async close() {
+    MockAudioContext.lifecycleEvents.push(
+      `close:${MockAudioContext.instances.indexOf(this)}`,
+    );
     this.state = 'closed';
     this.dispatchEvent(new Event('statechange'));
   }
@@ -166,6 +173,7 @@ beforeEach(() => {
   MockAudioContext.instances = [];
   MockAudioContext.resumeGates = [];
   MockAudioContext.sources = [];
+  MockAudioContext.lifecycleEvents = [];
   MockAudioContext.channelData = [];
   storedValues.clear();
   Object.defineProperty(window, 'localStorage', {
@@ -456,8 +464,11 @@ describe('Listener experience', () => {
 
       expect(request).toHaveBeenCalledTimes(2);
       expect(container).toHaveTextContent(
-        'Bildschirm bleibt an, solange diese Seite sichtbar ist.',
+        'Die Audiowiedergabe wurde unterbrochen. Tippen Sie auf „Audio fortsetzen“, um sie fortzusetzen.',
       );
+      expect(
+        container.querySelector('button[aria-label="Audio fortsetzen"]'),
+      ).toBeInTheDocument();
     } finally {
       if (originalWakeLock) {
         Object.defineProperty(navigator, 'wakeLock', originalWakeLock);
@@ -912,7 +923,7 @@ describe('Listener experience', () => {
     expect(container).not.toHaveTextContent('SENDUNG BEENDET');
   });
 
-  it('recovers suspended audio on visibility return without reconnecting the socket', async () => {
+  it('requires a user gesture to recover suspended audio without reconnecting the socket', async () => {
     const container = renderListener();
     const socket = MockWebSocket.instances[0];
     act(() => {
@@ -929,6 +940,15 @@ describe('Listener experience', () => {
     expect(container).toHaveTextContent('Die Audiowiedergabe wurde unterbrochen');
     expect(container).toHaveTextContent('Guten Morgen.');
 
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
     await act(async () => {
       document.dispatchEvent(new Event('visibilitychange'));
       await Promise.resolve();
@@ -936,8 +956,15 @@ describe('Listener experience', () => {
     });
 
     expect(MockWebSocket.instances).toHaveLength(1);
-    expect(context.state).toBe('running');
-    expect(container).not.toHaveTextContent('Die Audiowiedergabe wurde unterbrochen');
+    expect(context.state).toBe('suspended');
+    expect(
+      container.querySelector('button[aria-label="Audio fortsetzen"]'),
+    ).toBeInTheDocument();
+    await click(
+      container.querySelector('button[aria-label="Audio fortsetzen"]'),
+    );
+    expect(context.state).toBe('closed');
+    expect(MockAudioContext.instances[1].state).toBe('running');
     await act(async () => {
       socket.audio([1, 0, 2, 0]);
       await Promise.resolve();
@@ -967,19 +994,26 @@ describe('Listener experience', () => {
     await act(async () => {
       document.dispatchEvent(new Event('visibilitychange'));
       await Promise.resolve();
-      await Promise.resolve();
     });
     await act(async () => {
       socket.audio([0, 64]);
       await Promise.resolve();
     });
 
+    expect(MockAudioContext.channelData).toHaveLength(0);
+    await click(
+      container.querySelector('button[aria-label="Audio fortsetzen"]'),
+    );
+    await act(async () => {
+      socket.audio([0, 64]);
+      await Promise.resolve();
+    });
     expect(MockAudioContext.channelData).toHaveLength(1);
     expect(MockAudioContext.channelData[0]).toHaveLength(1);
     expect(MockAudioContext.channelData[0][0]).toBeCloseTo(0.5);
   });
 
-  it('offers a user-gesture recovery after resume fails and recreates a closed context', async () => {
+  it('recreates a failed audio context from the recovery button', async () => {
     const container = renderListener();
     const socket = MockWebSocket.instances[0];
     act(() => {
@@ -992,39 +1026,58 @@ describe('Listener experience', () => {
     );
     const context = MockAudioContext.instances[0];
     act(() => context.suspend());
-    MockAudioContext.resumeGates.push(
-      Promise.reject(new Error('resume blocked')),
-    );
 
     await act(async () => {
-      socket.audio([1, 0, 2, 0]);
+      document.dispatchEvent(new Event('visibilitychange'));
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(container).toHaveTextContent('Die Audiowiedergabe wurde unterbrochen');
     expect(container).toHaveTextContent('AUDIOWIEDERGABE UNTERBROCHEN');
     expect(container).not.toHaveTextContent('SESSION LIVE · DEUTSCH');
-    expect(container).toHaveTextContent('resume blocked');
+    expect(container).toHaveTextContent(
+      'Die Audiowiedergabe wurde unterbrochen. Tippen Sie auf „Audio fortsetzen“, um sie fortzusetzen.',
+    );
+    expect(container).not.toHaveTextContent('resume blocked');
     expect(MockAudioContext.sources).toHaveLength(0);
     expect(container.querySelector('[role="alert"] button')).toBeNull();
-    const recoveryButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Audio fortsetzen"]',
+    expect(
+      container.querySelectorAll('footer [role="alert"], footer [role="status"]'),
+    ).toHaveLength(1);
+
+    let rejectResume!: (reason: unknown) => void;
+    MockAudioContext.resumeGates.push(
+      new Promise<void>((_resolve, reject) => {
+        rejectResume = reject;
+      }),
     );
-    expect(recoveryButton).toHaveTextContent('Audio fortsetzen');
 
     await act(async () => {
       container
         .querySelector<HTMLButtonElement>('button[aria-label="Audio fortsetzen"]')
         ?.click();
+      rejectResume(new Error('resume blocked'));
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(context.state).toBe('running');
+    expect(context.state).toBe('closed');
+    expect(MockAudioContext.instances).toHaveLength(2);
+    expect(MockAudioContext.instances[1].state).toBe('suspended');
+    expect(container).not.toHaveTextContent('resume blocked');
+    expect(container).toHaveTextContent(
+      'Die Audiowiedergabe wurde unterbrochen. Tippen Sie auf „Audio fortsetzen“, um sie fortzusetzen.',
+    );
+
+    await click(container.querySelector('button[aria-label="Audio fortsetzen"]'));
+    expect(MockAudioContext.instances).toHaveLength(3);
+    expect(MockAudioContext.instances[1].state).toBe('closed');
+    expect(MockAudioContext.instances[2].state).toBe('running');
+    expect(
+      MockAudioContext.lifecycleEvents.lastIndexOf('close:1'),
+    ).toBeLessThan(MockAudioContext.lifecycleEvents.lastIndexOf('resume:2'));
     expect(container).not.toHaveTextContent('Die Audiowiedergabe wurde unterbrochen');
 
-    await act(async () => {
-      await context.close();
-    });
+    const recoveredContext = MockAudioContext.instances[2];
+    await act(async () => recoveredContext.close());
     expect(container).toHaveTextContent('Die Audiowiedergabe wurde unterbrochen');
     await act(async () => {
       container
@@ -1033,8 +1086,8 @@ describe('Listener experience', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(MockAudioContext.instances).toHaveLength(2);
-    expect(MockAudioContext.instances[1].state).toBe('running');
+    expect(MockAudioContext.instances).toHaveLength(4);
+    expect(MockAudioContext.instances[3].state).toBe('running');
     await act(async () => {
       socket.audio([3, 0, 4, 0]);
       await Promise.resolve();
@@ -1042,7 +1095,7 @@ describe('Listener experience', () => {
     expect(MockAudioContext.sources).toHaveLength(1);
   });
 
-  it('retries a pending automatic audio resume from the listen button', async () => {
+  it('shows recovery after a hidden page even if the context remains running', async () => {
     const container = renderListener();
     const socket = MockWebSocket.instances[0];
     act(() => {
@@ -1053,32 +1106,35 @@ describe('Listener experience', () => {
       container.querySelector('button[aria-label="anhören"]'),
     );
     const context = MockAudioContext.instances[0];
-    let rejectAutomaticResume!: (reason: unknown) => void;
-    MockAudioContext.resumeGates.push(
-      new Promise<void>((_resolve, reject) => {
-        rejectAutomaticResume = reject;
-      }),
-    );
 
-    act(() => context.suspend());
-    await act(async () => {
-      document.dispatchEvent(new Event('visibilitychange'));
-      await Promise.resolve();
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
     });
-    expect(container.querySelector('[role="alert"] button')).toBeNull();
-
-    await click(
-      container.querySelector('button[aria-label="Audio fortsetzen"]'),
-    );
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
     expect(context.state).toBe('running');
-
     await act(async () => {
-      rejectAutomaticResume(new Error('stale resume failure'));
-      await Promise.resolve();
+      socket.audio([1, 0, 2, 0]);
       await Promise.resolve();
     });
-    expect(container).not.toHaveTextContent('stale resume failure');
+    expect(MockAudioContext.sources).toHaveLength(0);
+    expect(
+      container.querySelector('button[aria-label="Audio fortsetzen"]'),
+    ).toBeInTheDocument();
 
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    expect(
+      container.querySelector('button[aria-label="Audio fortsetzen"]'),
+    ).toBeInTheDocument();
+    await click(container.querySelector('button[aria-label="Audio fortsetzen"]'));
+
+    expect(context.state).toBe('closed');
+    expect(MockAudioContext.instances).toHaveLength(2);
+    expect(MockAudioContext.instances[1].state).toBe('running');
     await act(async () => {
       socket.audio([1, 0, 2, 0]);
       await Promise.resolve();
@@ -1086,7 +1142,7 @@ describe('Listener experience', () => {
     expect(MockAudioContext.sources).toHaveLength(1);
   });
 
-  it('drops audio frames received while context recovery is pending', async () => {
+  it('drops audio frames while recovery awaits a user gesture', async () => {
     const container = renderListener();
     const socket = MockWebSocket.instances[0];
     act(() => {
@@ -1106,7 +1162,14 @@ describe('Listener experience', () => {
       }),
     );
     await act(async () => {
-      document.dispatchEvent(new Event('visibilitychange'));
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Audio fortsetzen"]')
+        ?.click();
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.instances).toHaveLength(2);
+    expect(MockAudioContext.sources).toHaveLength(0);
+    await act(async () => {
       socket.audio([1, 0, 2, 0]);
       await Promise.resolve();
     });
@@ -1117,6 +1180,77 @@ describe('Listener experience', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
+    await act(async () => {
+      socket.audio([3, 0, 4, 0]);
+      await Promise.resolve();
+    });
+    expect(MockAudioContext.sources).toHaveLength(1);
+  });
+
+  it('recreates a failed audio context from the recovery button', async () => {
+    const container = renderListener();
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({ type: 'translation_status', session_status: 'live' });
+      socket.message({ text: 'Guten Morgen.' });
+    });
+    await click(
+      container.querySelector('button[aria-label="anhören"]'),
+    );
+    const context = MockAudioContext.instances[0];
+    act(() => context.suspend());
+
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      await Promise.resolve();
+    });
+    expect(container).toHaveTextContent('AUDIOWIEDERGABE UNTERBROCHEN');
+    expect(container).not.toHaveTextContent('SESSION LIVE · DEUTSCH');
+    expect(container).toHaveTextContent(
+      'Die Audiowiedergabe wurde unterbrochen. Tippen Sie auf „Audio fortsetzen“, um sie fortzusetzen.',
+    );
+    expect(MockAudioContext.sources).toHaveLength(0);
+    expect(container.querySelector('[role="alert"] button')).toBeNull();
+    expect(
+      container.querySelectorAll('footer [role="alert"], footer [role="status"]'),
+    ).toHaveLength(1);
+
+    MockAudioContext.resumeGates.push(
+      Promise.reject(new Error('resume blocked')),
+    );
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Audio fortsetzen"]')
+        ?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(context.state).toBe('closed');
+    expect(MockAudioContext.instances).toHaveLength(2);
+    expect(MockAudioContext.instances[1].state).toBe('suspended');
+    expect(container).not.toHaveTextContent('resume blocked');
+    expect(container).toHaveTextContent(
+      'Die Audiowiedergabe wurde unterbrochen. Tippen Sie auf „Audio fortsetzen“, um sie fortzusetzen.',
+    );
+
+    await click(container.querySelector('button[aria-label="Audio fortsetzen"]'));
+    expect(MockAudioContext.instances).toHaveLength(3);
+    expect(MockAudioContext.instances[1].state).toBe('closed');
+    expect(MockAudioContext.instances[2].state).toBe('running');
+    expect(
+      MockAudioContext.lifecycleEvents.lastIndexOf('close:1'),
+    ).toBeLessThan(MockAudioContext.lifecycleEvents.lastIndexOf('resume:2'));
+    expect(container).not.toHaveTextContent(
+      'Die Audiowiedergabe wurde unterbrochen',
+    );
+
+    const recoveredContext = MockAudioContext.instances[2];
+    await act(async () => recoveredContext.close());
+    expect(container).toHaveTextContent('Die Audiowiedergabe wurde unterbrochen');
+    await click(container.querySelector('button[aria-label="Audio fortsetzen"]'));
+    expect(MockAudioContext.instances).toHaveLength(4);
+    expect(MockAudioContext.instances[3].state).toBe('running');
     await act(async () => {
       socket.audio([3, 0, 4, 0]);
       await Promise.resolve();
@@ -1585,7 +1719,7 @@ describe('Listener experience', () => {
     expect(MockAudioContext.sources[0].disconnect).toHaveBeenCalledOnce();
   });
 
-  it('reconnects a stale socket and resumes audio on visibility return', async () => {
+  it('reconnects a stale socket and asks to resume audio on visibility return', async () => {
     vi.useFakeTimers();
     const container = renderListener();
     const firstSocket = MockWebSocket.instances[0];
@@ -1627,11 +1761,13 @@ describe('Listener experience', () => {
     });
 
     expect(firstSocket.readyState).toBe(MockWebSocket.CLOSED);
-    expect(context.state).toBe('running');
+    expect(context.state).toBe('suspended');
+    expect(
+      container.querySelector('button[aria-label="Audio fortsetzen"]'),
+    ).toBeInTheDocument();
     expect(container).toHaveTextContent(
       'VERBINDUNG UNTERBROCHEN · VERBINDET ERNEUT',
     );
-    expect(container).not.toHaveTextContent('Die Audiowiedergabe wurde unterbrochen');
 
     act(() => vi.advanceTimersByTime(1200));
     const secondSocket = MockWebSocket.instances[1];
@@ -1649,7 +1785,11 @@ describe('Listener experience', () => {
       firstSocket.audio([1, 0, 2, 0]);
     });
     expect(secondSocket.sent).toContainEqual({ type: 'audio', enabled: true });
-    expect(container).toHaveTextContent('WARTEN AUF AUDIO');
+    await click(
+      container.querySelector('button[aria-label="Audio fortsetzen"]'),
+    );
+    expect(context.state).toBe('closed');
+    expect(MockAudioContext.instances[1].state).toBe('running');
     expect(MockAudioContext.sources).toHaveLength(0);
 
     await act(async () => {

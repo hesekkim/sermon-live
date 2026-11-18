@@ -254,21 +254,15 @@ export default function Listen() {
             </button>
           </div>
         </div>
-        {audioRecoveryRequired && (
+        {audioRecoveryRequired || audioError ? (
           <div className={styles.audioRecovery} role="alert">
             <p>{copy.recoveryMessage}</p>
           </div>
-        )}
-        {screenWakeLockStatus !== 'inactive' && (
+        ) : screenWakeLockStatus !== 'inactive' ? (
           <p className={styles.screenWakeLock} role="status" aria-live="polite">
             {copy.screenWakeLock[screenWakeLockStatus]}
           </p>
-        )}
-        {audioError && (
-          <p className={styles.audioError}>
-            {copy.recoveryFailed}: {audioError}
-          </p>
-        )}
+        ) : null}
         <div className={styles.powered}>POWERED BY CHURCHTRANSLATOR.AT</div>
       </footer>
     </main>

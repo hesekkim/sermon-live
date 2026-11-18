@@ -121,6 +121,8 @@ export function useListenAudio() {
     context: AudioContext;
     promise: Promise<void>;
   } | null>(null);
+  const audioRestartRequiredRef = useRef(false);
+  const audioNeedsUserGestureRef = useRef(false);
   const nextPlayTimeRef = useRef(0);
   const playingSourcesRef = useRef(
     new Map<AudioBufferSourceNode, ScheduledAudioSource>(),
@@ -193,9 +195,9 @@ export function useListenAudio() {
     };
   }, []);
 
-  const getAudioContext = useCallback(() => {
+  const getAudioContext = useCallback((replaceExisting = false) => {
     const current = audioContextRef.current;
-    if (current && current.state !== 'closed') {
+    if (!replaceExisting && current && current.state !== 'closed') {
       return current;
     }
     const previousListener = audioContextStateListenerRef.current;
@@ -208,14 +210,20 @@ export function useListenAudio() {
     }
     const context = new AudioContext();
     audioContextRef.current = context;
+    audioRestartRequiredRef.current = false;
     const listener: EventListener = () => {
       if (audioContextRef.current !== context) {
         return;
       }
       if (context.state === 'running') {
-        setAudioRecoveryRequired(false);
-        setAudioError('');
+        if (!audioNeedsUserGestureRef.current) {
+          audioRestartRequiredRef.current = false;
+          setAudioRecoveryRequired(false);
+          setAudioError('');
+        }
       } else if (isListeningRef.current) {
+        audioNeedsUserGestureRef.current = true;
+        audioRestartRequiredRef.current = true;
         clearScheduledAudio(context);
         pendingPcmRef.current = null;
         setAudioOutputReady(false);
@@ -248,6 +256,15 @@ export function useListenAudio() {
             throw new Error(`AudioContext state is ${context.state}`);
           }
         })
+        .catch((error: unknown) => {
+          if (
+            audioContextRef.current === context &&
+            context.state !== 'running'
+          ) {
+            audioRestartRequiredRef.current = true;
+          }
+          throw error;
+        })
         .finally(() => {
           if (audioResumeRef.current?.promise === promise) {
             audioResumeRef.current = null;
@@ -275,12 +292,21 @@ export function useListenAudio() {
     if (!isListeningRef.current) {
       return;
     }
+    if (audioNeedsUserGestureRef.current) {
+      pendingPcmRef.current = null;
+      setAudioOutputReady(false);
+      return;
+    }
     const context = audioContextRef.current;
     if (!context || context.state !== 'running') {
       pendingPcmRef.current = null;
       setAudioOutputReady(false);
       setAudioRecoveryRequired(true);
-      if (context && context.state !== 'closed') {
+      if (
+        context &&
+        context.state !== 'closed' &&
+        !audioNeedsUserGestureRef.current
+      ) {
         void resumeAudioContext(context).catch((error: unknown) => {
           if (
             isListeningRef.current &&
@@ -293,6 +319,9 @@ export function useListenAudio() {
             );
           }
         });
+      } else {
+        audioNeedsUserGestureRef.current = true;
+        audioRestartRequiredRef.current = true;
       }
       return;
     }
@@ -381,6 +410,8 @@ export function useListenAudio() {
     setIsListening(false);
     setAudioOutputReady(false);
     setAudioRecoveryRequired(false);
+    audioNeedsUserGestureRef.current = false;
+    audioRestartRequiredRef.current = false;
     pendingPcmRef.current = null;
     clearScheduledAudio();
     if (wasListening) sendSocketMessage({ type: 'audio', enabled: false });
@@ -393,10 +424,26 @@ export function useListenAudio() {
     const generation = listenGenerationRef.current;
     let context: AudioContext | null = null;
     try {
-      context = getAudioContext();
-      if (context.state !== 'running') {
-        await resumeAudioContext(context, true);
+      const previousContext = audioContextRef.current;
+      const replaceContext =
+        audioRestartRequiredRef.current &&
+        previousContext !== null &&
+        previousContext.state !== 'closed';
+      if (replaceContext && previousContext) {
+        clearScheduledAudio(previousContext);
+        pendingPcmRef.current = null;
+        void previousContext.close();
       }
+      context = getAudioContext(replaceContext);
+      const resumePromise =
+        context.state === 'running'
+          ? Promise.resolve()
+          : resumeAudioContext(context, true);
+      if (context !== previousContext && !replaceContext) {
+        clearScheduledAudio(previousContext ?? undefined);
+        pendingPcmRef.current = null;
+      }
+      await resumePromise;
       if (
         !isListeningRef.current ||
         generation !== listenGenerationRef.current ||
@@ -404,6 +451,8 @@ export function useListenAudio() {
       ) {
         throw new Error(`AudioContext state is ${context.state}`);
       }
+      audioNeedsUserGestureRef.current = false;
+      audioRestartRequiredRef.current = false;
       setAudioRecoveryRequired(false);
       setAudioError('');
     } catch (error) {
@@ -416,38 +465,42 @@ export function useListenAudio() {
         setAudioError(error instanceof Error ? error.message : String(error));
       }
     }
-  }, [getAudioContext, resumeAudioContext]);
+  }, [clearScheduledAudio, getAudioContext, resumeAudioContext]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible') {
+        if (isListeningRef.current) {
+          audioNeedsUserGestureRef.current = true;
+          audioRestartRequiredRef.current = true;
+          clearScheduledAudio(audioContextRef.current ?? undefined);
+          pendingPcmRef.current = null;
+          setAudioOutputReady(false);
+          setAudioRecoveryRequired(true);
+        }
+        return;
+      }
       checkSocketHealthRef.current?.();
       if (!isListeningRef.current) return;
+      if (audioNeedsUserGestureRef.current) return;
       const context = audioContextRef.current;
       if (!context || context.state === 'closed') {
+        audioNeedsUserGestureRef.current = true;
+        audioRestartRequiredRef.current = true;
         setAudioRecoveryRequired(true);
         return;
       }
       if (context.state === 'running') {
         return;
       }
-      const generation = listenGenerationRef.current;
-      void resumeAudioContext(context).catch((error: unknown) => {
-        if (
-          isListeningRef.current &&
-          generation === listenGenerationRef.current &&
-          audioContextRef.current === context &&
-          context.state !== 'running'
-        ) {
-          setAudioRecoveryRequired(true);
-          setAudioError(error instanceof Error ? error.message : String(error));
-        }
-      });
+      audioNeedsUserGestureRef.current = true;
+      audioRestartRequiredRef.current = true;
+      setAudioRecoveryRequired(true);
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () =>
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [resumeAudioContext]);
+  }, [clearScheduledAudio]);
 
   const connectSocket = useCallback(
     (isReconnect: boolean) => {
@@ -695,6 +748,8 @@ export function useListenAudio() {
       await ensureAudioContext();
       setAudioError('');
       setAudioRecoveryRequired(false);
+      audioNeedsUserGestureRef.current = false;
+      audioRestartRequiredRef.current = false;
       setSessionEnded(false);
       wantsListenRef.current = true;
       listenGenerationRef.current += 1;

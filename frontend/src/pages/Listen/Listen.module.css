@@ -235,13 +235,6 @@
   font-size: 20px;
 }
 
-.audioError {
-  width: min(calc(100% - 48px), 860px);
-  margin: 0 auto 4px;
-  color: #a33f34;
-  font-size: 12px;
-}
-
 .screenWakeLock {
   width: min(calc(100% - 48px), 860px);
   margin: 0 auto 8px;
