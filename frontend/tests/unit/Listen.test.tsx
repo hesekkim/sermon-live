@@ -211,6 +211,25 @@ afterEach(() => {
 });
 
 describe('Listener experience', () => {
+  it.each([
+    ['http:', 'ws:'],
+    ['https:', 'wss:'],
+  ])(
+    'uses %s page URLs for the listener WebSocket',
+    (pageProtocol, socketProtocol) => {
+      vi.stubGlobal('location', {
+        protocol: pageProtocol,
+        host: 'sermon-live.example:8080',
+      });
+
+      renderListener();
+
+      expect(MockWebSocket.instances[0].url).toBe(
+        `${socketProtocol}//sermon-live.example:8080/ws/listen`,
+      );
+    },
+  );
+
   it('scrolls the document to its bottom as subtitle text arrives', () => {
     const container = renderListener();
     const socket = MockWebSocket.instances[0];

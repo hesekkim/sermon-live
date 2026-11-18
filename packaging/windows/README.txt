@@ -45,6 +45,39 @@ that exact origin to APP_ALLOWED_ORIGINS in the .env file, for example:
 
   APP_ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080,http://192.168.1.20:8080
 
+HTTPS AND WAKE LOCK
+
+HTTPS is optional. To use Screen Wake Lock on mobile Listener devices, create a
+trusted certificate whose SAN contains the LAN IP or DNS name used by those
+devices. Keep the certificate and its private key under:
+
+  %LOCALAPPDATA%\Sermon Live\tls
+
+Set both paths in %LOCALAPPDATA%\Sermon Live\.env:
+
+  APP_SSL_CERTFILE="C:/Users/<user>/AppData/Local/Sermon Live/tls/lan.pem"
+  APP_SSL_KEYFILE="C:/Users/<user>/AppData/Local/Sermon Live/tls/lan-key.pem"
+
+To create a local trusted certificate with mkcert, install it and create the
+certificate for the address used by audience devices:
+
+  choco install mkcert
+  mkcert -install
+  $lanIp = '192.168.1.20'
+  $certDir = Join-Path $env:LOCALAPPDATA 'Sermon Live\tls'
+  New-Item -ItemType Directory -Force $certDir | Out-Null
+  mkcert -cert-file (Join-Path $certDir 'lan.pem') -key-file (Join-Path $certDir 'lan-key.pem') $lanIp localhost 127.0.0.1
+
+Restart sermon-live.exe. The server will print an HTTPS Listener URL and the
+Listener WebSocket will use WSS. If exactly one setting is configured, startup
+fails; leave both unset to keep the default HTTP mode.
+
+The audience device must trust the certificate. For a local mkcert CA, install
+only rootCA.pem on managed audience devices. Never share rootCA-key.pem or
+lan-key.pem. Do not bypass browser certificate warnings. A trusted certificate
+with a SAN matching the Listener address is required for window.isSecureContext
+and Wake Lock. Certificate files are not included in the application ZIP.
+
 DIAGNOSTICS AND UPDATING
 
 For diagnostic logs, start the app with sermon-live.exe --verbose. Logs are written

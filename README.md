@@ -17,7 +17,7 @@
 
 저장소 루트에서 `build.bat`을 실행하면 frontend가 `frontend/dist`에 빌드되고 backend Python 모듈의 문법을 검사합니다. Backend는 별도로 컴파일된 바이너리가 아닌 Python 애플리케이션입니다. `run.bat`을 실행하면 backend가 시작되고 같은 프로세스에서 빌드된 frontend를 제공합니다.
 
-Python runtime과 빌드된 frontend를 포함하는 독립 실행 패키지의 개발자용 Windows smoke build는 [패키징 안내](docs/packaging.md)를 참고하세요. 현재 macOS 설치 패키지는 아직 제공하지 않습니다.
+Python runtime과 빌드된 frontend를 포함하는 Windows/macOS 독립 실행 패키지는 [패키징 안내](docs/packaging.md)를 참고하세요. macOS 패키지는 대상 CPU 아키텍처의 Mac에서 별도로 빌드해야 합니다.
 
 빌드가 끝나면 `run.bat`을 실행하세요. 백엔드 진단 로그를 파일에도 저장하려면 `run.bat --verbose`로 실행하세요. 로그는 `backend/logs/sermon-live.log`에 저장되고 5 MB마다 회전하며 이전 파일 3개를 보관합니다. 세션 시작 시 실제 타이머 설정, 타이머 경고·연장, 종료 사유와 경과 시간 및 백엔드 서비스 로그가 기록됩니다. 상세 모드는 애플리케이션 서비스와 서버 로그를 DEBUG로 설정하며, 외부 API 라이브러리의 상세 요청 로그는 켜지지 않습니다.
 
@@ -58,38 +58,55 @@ Operator API, 오디오 도구, `/ws/operator`에는 로그인이 필요합니�
 
 ### 모바일 LAN에서 HTTPS/WSS 사용
 
-Screen Wake Lock은 secure context에서만 사용할 수 있습니다. 모바일 기기에서 접속하는 LAN IP는 `localhost` 예외에 해당하지 않으므로, 인증서 경고를 무시하지 않고 신뢰할 수 있는 HTTPS origin을 사용해야 합니다. 아래 절차는 운영자 PC에서 로컬 CA를 만들고 각 청중 기기에 CA 공개 인증서를 신뢰하도록 설치합니다. 공개 인증서 외의 CA 개인 키(`rootCA-key.pem`)는 공유하지 마세요.
+기본 동작은 HTTP/WS이며, 모바일 Listener의 Screen Wake Lock을 사용하려면 청중 기기가 신뢰하는 인증서로 HTTPS/WSS에 접속해야 합니다. LAN IP는 `localhost` 보안 예외가 아니며, 자체 서명·미신뢰 인증서 경고를 무시하는 절차는 지원하지 않습니다.
 
-1. Windows에 `mkcert`를 설치하고 로컬 PC의 신뢰 저장소에 CA를 등록합니다. 공식 설치 방법은 Chocolatey 또는 Scoop입니다.
+다음 예시는 로컬 CA를 사용합니다. Windows에는 Chocolatey/Scoop으로 `mkcert`를 설치하고, macOS에는 Homebrew로 설치합니다. `mkcert -install`은 CA를 운영자 컴퓨터에만 신뢰하도록 등록합니다.
 
-   ```powershell
-   choco install mkcert
-   mkcert -install
-   ```
+```powershell
+choco install mkcert
+mkcert -install
+```
 
-2. PC의 현재 LAN IPv4 주소에 대한 인증서를 만듭니다. `$lanIp` 값을 실제 주소로 바꾸세요. 인증서와 키는 저장소 밖에 보관합니다.
+```bash
+brew install mkcert
+mkcert -install
+```
 
-   ```powershell
-   $lanIp = '192.168.1.20'
-   $certDir = Join-Path $env:LOCALAPPDATA 'sermon-live\tls'
-   New-Item -ItemType Directory -Force $certDir | Out-Null
-   mkcert -cert-file (Join-Path $certDir 'lan.pem') -key-file (Join-Path $certDir 'lan-key.pem') $lanIp localhost 127.0.0.1
-   mkcert -CAROOT
-   ```
+현재 LAN IPv4 주소(예: `192.168.1.20`) 또는 청중 기기가 접속할 DNS 이름을 인증서 SAN에 포함합니다. 인증서와 leaf private key는 패키지 사용자 데이터 디렉터리의 `tls` 아래에 두고, 저장소나 앱 설치 폴더에 넣지 않습니다.
 
-3. `mkcert -CAROOT`가 출력한 폴더의 `rootCA.pem`만 각 청중 기기에 안전하게 전달해 설치합니다. `rootCA-key.pem`은 절대 전달하지 않습니다. 루트 CA를 신뢰시키면 이 PC의 CA 개인 키가 서명한 다른 인증서도 해당 기기가 신뢰하게 되므로, 조직에서 관리하는 기기에만 적용하고 `certutil -hashfile "<CA 폴더>\rootCA.pem" SHA256`으로 인증서 지문을 별도 경로에서 확인하세요. 기기에서 더는 사용하지 않으면 프로파일/CA 신뢰를 제거합니다. iPhone/iPad에서는 인증서 프로파일을 설치한 다음 **설정 → 일반 → 정보 → 인증서 신뢰 설정**에서 해당 루트 인증서의 전체 신뢰를 켭니다. Android의 사용자 CA 설치와 신뢰 동작은 OS·브라우저에 따라 다를 수 있으므로 실제 사용하는 Chrome에서 아래 secure-context 검사를 통과하는지 확인합니다. 통과하지 않으면 Android에서는 이 로컬 CA 방식을 지원 경로로 간주하지 말고, 기기가 기본 신뢰하는 공개 CA 인증서와 LAN 도메인/DNS 구성을 사용하세요.
-4. `backend/.env`에서 두 경로를 설정합니다. 인증서와 키는 반드시 함께 설정해야 합니다.
+```powershell
+$lanIp = '192.168.1.20'
+$certDir = Join-Path $env:LOCALAPPDATA 'Sermon Live\tls'
+New-Item -ItemType Directory -Force $certDir | Out-Null
+mkcert -cert-file (Join-Path $certDir 'lan.pem') -key-file (Join-Path $certDir 'lan-key.pem') $lanIp localhost 127.0.0.1
+```
 
-   ```dotenv
-   APP_SSL_CERTFILE="C:/Users/<user>/AppData/Local/sermon-live/tls/lan.pem"
-   APP_SSL_KEYFILE="C:/Users/<user>/AppData/Local/sermon-live/tls/lan-key.pem"
-   ```
+```bash
+LAN_IP='192.168.1.20'
+CERT_DIR="$HOME/Library/Application Support/Sermon Live/tls"
+mkdir -p "$CERT_DIR"
+mkcert -cert-file "$CERT_DIR/lan.pem" -key-file "$CERT_DIR/lan-key.pem" "$LAN_IP" localhost 127.0.0.1
+```
 
-5. `run.bat`으로 서버를 다시 시작하고, 서버가 출력한 HTTPS Listener 주소를 엽니다. 브라우저에서 `window.isSecureContext === true`, `navigator.wakeLock` 사용 가능 여부와 Listener 연결을 확인합니다. HTTPS 페이지에서는 WebSocket이 자동으로 WSS를 사용합니다.
+DNS 이름으로 접속한다면 인증서 생성 명령에 해당 DNS 이름도 SAN 인자로 추가합니다. `mkcert -CAROOT`가 출력한 경로의 `rootCA.pem`만 각 청중 기기에 안전하게 전달해 신뢰하도록 설치합니다. `rootCA-key.pem`과 `lan-key.pem`은 운영자 컴퓨터 밖으로 전달하지 않습니다. 루트 CA를 신뢰시키면 해당 CA가 서명한 인증서를 기기가 신뢰하므로, 관리하는 기기에만 설치하고 별도 경로로 인증서 지문을 확인하세요. Windows에서는 `certutil -hashfile "<CA 폴더>\rootCA.pem" SHA256`, macOS에서는 `shasum -a 256 "<CA 폴더>/rootCA.pem"`을 사용합니다. iPhone/iPad에서는 프로파일 설치 후 **설정 → 일반 → 정보 → 인증서 신뢰 설정**에서 전체 신뢰를 켭니다. Android의 사용자 CA 동작은 OS·브라우저에 따라 다르므로 실제 Chrome에서 secure context 검사를 통과하지 않으면 기기가 기본 신뢰하는 공개 CA와 LAN DNS 이름을 사용하세요.
 
-인증서가 없으면 기존 HTTP 동작은 유지됩니다. HTTP에서는 Listener가 이를 화면에 알리고 Wake Lock이 활성화된 것처럼 표시하지 않습니다. LAN IP가 바뀌면 새 IP를 포함한 인증서를 다시 만들어야 합니다. 이 로컬 CA 방식은 기기별 신뢰 설치가 필요하므로, 이를 관리하기 어려운 배포 환경에서는 기기들이 신뢰하는 공개 CA 인증서와 로컬 DNS가 있는 도메인을 사용하세요.
+인증서와 키 경로를 `.env`에 설정합니다. Source 실행은 `backend/.env`, Windows 패키지는 `%LOCALAPPDATA%\Sermon Live\.env`, macOS 패키지는 `~/Library/Application Support/Sermon Live/.env`를 사용합니다. 패키지에서는 인증서와 키를 해당 사용자 데이터 폴더의 `tls` 디렉터리에 보관하고, 경로는 절대 경로로 지정하세요.
 
-Screen Wake Lock은 페이지가 보이는 동안 자동 화면 꺼짐을 막을 뿐, 사용자가 화면을 직접 잠그거나 앱을 백그라운드로 보낸 뒤 WebSocket 및 오디오 재생이 계속되는 것을 보장하지 않습니다. 백그라운드 재생 여부는 기기별 실기기 검증이 필요합니다.
+```dotenv
+APP_SSL_CERTFILE="C:/Users/<user>/AppData/Local/Sermon Live/tls/lan.pem"
+APP_SSL_KEYFILE="C:/Users/<user>/AppData/Local/Sermon Live/tls/lan-key.pem"
+```
+
+```dotenv
+APP_SSL_CERTFILE="/Users/<user>/Library/Application Support/Sermon Live/tls/lan.pem"
+APP_SSL_KEYFILE="/Users/<user>/Library/Application Support/Sermon Live/tls/lan-key.pem"
+```
+
+두 값은 반드시 함께 설정해야 합니다. 둘 다 비어 있으면 기존 HTTP 동작을 유지하고, 한쪽만 설정하면 서버가 설정 오류로 시작하지 않습니다. 설정 후 패키지를 재시작하고 출력된 HTTPS Listener 주소로 접속합니다. 인증서 SAN의 IP/DNS 이름과 접속 주소가 일치하고 청중 기기가 인증서를 신뢰하면 `window.isSecureContext`가 `true`이고 WebSocket은 자동으로 WSS를 사용합니다. 지원 브라우저에서 Wake Lock 상태가 활성화되는지도 확인하세요. HTTP 또는 미신뢰 인증서에서는 Wake Lock이 활성 상태로 표시되지 않습니다.
+
+LAN IP가 바뀌면 인증서를 다시 만들어야 합니다. 로컬 CA 배포를 관리하기 어렵다면 기기가 기본 신뢰하는 공개 CA 인증서와 로컬 DNS 이름을 사용하세요. 인증서가 없으면 HTTP는 계속 동작하지만 같은 Wi-Fi의 능동적 공격자에게 전송 기밀성을 보장하지 않습니다. Screen Wake Lock은 페이지가 보이는 동안 자동 화면 꺼짐을 막을 뿐, 화면을 직접 잠그거나 앱을 백그라운드로 보낸 뒤의 WebSocket·오디오 재생을 보장하지 않습니다.
+
+백그라운드 재생 여부는 기기별 실기기 검증이 필요합니다.
 
 Frontend 개발 서버:
 

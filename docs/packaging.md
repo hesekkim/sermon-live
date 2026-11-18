@@ -37,6 +37,27 @@ DMG 안의 `Sermon Live.app`과 `Start Sermon Live.command`를 같은 폴더(예
 
 사용자 설정과 로그는 `~/Library/Application Support/Sermon Live`에 저장된다. 업데이트 시 서버를 종료한 뒤 `.app`과 `.command`를 함께 교체하고 이 사용자 데이터 폴더는 삭제하지 않는다.
 
+## 패키지 HTTPS 설정
+
+HTTPS는 선택 사항이다. 두 패키지 모두 사용자 데이터 `.env`에서
+`APP_SSL_CERTFILE`과 `APP_SSL_KEYFILE`을 읽는다.
+
+- Windows: `%LOCALAPPDATA%\Sermon Live\.env`
+- macOS: `~/Library/Application Support/Sermon Live/.env`
+
+인증서는 설치/패키지 폴더 밖의 사용자 데이터 `tls` 디렉터리 등에 보관하고,
+두 설정 모두 절대 경로로 지정한다. 인증서 SAN에는 Listener 기기가 접속할
+LAN IP 또는 DNS 이름이 있어야 하며, 청중 기기가 인증서를 신뢰해야 한다.
+LAN IP는 `localhost` secure-context 예외가 아니다.
+
+로컬 CA를 사용하는 경우 관리 대상 청중 기기에는 공개 인증서 `rootCA.pem`만
+설치한다. `rootCA-key.pem`과 leaf private key `lan-key.pem`은 운영자 PC에
+보관하며 패키지에 넣거나 Listener 기기에 전달하지 않는다. 인증서 경고를
+우회하도록 안내하지 않는다. 신뢰할 수 있는 HTTPS 페이지는 WSS를 사용하고,
+HTTP 또는 secure context가 아닌 경우 Wake Lock은 활성 상태로 표시되지 않는다.
+TLS 설정이 둘 다 없으면 기존 HTTP 동작을 유지하고, 한쪽만 설정하면 시작 시
+검증 오류가 발생한다.
+
 ## 사용자 데이터와 이전
 
 패키지 실행 시 Windows 데이터는 `%LOCALAPPDATA%\Sermon Live`, macOS 데이터는 `~/Library/Application Support/Sermon Live`에 저장한다. source 실행은 기존 `backend/.env`, `backend/data/`, `backend/logs/` 위치를 계속 사용한다. 패키지 업데이트는 사용자 데이터 디렉터리를 덮어쓰지 않는다.

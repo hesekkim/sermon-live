@@ -21,7 +21,7 @@ class FakeWebSocket {
     Array<(event?: { data?: string }) => void>
   >();
 
-  constructor(_url: string) {
+  constructor(readonly url: string) {
     FakeWebSocket.latest = this;
     FakeWebSocket.instances.push(this);
   }
@@ -68,6 +68,32 @@ describe('useBroadcastSession', () => {
     vi.useRealTimers();
     document.body.replaceChildren();
   });
+
+  it.each([
+    ['http:', 'ws:'],
+    ['https:', 'wss:'],
+  ])(
+    'uses %s page URLs for the operator WebSocket',
+    async (pageProtocol, socketProtocol) => {
+      vi.stubGlobal('location', {
+        protocol: pageProtocol,
+        host: 'sermon-live.example:8080',
+      });
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const root = createRoot(container);
+
+      await act(async () => {
+        root.render(<Probe onError={() => undefined} />);
+        await Promise.resolve();
+      });
+
+      expect(FakeWebSocket.latest?.url).toBe(
+        `${socketProtocol}//sermon-live.example:8080/ws/operator`,
+      );
+      act(() => root.unmount());
+    },
+  );
 
   it('does not reopen the operator socket when the component re-renders', async () => {
     const container = document.createElement('div');

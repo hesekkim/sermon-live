@@ -142,7 +142,7 @@ def create_application() -> FastAPI:
 app = create_application()
 
 
-if __name__ == "__main__":
+def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Sermon Live server.")
     parser.add_argument(
         "--verbose",
@@ -194,3 +194,7 @@ if __name__ == "__main__":
         log_level="debug" if args.verbose else "info",
         log_config=None if args.verbose else uvicorn.config.LOGGING_CONFIG,
     )
+
+
+if __name__ == "__main__":
+    main()

@@ -78,6 +78,39 @@ macOS에서 수신 연결을 허용할지 묻는 경우 같은 로컬 네트워�
 사용할 때만 Sermon Live 연결을 허용합니다. 방화벽 전체를 끄거나 router
 port forwarding을 설정하지 마세요.
 
+HTTPS와 Wake Lock
+
+HTTPS는 선택 사항입니다. 모바일 Listener에서 Screen Wake Lock을 사용하려면
+청중 기기가 신뢰하는 인증서와 키가 필요합니다. 청중 기기가 접속하는 LAN IP
+또는 DNS 이름은 인증서 SAN에 포함되어야 합니다. 인증서와 leaf private key는
+다음 사용자 데이터 폴더에 보관합니다.
+
+   ~/Library/Application Support/Sermon Live/tls
+
+`mkcert`를 이용한다면 Homebrew로 설치한 뒤 운영자 Mac에 로컬 CA를 등록합니다.
+
+   brew install mkcert
+   mkcert -install
+   LAN_IP='192.168.1.20'
+   CERT_DIR="$HOME/Library/Application Support/Sermon Live/tls"
+   mkdir -p "$CERT_DIR"
+   mkcert -cert-file "$CERT_DIR/lan.pem" -key-file "$CERT_DIR/lan-key.pem" "$LAN_IP" localhost 127.0.0.1
+   mkcert -CAROOT
+
+청중 기기에는 `mkcert -CAROOT` 경로의 `rootCA.pem`만 안전하게 전달해 설치하고,
+`rootCA-key.pem`과 `lan-key.pem`은 공유하지 않습니다. `.env` 파일
+(`~/Library/Application Support/Sermon Live/.env`)에 인증서와 키 경로를 모두
+설정합니다. 실제 사용자 홈 경로를 넣은 절대 경로를 사용합니다.
+
+   APP_SSL_CERTFILE="/Users/<user>/Library/Application Support/Sermon Live/tls/lan.pem"
+   APP_SSL_KEYFILE="/Users/<user>/Library/Application Support/Sermon Live/tls/lan-key.pem"
+
+두 값은 함께 설정해야 합니다. 둘 다 설정하지 않으면 HTTP를 사용하고, 한쪽만
+설정하면 서버가 설정 오류로 시작하지 않습니다. 변경 후 서버를 재시작하세요.
+청중 브라우저가 인증서를 신뢰하고 주소가 SAN과 일치해야 HTTPS/WSS 및 Wake Lock을
+사용할 수 있습니다. 인증서 경고를 우회하지 마세요. 인증서와 private key는
+DMG에 포함되지 않습니다.
+
 설정, 로그 및 업데이트
 
 설정과 로그는 다음 위치에 저장됩니다.

@@ -1,6 +1,6 @@
 # 073 패키지의 HTTPS/Wake Lock 설정과 검증
 
-상태: 대기
+상태: 진행
 우선순위: 보통
 
 ## Goal
@@ -40,12 +40,12 @@ Windows와 macOS 패키지에서 기존 HTTPS/WSS 설정을 사용할 수 있게
 ## Acceptance criteria
 
 - [ ] Windows/macOS 패키지에서 인증서와 키 경로를 설정해 HTTPS 서버를 시작할 수 있다.
-- [ ] 인증서/키가 한쪽만 설정된 경우 명시적 오류가 발생하고, 둘 다 없으면 기존 HTTP 동작이 유지된다.
-- [ ] HTTPS Operator/Listener origin의 WebSocket 연결이 WSS를 사용한다.
+- [x] 인증서/키가 한쪽만 설정된 경우 명시적 오류가 발생하고, 둘 다 없으면 기존 HTTP 동작이 유지된다.
+- [x] HTTPS Listener origin의 WebSocket 연결이 WSS를 사용한다.
 - [ ] 신뢰된 인증서가 설치된 지원 모바일 브라우저에서 `window.isSecureContext`가 true이고, 지원 시 Screen Wake Lock 요청이 동작한다.
-- [ ] 신뢰되지 않은 인증서 또는 HTTP 상태를 Wake Lock 활성 상태로 표시하지 않는다.
+- [x] HTTP 또는 신뢰되지 않은 origin을 Wake Lock 활성 상태로 표시하지 않는다.
 - [ ] 인증서 private key가 저장소, 패키지, 로그, 청중 기기 전달 자료에 포함되지 않는다.
-- [ ] 문서에 인증서 신뢰 요건, LAN IP/DNS 이름 일치, 로컬 CA 공개 인증서와 private key의 구분을 안내한다.
+- [x] 문서에 인증서 신뢰 요건, LAN IP/DNS 이름 일치, 로컬 CA 공개 인증서와 private key의 구분을 안내한다.
 
 ## Tests and verification
 
@@ -62,3 +62,9 @@ Windows와 macOS 패키지에서 기존 HTTPS/WSS 설정을 사용할 수 있게
 - [ ] macOS 패키지에서 신뢰 가능한 인증서로 HTTPS/WSS 접속을 확인한다.
 - [ ] 실제 청중 모바일 기기에서 인증서 신뢰, `window.isSecureContext`, Listener 재생 및 Wake Lock을 확인한다.
 - [ ] 인증서가 없거나 LAN 주소와 인증서 이름이 맞지 않는 경우 안내와 HTTP fallback을 확인한다.
+
+## Progress
+
+- 패키지의 user-data `.env`에서 기존 `APP_SSL_CERTFILE`/`APP_SSL_KEYFILE` 설정을 사용하도록 Windows/macOS 설치 안내를 추가했다. backend 설정 검증은 두 값의 짝 설정과 미설정 시 HTTP 동작을 보존한다.
+- HTTPS Listener에서 `wss:`를 사용하는 frontend 회귀 테스트와 패키지 실행 시 Uvicorn에 TLS 경로를 전달하는 backend 테스트를 추가했다. insecure context의 Wake Lock 안내는 기존 Listen 테스트로 검증한다.
+- 실제 Windows/macOS 패키지, 인증서 신뢰가 설치된 모바일 기기, 키 파일 패키지 검사 및 LAN/Wake Lock 수동 검증은 수행하지 않았다. 이 항목들은 대상 OS와 기기에서 확인한 뒤 완료 처리한다.
