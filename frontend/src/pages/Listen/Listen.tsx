@@ -49,7 +49,7 @@ export default function Listen() {
   } = useListenAudio();
   const { fontSize, setFontSize, setTheme, theme } = useListenerPreferences();
   const copy = getListenerCopy();
-  const screenWakeLockStatus = useScreenWakeLock(
+  useScreenWakeLock(
     isListening && sessionStatus === 'live' && !sessionEnded,
   );
   const [scriptureCards, setScriptureCards] = useState<ScripturePassage[]>([]);
@@ -258,10 +258,6 @@ export default function Listen() {
           <div className={styles.audioRecovery} role="alert">
             <p>{copy.recoveryMessage}</p>
           </div>
-        ) : screenWakeLockStatus !== 'inactive' ? (
-          <p className={styles.screenWakeLock} role="status" aria-live="polite">
-            {copy.screenWakeLock[screenWakeLockStatus]}
-          </p>
         ) : null}
         <div className={styles.powered}>POWERED BY CHURCHTRANSLATOR.AT</div>
       </footer>
