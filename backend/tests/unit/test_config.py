@@ -6,18 +6,34 @@ from pydantic import ValidationError
 from core.config import Settings
 
 
-def test_env_example_lists_all_supported_settings():
-    import re
-
+def test_env_example_documents_server_settings_not_operator_preferences():
     env_file = Path(__file__).resolve().parents[2] / ".env.example"
-    env_text = env_file.read_text(encoding="utf-8")
-    expected_names = {f"APP_{name.upper()}" for name in Settings.model_fields}
-    found_names = {
-        match.group("name")
-        for match in re.finditer(r"^(?:#\s*)?(?P<name>APP_[A-Z0-9_]+)=.*$", env_text, flags=re.MULTILINE)
+    env_names = {
+        line.partition("=")[0]
+        for line in env_file.read_text(encoding="utf-8").splitlines()
+        if line and not line.startswith("#") and "=" in line
     }
 
-    assert expected_names.issubset(found_names)
+    assert {
+        "APP_HOST",
+        "APP_PORT",
+        "APP_DEBUG",
+        "APP_SSL_CERTFILE",
+        "APP_SSL_KEYFILE",
+        "APP_ALLOWED_ORIGINS",
+        "APP_OPERATOR_PASSWORD",
+        "APP_OPERATOR_SESSION_SECRET",
+    }.issubset(env_names)
+    assert not {
+        "APP_INTERPRETER",
+        "APP_OPENAI_API_KEY",
+        "APP_AUDIO_DEVICE",
+        "APP_AUDIO_CHANNEL",
+        "APP_TRANSLATION_SESSION_AUTO_STOP_MINUTES",
+        "APP_TRANSLATION_SESSION_WARNING_MINUTES",
+        "APP_TRANSLATION_SESSION_EXTENSION_MINUTES",
+        "APP_TRANSLATION_SESSION_HARD_LIMIT_MINUTES",
+    }.intersection(env_names)
 
 
 def test_allowed_origins_accepts_comma_separated_env(monkeypatch, tmp_path):
