@@ -192,7 +192,9 @@ async def test_openai_session_streams_audio_and_flushes_final_events_before_stop
     hub = FakeHub()
     interpreter = FakeOpenAIInterpreter()
     monkeypatch.setattr(
-        session_service_module, "create_interpreter", lambda _settings: interpreter
+        session_service_module,
+        "create_interpreter",
+        lambda _settings, **_kwargs: interpreter,
     )
     service = SessionService(Settings(interpreter="echo"), hub, audio, store)
 
@@ -248,7 +250,9 @@ async def test_interpreter_reconnect_is_published_without_ending_session(
     hub = FakeHub()
     interpreter = FakeOpenAIInterpreter()
     monkeypatch.setattr(
-        session_service_module, "create_interpreter", lambda _settings: interpreter
+        session_service_module,
+        "create_interpreter",
+        lambda _settings, **_kwargs: interpreter,
     )
     service = SessionService(Settings(interpreter="echo"), hub, FakeAudioRuntime(), store)
     await service.start()
@@ -276,7 +280,7 @@ async def test_each_session_start_gets_a_new_session_id(tmp_path, monkeypatch):
     monkeypatch.setattr(
         session_service_module,
         "create_interpreter",
-        lambda _settings: FakeOpenAIInterpreter(),
+        lambda _settings, **_kwargs: FakeOpenAIInterpreter(),
     )
     service = SessionService(Settings(interpreter="echo"), hub, FakeAudioRuntime(), store)
     assert service.status()["session_id"] is None
@@ -305,7 +309,9 @@ async def test_openai_invalid_key_prevents_session_start(tmp_path, monkeypatch):
     hub = FakeHub()
     interpreter = InvalidKeyInterpreter()
     monkeypatch.setattr(
-        session_service_module, "create_interpreter", lambda _settings: interpreter
+        session_service_module,
+        "create_interpreter",
+        lambda _settings, **_kwargs: interpreter,
     )
     service = SessionService(Settings(interpreter="echo"), hub, FakeAudioRuntime(), store)
 

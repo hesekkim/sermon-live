@@ -89,6 +89,12 @@ describe('transcriptFile', () => {
     expect(body).toContain('Guten Tag');
   });
 
+  it('uses the selected target language in the output section', () => {
+    const body = buildTranscriptDownload([], ['Good morning'], 'en');
+
+    expect(body).toContain('Output (English)');
+  });
+
   it('builds a separate pane download without the other transcript', () => {
     expect(buildTranscriptPaneDownload(['Guten Tag'])).toBe('Guten Tag\n');
   });

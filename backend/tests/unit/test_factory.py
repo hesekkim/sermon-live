@@ -12,5 +12,6 @@ def test_factory_selects_echo():
 
 def test_factory_selects_openai_stub():
     settings = Settings(interpreter="openai", openai_api_key="test-key")
-    adapter = create_interpreter(settings)
+    adapter = create_interpreter(settings, translation_target_language="en")
     assert isinstance(adapter, OpenAIRealtimeInterpreter)
+    assert adapter._translation_target_language == "en"

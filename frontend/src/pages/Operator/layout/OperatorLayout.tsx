@@ -20,6 +20,7 @@ import { useOperatorPrefs } from '../OperatorPrefs';
 import { useOperatorLayout } from './useOperatorLayout';
 import ListenQrShare from './ListenQrShare';
 import styles from './OperatorLayout.module.css';
+import type { TranslationTargetLanguage } from '../../../shared/types/translation';
 import {
   buildTranscriptPaneDownload,
   downloadTextFile,
@@ -37,6 +38,7 @@ export interface OperatorOutletContext {
   setInputTranscriptEnabled: (enabled: boolean) => void;
   inputLines: string[];
   outputLines: string[];
+  translationTargetLanguage: TranslationTargetLanguage;
 }
 
 export default function OperatorLayout({
@@ -206,6 +208,7 @@ export default function OperatorLayout({
                 setInputTranscriptEnabled: session.setInputTranscriptEnabled,
                 inputLines: session.inputLines,
                 outputLines: session.outputLines,
+                translationTargetLanguage: session.translationTargetLanguage,
               } satisfies OperatorOutletContext
             }
           />

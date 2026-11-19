@@ -24,6 +24,10 @@
 
 `068-listen-ios-resume-without-refresh.md` 구현과 자동 검증은 완료했다. iPhone Safari/Chrome에서 화면 잠금 후 복귀하는 실기기 검증이 남아 있다.
 
+### 나중에 (별도 티켓, 현재 구현 제외)
+
+1. `075-neutralize-source-transcript-language-copy.md` — Input/source transcript의 한국어 하드코딩 제거. 074 완료 후 별도 작업
+
 ### 신규 사용자 보고 이슈
 
 1. `064-openai-translation-audio-output-diagnostics.md` — OpenAI Translation audio delta부터 mixer·Listener 재생까지 음성 누락 진단
@@ -103,6 +107,7 @@
 59. `067-backend-audio-device-default-fallback.md` — 저장 장치 부재 시 OS 기본 입력으로 fallback하고 Operator에 effective device 표시
 60. `069-listen-background-audio-capability.md` — Listen 화면 켜짐 유지, HTTPS/WSS 설정 및 Wake Lock 상태 안내 (구현·문서·자동 검증 완료; 실기기 검증 미수행)
 61. `070-standalone-packaging-foundation.md` — 독립 실행 패키징 공통 기반, OS별 사용자 데이터 경로, 비파괴 설정 이전 및 Windows smoke package
+62. `074-output-language-settings-and-listener-ui.md` — 영어/독일어 출력 언어 설정, Listener UI 연동, 환경변수 경로 제거
 
 ## 결정 사항
 
@@ -111,7 +116,7 @@
 - 통역 API는 `LiveInterpreter` injection. 파이프라인에 vendor 분기 금지
 - 1차 UI: 성도 Listen + 방송실 Operator React
 - 최종 제품은 OpenAI(`gpt-realtime-translate`)만 사용. Gemini는 baseline으로만 git tag 보존 후 001에서 제거
-- 언어 방향: SOURCE Korean -> TARGET German 고정
+- 언어 설정: 출력 언어는 영어(`en`) 또는 독일어(`de`)이며 Listen UI도 해당 출력 언어에 맞춘다. 기본값은 독일어다. 기존 `APP_TRANSLATION_TARGET_LANGUAGE` 값은 migration하지 않는다. 입력 언어를 한국어로 가정하는 transcript 문구는 075에서 별도 정리한다.
 - API key는 코드·테스트 fixture·로그·API 응답에 평문으로 남기지 않으며, 노출 시 폐기·재발급을 먼저 수행
 - 외부 API 구현은 공식 문서 확인 결과(endpoint/model/event/audio format)를 ticket에 기록한 후 진행
 - 2026-09-25 공식 Realtime Translation 문서 기준 `gpt-realtime-translate` 세션에는 `instructions`/Glossary 입력이 문서화되어 있지 않다. 번역 세션의 갱신 가능 항목은 output language, input transcription, noise reduction이므로 020/022/023의 주입 작업은 보류한다.

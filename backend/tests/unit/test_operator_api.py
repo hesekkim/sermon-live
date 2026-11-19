@@ -50,9 +50,13 @@ def test_sermon_session_routes_are_not_registered(operator_client):
 
 def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     key_validation_calls = []
+    session_status_events = []
 
     async def record_key_validation(*_args):
         key_validation_calls.append(True)
+
+    async def record_session_status(payload):
+        session_status_events.append(payload)
 
     async def skip_audio_restart():
         return None
@@ -65,10 +69,14 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     )
     monkeypatch.setattr(store, "_path", tmp_path / "operator.json")
     monkeypatch.setattr(operator_endpoint.audio, "restart", skip_audio_restart)
+    monkeypatch.setattr(
+        operator_endpoint.hub, "broadcast_session", record_session_status
+    )
     store.save(interpreter="echo", audio_device="USB Audio", audio_channel=1)
     empty = operator_client.get("/api/v1/operator/settings")
     assert empty.status_code == 200
     assert empty.json()["input_transcript_enabled"] is False
+    assert empty.json()["translation_target_language"] == "de"
     assert key_validation_calls == []
     saved = operator_client.put(
         "/api/v1/operator/settings",
@@ -78,6 +86,7 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
             "audio_device": "USB Audio",
             "audio_channel": 2,
             "input_transcript_enabled": False,
+            "translation_target_language": "en",
             "translation_session_auto_stop_minutes": 60,
             "translation_session_warning_minutes": 4,
             "translation_session_extension_minutes": 15,
@@ -90,6 +99,7 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     assert body["audio_device"] == "USB Audio"
     assert body["audio_channel"] == 2
     assert body["input_transcript_enabled"] is False
+    assert body["translation_target_language"] == "en"
     assert body["translation_session_auto_stop_minutes"] == 60
     assert body["translation_session_warning_minutes"] == 4
     assert body["translation_session_extension_minutes"] == 15
@@ -98,6 +108,21 @@ def test_operator_settings_roundtrip(operator_client, monkeypatch, tmp_path):
     assert body["openai_key_masked"] == "unit...-key"
     assert "unit-test-key" not in str(body)
     assert len(key_validation_calls) == 1
+    assert session_status_events[-1]["translation_target_language"] == "en"
+
+
+def test_operator_settings_rejects_unsupported_translation_target_language(
+    operator_client,
+):
+    response = operator_client.put(
+        "/api/v1/operator/settings",
+        json={
+            "interpreter": "echo",
+            "translation_target_language": "fr",
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_operator_settings_get_returns_persisted_key_status_without_validation(
@@ -327,6 +352,10 @@ def test_operator_settings_cannot_change_safety_or_interpreter_during_session(
         "/api/v1/operator/settings",
         json={"interpreter": "echo", "input_transcript_enabled": True},
     )
+    target_language_response = operator_client.put(
+        "/api/v1/operator/settings",
+        json={"interpreter": "echo", "translation_target_language": "en"},
+    )
     channel_response = operator_client.put(
         "/api/v1/operator/settings",
         json={"interpreter": "echo", "audio_channel": 2},
@@ -336,12 +365,14 @@ def test_operator_settings_cannot_change_safety_or_interpreter_during_session(
     assert interpreter_response.status_code == 409
     assert key_response.status_code == 409
     assert transcript_response.status_code == 422
+    assert target_language_response.status_code == 409
     assert channel_response.status_code == 409
     current = store.public_view(get_settings())
     assert current["translation_session_auto_stop_minutes"] == 90
     assert current["input_transcript_enabled"] is False
     assert current["interpreter"] == "echo"
     assert current["audio_channel"] == 1
+    assert current["translation_target_language"] == "de"
 
 
 def test_operator_settings_storage_error_returns_generic_http_500(operator_client):

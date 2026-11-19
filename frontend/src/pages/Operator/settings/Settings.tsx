@@ -56,6 +56,8 @@ export default function Settings() {
   const {
     interpreter,
     setInterpreter,
+    translationTargetLanguage,
+    setTranslationTargetLanguage,
     apiKey,
     setApiKey,
     openaiKeyStatus,
@@ -321,6 +323,8 @@ export default function Settings() {
           keyValidationFailed={keyValidationState === 'failed'}
           savedKeyPreview={openaiKeyMasked}
           disabled={isSessionBusy}
+          translationTargetLanguage={translationTargetLanguage}
+          onTranslationTargetLanguageChange={setTranslationTargetLanguage}
         />
         <div className={styles.applyActions}>
           <Button

@@ -46,9 +46,10 @@ export default function Listen() {
     startListening,
     subtitle,
     subtitleLines,
+    translationTargetLanguage,
   } = useListenAudio();
   const { fontSize, setFontSize, setTheme, theme } = useListenerPreferences();
-  const copy = getListenerCopy();
+  const copy = getListenerCopy(translationTargetLanguage);
   const screenWakeLockStatus = useScreenWakeLock(
     isListening && sessionStatus === 'live' && !sessionEnded,
   );

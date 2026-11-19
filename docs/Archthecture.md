@@ -43,7 +43,7 @@ Local PC: AudioCapture -> AudioProcessor -> AudioRuntime
 Operator Browser <---- BroadcastHub/WebSocket ----> Listen Browsers
 ```
 
-언어 방향은 Korean source에서 German target으로 고정한다. OpenAI API key는 Backend에서만 사용하고 Browser나 Listen client에 전달하지 않는다.
+출력 언어는 Operator Settings에서 영어(`en`) 또는 독일어(`de`)를 선택하며 기본값은 독일어다. Listen UI도 선택한 출력 언어로 표시한다. 입력 언어는 provider에 지정하지 않는다. OpenAI API key는 Backend에서만 사용하고 Browser나 Listen client에 전달하지 않는다.
 
 ## 실행 단위와 소유권
 
@@ -70,7 +70,7 @@ Operator shell은 Broadcast 상태 구독과 조작을 route component보다 상
 
 ### Listen
 
-Listen은 로그인 없이 접근할 수 있다. 연결 상태, translation 상태, 독일어 자막, 명시적인 Listen 시작, 글자 크기와 listener theme을 제공한다. 재연결, 대기, 정상 종료, 통역 오류를 구분한다.
+Listen은 로그인 없이 접근할 수 있다. 연결 상태, translation 상태, 선택된 출력 언어의 자막, 명시적인 Listen 시작, 글자 크기와 listener theme을 제공한다. UI 문구도 출력 언어가 영어면 영어, 독일어면 독일어로 표시하며 브라우저 언어와 독립적이다. 재연결, 대기, 정상 종료, 통역 오류를 구분한다.
 
 오디오 playback은 Listen Browser의 AudioContext에서 수행한다. 사용자 음량은 기기의 하드웨어/OS 조절을 사용하며 앱에 별도의 volume control을 두지 않는다. Listen Browser에는 Operator 설정이나 API key가 전달되지 않는다.
 
@@ -90,7 +90,7 @@ Sidebar는 다음 정보를 한 곳에 둔다.
 - session 경과/잔여 시간, auto-stop warning 및 extension/stop action
 - latency와 queue drop warning/count
 
-본문은 Korean source와 German translation transcript를 유지한다. transcript download가 지원되는 경우 기존 동작을 유지한다.
+본문은 source transcript와 선택된 출력 언어의 translation transcript를 표시한다. 출력 transcript 제목과 다운로드 안내는 현재 출력 언어에 맞춘다. transcript download가 지원되는 경우 기존 동작을 유지한다.
 
 현재 signal label은 Input level의 동일한 값에 threshold를 적용한 파생 표시다. 따라서 Broadcast에는 level meter와 별도의 "Audio signal / Silent" label을 중복 노출하지 않는다. 단, input device의 ready/error는 signal 크기와 다른 상태이므로 계속 표시한다. Audio Test 화면의 신호/무음 결과는 짧은 측정 구간에 대한 테스트 판정이므로 별도로 유지한다.
 
@@ -103,7 +103,7 @@ Settings는 다음 네 탭을 사용한다.
 1. **Appearance**: UI language를 선택 즉시 적용한다. Dark mode는 공통 상단 toggle에서 조절한다. 이 탭에는 Apply 버튼이 없다.
 2. **Input devices**: 장치 선택 즉시 저장한다. 저장에 성공하면 backend capture runtime에 반영한다. Session live 중 변경은 거부하고 사용자가 이전 선택을 유지하도록 한다. Audio Test는 장치 연결, input level, capture stream format, processing format 및 변환 성공 여부를 확인한다.
 3. **Safety**: Auto Stop, warning, extension, hard limit을 편집하고 이 값만 저장하는 Apply 버튼을 둔다.
-4. **API Model**: Echo/OpenAI 선택과 OpenAI API key 저장 상태/입력을 관리하고 이 값만 저장하는 Apply 버튼을 둔다. 저장된 API key 원문은 응답으로 되돌려주지 않는다.
+4. **API Model**: Echo/OpenAI 선택, OpenAI API key 저장 상태/입력 및 출력 언어(영어/독일어)를 관리하고 이 값만 저장하는 Apply 버튼을 둔다. 저장된 API key 원문은 응답으로 되돌려주지 않는다.
 
 각 탭의 미저장 draft가 다른 탭을 저장할 때 함께 전송되거나 덮어써지지 않는다. Settings 상단 Back action은 Broadcast로 돌아간다.
 
@@ -160,11 +160,12 @@ Router는 HTTP/WebSocket 입출력과 인증 적용을 담당하고 capture, int
 
 ### OperatorSettingsStore
 
-고정/운영 설정은 `.env`의 기본값과 Local PC의 operator store를 overlay해 사용한다. Browser appearance 설정은 Operator Browser preference로 관리하고, 다음 backend 운영값만 server-side 설정으로 관리한다.
+고정/운영 설정은 `.env`의 기본값과 Local PC의 operator store를 overlay해 사용한다. Translation output language는 환경변수가 아니라 Operator store에서 관리하며, 값이 없으면 독일어를 사용한다. Browser appearance 설정은 Operator Browser preference로 관리하고, 다음 backend 운영값만 server-side 설정으로 관리한다.
 
 - active interpreter (`echo` 또는 `openai`)
 - OpenAI API key
 - 선택한 audio device
+- translation output language (`en` 또는 `de`, 기본 `de`)
 - safety timer 값
 
 API key는 API response에서 mask/status로만 표현한다. 현재 JSON store의 평문-at-rest 위험은 별도 배포/보안 과제다.
@@ -229,7 +230,7 @@ OpenAI websocket이 `session.closed` 없이 끊기면(network 순단, server clo
 
 BroadcastHub는 application event/audio를 등록 client에 fan-out한다.
 
-- Listen clients: session status, German translated text, output sample rate, binary translated audio, ended state
+- Listen clients: session status, selected-language translated text, output sample rate, binary translated audio, ended state
 - Operator clients: session/audio status, input level, listener count, latency, queue drop telemetry, input/output transcript, errors, localized 가능한 종료 reason code
 
 BroadcastHub는 OpenAI websocket/payload 또는 API key를 알지 않는다. Listener count는 등록/해제 시 갱신한다. 하나의 listener 연결 실패가 다른 client 전달을 막지 않는다.
@@ -290,12 +291,12 @@ Backend는 HTTP polling snapshot과 WebSocket event를 같은 application-level 
 
 | Event | 목적 | 대상 |
 | --- | --- | --- |
-| `translation_status` | session state, listener count, start availability, timer, `session_id`, `interpreter_reconnecting` | Operator, Listen snapshot(공개 field만) |
+| `translation_status` | session state, listener count, start availability, timer, `session_id`, `interpreter_reconnecting`, `translation_target_language` | Operator, Listen snapshot(공개 field만) |
 | `audio_status` | input runtime ready/error | Operator |
 | `audio_level` | throttled dBFS input measurement | Operator |
 | `listener_count` | 현재 Listen 연결 수 변경 | Operator |
 | `latency` | 명시된 번역 latency 측정 | Operator |
-| `transcript` | `input` Korean 또는 `output` German text delta | Operator |
+| `transcript` | `input` source 또는 선택된 출력 언어의 `output` text delta | Operator |
 | `audio_overflow` | 누적 dropped chunk/duration과 최근 drop | Operator |
 | `error` | 이해 가능한 오류 상태 | Operator, 필요 시 Listen |
 | `session_ended` | 최종 reason code, `session_id` | Operator, Listen |
@@ -303,7 +304,7 @@ Backend는 HTTP polling snapshot과 WebSocket event를 같은 application-level 
 | `pong` | Listen heartbeat 응답 | Listen |
 | binary audio + sample-rate metadata | translated PCM playback | 오디오를 구독한 Listen |
 
-Listen에 전달되는 `translation_status`는 `type`, `session_status`, `last_termination_reason`, `session_id`, `interpreter_reconnecting`만 포함한다. `error`는 Listen에 `type`/`session_status`만 전달하고 오류 상세는 Operator에만 보낸다.
+Listen에 전달되는 `translation_status`는 공개 상태 필드와 `translation_target_language`만 포함한다. `error`는 Listen에 `type`/`session_status`만 전달하고 오류 상세는 Operator에만 보낸다.
 
 Listen client가 서버로 보내는 message는 다음 두 가지뿐이며 나머지는 무시한다.
 

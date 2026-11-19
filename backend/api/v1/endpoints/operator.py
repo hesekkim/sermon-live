@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
-from core.config import InterpreterName, get_settings
+from core.config import InterpreterName, TranslationTargetLanguage, get_settings
 from services.broadcast import hub
 from services.audio_capture import AudioCapture
 from services.key_validation import validate_operator_key
@@ -19,6 +19,9 @@ class OperatorSettingsBody(BaseModel):
     openai_api_key: str | None = Field(default=None)
     audio_device: str | None = Field(default=None)
     audio_channel: int | None = Field(default=None, ge=1)
+    translation_target_language: TranslationTargetLanguage | None = Field(
+        default=None
+    )
     input_transcript_enabled: bool | None = Field(default=None)
     translation_session_auto_stop_minutes: int | None = Field(default=None, gt=0)
     translation_session_warning_minutes: int | None = Field(default=None, gt=0)
@@ -93,7 +96,12 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
         and body.openai_api_key != stored_key
     )
     api_model_changed = interpreter_changed or api_key_changed
-    protected_settings_changed = api_model_changed
+    target_language_changed = (
+        body.translation_target_language is not None
+        and body.translation_target_language
+        != current_view["translation_target_language"]
+    )
+    protected_settings_changed = api_model_changed or target_language_changed
     for field in timer_fields:
         requested = getattr(body, field)
         if requested is not None and requested != current_view[field]:
@@ -122,6 +130,7 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
             openai_api_key=body.openai_api_key,
             audio_device=body.audio_device,
             audio_channel=requested_channel,
+            translation_target_language=body.translation_target_language,
             settings=current_settings,
             translation_session_auto_stop_minutes=(
                 body.translation_session_auto_stop_minutes
@@ -153,6 +162,8 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
             ) from exc
     if api_model_changed:
         await validate_operator_key(get_settings(), store)
+    if target_language_changed:
+        await hub.broadcast_session(session.session_event())
     return store.public_view(get_settings())
 
 

@@ -1,4 +1,6 @@
-type ListenerLanguage = 'de' | 'en' | 'ko';
+import type { TranslationTargetLanguage } from '../../shared/types/translation';
+
+type ListenerLanguage = TranslationTargetLanguage;
 
 const listenerCopy = {
   de: {
@@ -62,11 +64,11 @@ const listenerCopy = {
     },
     status: {
       connecting: 'CONNECTING...',
-      ended: 'BROADCAST ENDED · GERMAN',
+      ended: 'BROADCAST ENDED · ENGLISH',
       interpreterReconnecting: 'TRANSLATION RECONNECTING',
       audioRecoveryRequired: 'AUDIO PLAYBACK PAUSED',
       audioOutputPending: 'WAITING FOR AUDIO',
-      live: 'SESSION LIVE · GERMAN',
+      live: 'SESSION LIVE · ENGLISH',
       waitingForTranslation: 'WAITING FOR TRANSLATION',
       starting: 'STARTING TRANSLATION',
       stopping: 'ENDING BROADCAST',
@@ -91,7 +93,7 @@ const listenerCopy = {
     },
     changeToDark: 'Change to dark theme',
     changeToLight: 'Change to light theme',
-    transcript: 'German translation',
+    transcript: 'English translation',
     ended: 'Broadcast ended',
     startListening: 'Start listening',
     stopListening: 'Stop listening',
@@ -105,62 +107,8 @@ const listenerCopy = {
     dismissScripture: 'Close Bible passage',
     dismissScriptureButton: 'Close',
   },
-  ko: {
-    retry: {
-      initialRetrying: '최초 연결 실패 · 다시 연결 중',
-      timedOutRetrying: '연결 시간 초과 · 다시 연결 중',
-      serverRetrying: '서버 연결 종료 · 다시 연결 중',
-      reconnecting: '연결 끊김 · 다시 연결 중',
-    },
-    status: {
-      connecting: '연결 중...',
-      ended: '방송 종료 · 독일어',
-      interpreterReconnecting: '통역 다시 연결 중',
-      audioRecoveryRequired: '오디오 재생 중단 · 다시 시작 필요',
-      audioOutputPending: '오디오 신호 대기 중',
-      live: '방송 중 · 독일어',
-      waitingForTranslation: '통역 대기 중',
-      starting: '통역 시작 중',
-      stopping: '방송 종료 중',
-      unavailable: '통역을 사용할 수 없음',
-      connectedOff: '연결됨 · 통역 꺼짐',
-      off: '통역 꺼짐',
-      waitingForStart: '방송 시작 대기 중',
-    },
-    placeholder: {
-      live: '통역을 기다리는 중...',
-      off: '통역이 꺼져 있습니다.',
-      waiting: '통역 내용이 여기에 표시됩니다.',
-    },
-    connectionHelp:
-      '연결이 계속되지 않으면 Chrome 등 다른 브라우저로 다시 접속해 주세요.',
-    wakeLock: {
-      insecure: '화면을 계속 켜 두려면 안전한 HTTPS 연결이 필요합니다.',
-      unsupported: '이 브라우저는 화면 켜짐 유지를 지원하지 않습니다.',
-      requestFailed: '화면을 계속 켜 둘 수 없습니다.',
-      released: '운영체제가 화면 잠금을 해제했습니다.',
-    },
-    changeToDark: '어두운 테마로 변경',
-    changeToLight: '밝은 테마로 변경',
-    transcript: '독일어 통역',
-    ended: '방송 종료',
-    startListening: '듣기',
-    stopListening: '듣기 중지',
-    resumeAudio: '오디오 다시 시작',
-    fontSize: '글자 크기',
-    smallerText: '글자 작게',
-    defaultTextSize: '기본 글자 크기',
-    largerText: '글자 크게',
-    recoveryMessage:
-      '오디오 재생이 중단되었습니다. 오디오 다시 시작 버튼을 눌러 다시 들으세요.',
-    dismissScripture: '성경 본문 닫기',
-    dismissScriptureButton: '닫기',
-  },
 } as const satisfies Record<ListenerLanguage, object>;
 
-export function getListenerCopy() {
-  const language = navigator.language.split('-')[0].toLowerCase();
-  const supportedLanguage =
-    language === 'de' || language === 'ko' ? language : 'en';
-  return listenerCopy[supportedLanguage];
+export function getListenerCopy(language: TranslationTargetLanguage) {
+  return listenerCopy[language];
 }

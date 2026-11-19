@@ -11,7 +11,11 @@ from urllib.parse import urlencode
 from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosed
 
-from core.config import Settings
+from core.config import (
+    DEFAULT_TRANSLATION_TARGET_LANGUAGE,
+    Settings,
+    TranslationTargetLanguage,
+)
 from services.interpreters.protocol import InterpreterEvent, KeyValidationError
 
 logger = logging.getLogger(__name__)
@@ -33,9 +37,13 @@ class OpenAIRealtimeInterpreter:
         self,
         settings: Settings | None = None,
         *,
+        translation_target_language: TranslationTargetLanguage = (
+            DEFAULT_TRANSLATION_TARGET_LANGUAGE
+        ),
         websocket_factory: Callable[..., Awaitable[Any]] | None = None,
     ) -> None:
         self._settings = settings or Settings(interpreter="openai")
+        self._translation_target_language = translation_target_language
         self._websocket_factory = websocket_factory or connect
         self._websocket: Any | None = None
         self._event_queue: asyncio.Queue[InterpreterEvent | None] | None = None
@@ -112,7 +120,7 @@ class OpenAIRealtimeInterpreter:
                 raise RuntimeError("OpenAI Realtime session handshake failed")
 
             audio_settings: dict[str, Any] = {
-                "output": {"language": self._settings.translation_target_language}
+                "output": {"language": self._translation_target_language}
             }
             await websocket.send(
                 json.dumps(

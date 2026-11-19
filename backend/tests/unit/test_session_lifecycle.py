@@ -187,7 +187,9 @@ async def test_shutdown_cancels_and_cleans_up_session_start_in_progress(
 
     interpreter = BlockingStartInterpreter()
     monkeypatch.setattr(
-        session_service_module, "create_interpreter", lambda _settings: interpreter
+        session_service_module,
+        "create_interpreter",
+        lambda _settings, **_kwargs: interpreter,
     )
     service, _hub = make_service(tmp_path)
     start_task = asyncio.create_task(service.start())
@@ -225,7 +227,9 @@ async def test_normal_stop_bounds_audio_drain_and_reports_discarded_chunks(
 
     interpreter = BlockingInterpreter()
     monkeypatch.setattr(
-        session_service_module, "create_interpreter", lambda _settings: interpreter
+        session_service_module,
+        "create_interpreter",
+        lambda _settings, **_kwargs: interpreter,
     )
     settings = Settings(interpreter="echo", translation_drain_timeout_seconds=0.01)
     audio = FakeAudioRuntime()
@@ -248,7 +252,12 @@ async def test_normal_stop_bounds_audio_drain_and_reports_discarded_chunks(
 
 @pytest.mark.asyncio
 async def test_translation_status_uses_standardized_contract(tmp_path):
-    service, hub = make_service(tmp_path)
+    operator_store = OperatorSettingsStore(tmp_path / "operator.json")
+    operator_store.save(
+        interpreter="echo",
+        translation_target_language="en",
+    )
+    service, hub = make_service(tmp_path, operator_store=operator_store)
 
     await service.start()
 
@@ -262,6 +271,7 @@ async def test_translation_status_uses_standardized_contract(tmp_path):
     assert status["session_status"] == "live"
     assert status["listener_count"] == 1
     assert status["running"] is True
+    assert status["translation_target_language"] == "en"
 
     await service.stop()
 
@@ -449,7 +459,7 @@ async def test_duplicate_start_and_stop_are_rejected_while_starting(tmp_path, mo
     monkeypatch.setattr(
         session_service_module,
         "create_interpreter",
-        lambda _settings: BlockingInterpreter(),
+        lambda _settings, **_kwargs: BlockingInterpreter(),
     )
     service, hub = make_service(tmp_path)
     start_task = asyncio.create_task(service.start())
@@ -502,7 +512,9 @@ async def test_cancelled_start_closes_interpreter_and_returns_to_off(tmp_path, m
 
     interpreter = BlockingInterpreter()
     monkeypatch.setattr(
-        session_service_module, "create_interpreter", lambda _settings: interpreter
+        session_service_module,
+        "create_interpreter",
+        lambda _settings, **_kwargs: interpreter,
     )
     service, _hub = make_service(tmp_path)
     start_task = asyncio.create_task(service.start())
@@ -554,7 +566,7 @@ async def test_interpreter_error_ends_session_for_operator_and_listener(tmp_path
     monkeypatch.setattr(
         session_service_module,
         "create_interpreter",
-        lambda _settings: ErrorInterpreter(),
+        lambda _settings, **_kwargs: ErrorInterpreter(),
     )
     service, hub = make_service(tmp_path)
 
@@ -641,6 +653,7 @@ async def test_broadcast_hub_limits_public_session_status_fields():
         "last_termination_reason": None,
         "session_id": "abc",
         "interpreter_reconnecting": True,
+        "translation_target_language": "en",
         "input_transcript_enabled": True,
         "error": "upstream diagnostic",
         "audio_error": "device path",
@@ -658,6 +671,7 @@ async def test_broadcast_hub_limits_public_session_status_fields():
             "last_termination_reason": None,
             "session_id": "abc",
             "interpreter_reconnecting": True,
+            "translation_target_language": "en",
         }
     ]
 

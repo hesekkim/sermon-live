@@ -67,6 +67,42 @@ class FakeSession:
         return {"type": "translation_status", "session_status": "off"}
 
 
+class DetailedFakeSession:
+    def session_event(self):
+        return {
+            "type": "translation_status",
+            "session_status": "off",
+            "translation_target_language": "en",
+            "audio_error": "private device detail",
+            "start_block_reason": "operator-only detail",
+        }
+
+
+@pytest.mark.asyncio
+async def test_listener_initial_status_exposes_target_language_only(monkeypatch):
+    hub = BroadcastHub()
+    listener = BlockingWebSocket()
+    monkeypatch.setattr(listen_endpoint, "hub", hub)
+    monkeypatch.setattr(listen_endpoint, "session", DetailedFakeSession())
+    task = asyncio.create_task(listen_endpoint.listen_socket(listener))
+
+    await asyncio.wait_for(listener.receiving.wait(), timeout=1)
+    await hub.flush_listeners(1)
+
+    try:
+        assert listener.messages == [
+            {
+                "type": "translation_status",
+                "session_status": "off",
+                "translation_target_language": "en",
+            }
+        ]
+    finally:
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+
 @pytest.mark.asyncio
 async def test_four_listener_endpoints_connect_and_disconnect_concurrently(
     monkeypatch,

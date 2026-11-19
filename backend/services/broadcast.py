@@ -170,17 +170,7 @@ class BroadcastHub:
         await self.broadcast_operator(payload)
         event_type = payload.get("type")
         if event_type == "translation_status":
-            listen_payload = {
-                key: payload[key]
-                for key in (
-                    "type",
-                    "session_status",
-                    "last_termination_reason",
-                    "session_id",
-                    "interpreter_reconnecting",
-                )
-                if key in payload
-            }
+            listen_payload = self._public_listen_status(payload)
         elif event_type == "session_ended":
             listen_payload = {
                 key: payload[key]
@@ -195,12 +185,29 @@ class BroadcastHub:
             return
         await self._broadcast_listen_json(listen_payload)
 
+    @staticmethod
+    def _public_listen_status(payload: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: payload[key]
+            for key in (
+                "type",
+                "session_status",
+                "last_termination_reason",
+                "session_id",
+                "interpreter_reconnecting",
+                "translation_target_language",
+            )
+            if key in payload
+        }
+
     async def send_listen_event(
         self, websocket: WebSocket, payload: dict[str, Any]
     ) -> bool:
         client = self._listen_clients.get(websocket)
         if client is None:
             return False
+        if payload.get("type") == "translation_status":
+            payload = self._public_listen_status(payload)
         if self._enqueue_json(client, payload):
             return True
         await self._drop_listeners([client], reason="message_queue_full")

@@ -83,6 +83,7 @@ describe('useOperatorSettings', () => {
       ok: true,
       json: async () => ({
         interpreter: 'openai',
+        translation_target_language: 'de',
         openai_key_set: true,
         openai_key_status: 'invalid',
         openai_key_warning: serverWarning,
@@ -102,6 +103,54 @@ describe('useOperatorSettings', () => {
     expect(latestState?.interpreter).toBe('openai');
     expect(latestState?.openaiKeyStatus).toBe('invalid');
     expect(latestState?.openaiKeyWarning).toBe(serverWarning);
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('saves the selected translation target language with API settings', async () => {
+    const settings = {
+      interpreter: 'echo',
+      translation_target_language: 'de',
+      openai_key_set: false,
+    };
+    operatorFetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => settings,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ...settings, translation_target_language: 'en' }),
+      });
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    let latestState: ReturnType<typeof useOperatorSettings> | undefined;
+
+    await act(async () => {
+      root.render(<Probe onRender={(state) => (latestState = state)} />);
+    });
+    await act(async () => {
+      latestState?.setTranslationTargetLanguage('en');
+    });
+
+    expect(latestState?.isApiModelDirty).toBe(true);
+
+    let result: Awaited<
+      ReturnType<NonNullable<typeof latestState>['saveApiModel']>
+    > | undefined;
+    await act(async () => {
+      result = await latestState!.saveApiModel();
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(JSON.parse(operatorFetchMock.mock.calls[1][1].body)).toEqual({
+      interpreter: 'echo',
+      translation_target_language: 'en',
+    });
+    expect(latestState?.translationTargetLanguage).toBe('en');
 
     act(() => root.unmount());
     container.remove();

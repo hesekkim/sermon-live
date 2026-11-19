@@ -29,6 +29,7 @@ export interface OperatorCopy {
   languageEn: string;
   languageDe: string;
   interpreter: string;
+  translationTargetLanguage: string;
   audioDevice: string;
   audioChannel: string;
   audioChannelReselect: string;
@@ -221,6 +222,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     languageEn: '영어',
     languageDe: '독일어',
     interpreter: 'API 모델',
+    translationTargetLanguage: '통역 출력 언어',
     audioDevice: '입력 장치',
     audioChannel: '입력 채널',
     audioChannelReselect: '저장된 입력 채널을 사용할 수 없습니다. 다시 선택하세요.',
@@ -355,9 +357,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     terminationServerShutdown: '서버 종료로 중단',
     terminationUnknown: '세션 종료',
     inputLabel: '입력 (한국어)',
-    outputLabel: '출력 (독일어)',
+    outputLabel: '출력 ({language})',
     inputDownload: '한국어 전사 다운로드',
-    outputDownload: '독일어 번역 다운로드',
+    outputDownload: '{language} 번역 다운로드',
     startWithTranscriptTitle: '이전 방송 기록',
     startWithTranscriptBody:
       '이전 Output을 다운로드할까요? 새 방송을 시작하면 Input과 Output 기록이 삭제됩니다.',
@@ -365,7 +367,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     discardAndStart: '다운로드하지 않고 시작',
     cancelStart: '취소',
     emptyInput: '인식된 한국어가 여기에 나타납니다',
-    emptyOutput: '번역된 독일어가 여기에 나타납니다',
+    emptyOutput: '{language} 번역이 여기에 나타납니다',
     startFailed: '방송을 시작하지 못했습니다',
     stopFailed: '방송을 중지하지 못했습니다',
     invalidApiKey: 'API 키가 올바르지 않습니다',
@@ -424,6 +426,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     languageEn: 'English',
     languageDe: 'German',
     interpreter: 'API model',
+    translationTargetLanguage: 'Translation output language',
     audioDevice: 'Input device',
     audioChannel: 'Input channel',
     audioChannelReselect: 'The saved input channel is unavailable. Select another channel.',
@@ -560,9 +563,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     terminationServerShutdown: 'Stopped by server shutdown',
     terminationUnknown: 'Session ended',
     inputLabel: 'Input (Korean)',
-    outputLabel: 'Output (German)',
+    outputLabel: 'Output ({language})',
     inputDownload: 'Download Korean transcript',
-    outputDownload: 'Download German translation',
+    outputDownload: 'Download {language} translation',
     startWithTranscriptTitle: 'Previous broadcast transcript',
     startWithTranscriptBody:
       'Download the previous output? Starting a new broadcast clears both input and output transcripts.',
@@ -570,7 +573,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     discardAndStart: 'Start without downloading',
     cancelStart: 'Cancel',
     emptyInput: 'Recognized Korean appears here',
-    emptyOutput: 'Translated German appears here',
+    emptyOutput: '{language} translation appears here',
     startFailed: 'Could not start the broadcast',
     stopFailed: 'Could not stop the broadcast',
     invalidApiKey: 'The API key is invalid',
@@ -629,6 +632,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     languageEn: 'Englisch',
     languageDe: 'Deutsch',
     interpreter: 'API-Modell',
+    translationTargetLanguage: 'Ausgabesprache der Übersetzung',
     audioDevice: 'Eingabegerät',
     audioChannel: 'Eingangskanal',
     audioChannelReselect: 'Der gespeicherte Eingangskanal ist nicht verfügbar. Bitte wählen Sie einen anderen Kanal.',
@@ -766,9 +770,9 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     terminationServerShutdown: 'Wegen Serverabschaltung beendet',
     terminationUnknown: 'Sitzung beendet',
     inputLabel: 'Eingabe (Koreanisch)',
-    outputLabel: 'Ausgabe (Deutsch)',
+    outputLabel: 'Ausgabe ({language})',
     inputDownload: 'Koreanisches Transkript herunterladen',
-    outputDownload: 'Deutsche Übersetzung herunterladen',
+    outputDownload: 'Übersetzung auf {language} herunterladen',
     startWithTranscriptTitle: 'Transkript der vorherigen Sendung',
     startWithTranscriptBody:
       'Vorherige Ausgabe herunterladen? Beim Start einer neuen Sendung werden Eingabe und Ausgabe gelöscht.',
@@ -776,7 +780,7 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     discardAndStart: 'Ohne Download starten',
     cancelStart: 'Abbrechen',
     emptyInput: 'Erkanntes Koreanisch erscheint hier',
-    emptyOutput: 'Übersetztes Deutsch erscheint hier',
+    emptyOutput: 'Die Übersetzung auf {language} erscheint hier',
     startFailed: 'Sendung konnte nicht gestartet werden',
     stopFailed: 'Sendung konnte nicht gestoppt werden',
     invalidApiKey: 'Der API-Schlüssel ist ungültig',

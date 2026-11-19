@@ -1,4 +1,5 @@
 import { appendSentenceDelta } from '../../../../utils/appendSentenceDelta';
+import type { TranslationTargetLanguage } from '../../../../shared/types/translation';
 
 export function appendTranscriptLine(lines: string[], next: string): string[] {
   const text = next.replace(/\r?\n/g, ' ').trimEnd();
@@ -17,8 +18,14 @@ export function appendTranscriptSentence(
   return appendSentenceDelta(lines, next.replace(/\r?\n/g, ' '));
 }
 
-export function buildTranscriptDownload(inputLines: string[], outputLines: string[]): string {
-  return `Input (Korean)\n\n${inputLines.join('\n')}\n\nOutput (German)\n\n${outputLines.join('\n')}\n`;
+export function buildTranscriptDownload(
+  inputLines: string[],
+  outputLines: string[],
+  translationTargetLanguage: TranslationTargetLanguage = 'de',
+): string {
+  const outputLanguage =
+    translationTargetLanguage === 'en' ? 'English' : 'German';
+  return `Input (Korean)\n\n${inputLines.join('\n')}\n\nOutput (${outputLanguage})\n\n${outputLines.join('\n')}\n`;
 }
 
 export function buildTranscriptPaneDownload(lines: string[]): string {

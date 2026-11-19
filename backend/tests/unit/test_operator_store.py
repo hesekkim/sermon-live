@@ -173,3 +173,32 @@ def test_audio_channel_setting_persists_and_overlays(tmp_path):
 
     assert store.public_view(settings)["audio_channel"] == 3
     assert store.overlay_settings(settings).audio_channel == 3
+
+
+def test_translation_target_language_persists_and_defaults_to_german(tmp_path):
+    settings = Settings()
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+
+    assert store.public_view(settings)["translation_target_language"] == "de"
+    assert store.get_translation_target_language() == "de"
+
+    store.save(interpreter="echo", translation_target_language="en")
+
+    assert store.public_view(settings)["translation_target_language"] == "en"
+    assert store.get_translation_target_language() == "en"
+    assert '"translation_target_language": "en"' in store._path.read_text(
+        encoding="utf-8"
+    )
+
+
+def test_unsupported_stored_translation_target_language_defaults_to_german(
+    tmp_path,
+):
+    store = OperatorSettingsStore(tmp_path / "operator.json")
+    store._path.write_text(
+        '{"translation_target_language":"fr"}\n',
+        encoding="utf-8",
+    )
+
+    assert store.get_translation_target_language() == "de"
+    assert store.public_view(Settings())["translation_target_language"] == "de"

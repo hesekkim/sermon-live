@@ -1,6 +1,10 @@
 import InputField from '../../../../shared/components/InputField/InputField';
 import Select from '../../../../shared/components/Select/Select';
 import StatusTag from '../../../../shared/components/StatusTag/StatusTag';
+import {
+  isTranslationTargetLanguage,
+  type TranslationTargetLanguage,
+} from '../../../../shared/types/translation';
 import type { OperatorCopy } from '../../translations';
 import styles from '../Settings.module.css';
 
@@ -19,6 +23,10 @@ interface InterpreterSectionProps {
   keyValidationFailed: boolean;
   savedKeyPreview: string;
   disabled: boolean;
+  translationTargetLanguage: TranslationTargetLanguage;
+  onTranslationTargetLanguageChange: (
+    language: TranslationTargetLanguage,
+  ) => void;
 }
 
 export default function InterpreterSection({
@@ -33,6 +41,8 @@ export default function InterpreterSection({
   keyValidationFailed,
   savedKeyPreview,
   disabled,
+  translationTargetLanguage,
+  onTranslationTargetLanguageChange,
 }: InterpreterSectionProps) {
   const keyStatusLabel = isValidatingKey
     ? labels.keyStatusChecking
@@ -96,6 +106,20 @@ export default function InterpreterSection({
           />
         </div>
       </div>
+      <Select
+        label={labels.translationTargetLanguage}
+        options={[
+          { value: 'en', label: labels.languageEn },
+          { value: 'de', label: labels.languageDe },
+        ]}
+        value={translationTargetLanguage}
+        disabled={disabled || interpreter === 'echo'}
+        onChange={(value) => {
+          if (isTranslationTargetLanguage(value)) {
+            onTranslationTargetLanguageChange(value);
+          }
+        }}
+      />
       <div
         className={`${styles.transcriptOption} ${styles.transcriptOptionDisabled}`}
       >

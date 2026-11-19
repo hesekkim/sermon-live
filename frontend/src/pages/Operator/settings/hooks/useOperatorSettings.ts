@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { operatorFetch } from '../../auth/operatorAuthApi';
 import { useToast } from '../../../../shared/components/Toast/ToastProvider';
 import type { OperatorCopy, UiLanguage } from '../../translations';
+import type { TranslationTargetLanguage } from '../../../../shared/types/translation';
 
 type InterpreterName = 'echo' | 'openai';
 type KeyStatus = 'valid' | 'missing' | 'invalid' | 'unverified';
@@ -15,6 +16,7 @@ type TimerValueKey =
 
 interface SettingsResponse {
 	interpreter: InterpreterName;
+	translation_target_language: TranslationTargetLanguage;
 	audio_device?: string | null;
 	audio_channel?: number | null;
 	translation_session_auto_stop_minutes?: number | null;
@@ -56,6 +58,8 @@ export function useOperatorSettings({
 	setSelectedChannel,
 }: UseOperatorSettingsOptions) {
 	const [interpreter, setInterpreter] = useState<InterpreterName>('echo');
+	const [translationTargetLanguage, setTranslationTargetLanguage] =
+		useState<TranslationTargetLanguage>('de');
 	const [apiKey, setApiKey] = useState('');
 	const [openaiKeyStatus, setOpenaiKeyStatus] = useState<KeyStatus>('missing');
 	const [openaiKeyMasked, setOpenaiKeyMasked] = useState('');
@@ -76,6 +80,8 @@ export function useOperatorSettings({
 	const { error } = useToast();
 	const settingsLoadStartedRef = useRef(false);
 	const savedInterpreterRef = useRef<InterpreterName>('echo');
+	const savedTranslationTargetLanguageRef =
+		useRef<TranslationTargetLanguage>('de');
 	const savedTimerValuesRef = useRef<TimerDraftState | null>(null);
 	const keyValidationInFlightRef = useRef(false);
 	const setSelectedDeviceRef = useRef(setSelectedDevice);
@@ -86,6 +92,9 @@ export function useOperatorSettings({
 	const applyApiModelResponse = (data: SettingsResponse) => {
 		savedInterpreterRef.current = data.interpreter;
 		setInterpreter(data.interpreter);
+		savedTranslationTargetLanguageRef.current =
+			data.translation_target_language;
+		setTranslationTargetLanguage(data.translation_target_language);
 		setOpenaiKeyStatus(
 			data.openai_key_status ??
 				(data.openai_key_set ? 'unverified' : 'missing'),
@@ -244,6 +253,7 @@ export function useOperatorSettings({
 		const trimmedKey = apiKey.trim();
 		const body: Record<string, SettingsValue> = {
 			interpreter,
+			translation_target_language: translationTargetLanguage,
 		};
 		if (trimmedKey) {
 			body.openai_api_key = trimmedKey;
@@ -258,11 +268,15 @@ export function useOperatorSettings({
 		});
 	const isApiModelDirty =
 		settingsLoadStatus === 'loaded' &&
-		(interpreter !== savedInterpreterRef.current || Boolean(apiKey.trim()));
+		(interpreter !== savedInterpreterRef.current ||
+			translationTargetLanguage !== savedTranslationTargetLanguageRef.current ||
+			Boolean(apiKey.trim()));
 
 	return {
 		interpreter,
 		setInterpreter,
+		translationTargetLanguage,
+		setTranslationTargetLanguage,
 		apiKey,
 		setApiKey,
 		openaiKeyStatus,

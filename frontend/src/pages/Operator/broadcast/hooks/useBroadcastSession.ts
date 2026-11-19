@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { operatorFetch } from '../../auth/operatorAuthApi';
 import type { OperatorCopy } from '../../translations';
 import {
+  isTranslationTargetLanguage,
+  type TranslationTargetLanguage,
+} from '../../../../shared/types/translation';
+import {
   appendTranscriptLine,
   appendTranscriptSentence,
 } from '../utils/transcriptFile';
@@ -63,6 +67,7 @@ interface SessionStatus {
   audio_dropped_chunks?: number;
   audio_dropped_duration_seconds?: number;
   input_transcript_enabled?: boolean;
+  translation_target_language?: TranslationTargetLanguage;
   interpreter_reconnecting?: boolean;
   timer?: SessionTimerState;
 }
@@ -97,6 +102,7 @@ interface OperatorMessage {
   audio_dropped_chunks?: number;
   audio_dropped_duration_seconds?: number;
   input_transcript_enabled?: boolean;
+  translation_target_language?: TranslationTargetLanguage;
   interpreter_reconnecting?: boolean;
 }
 
@@ -169,6 +175,8 @@ export function useBroadcastSession(
   const [audioDroppedDurationSeconds, setAudioDroppedDurationSeconds] =
     useState(0);
   const [inputTranscriptEnabled, setInputTranscriptEnabled] = useState(false);
+  const [translationTargetLanguage, setTranslationTargetLanguage] =
+    useState<TranslationTargetLanguage>('de');
   const [inputLines, setInputLines] = useState<string[]>([]);
   const [outputLines, setOutputLines] = useState<string[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
@@ -270,6 +278,9 @@ export function useBroadcastSession(
       if (typeof data.input_transcript_enabled === 'boolean') {
         setInputTranscriptEnabled(data.input_transcript_enabled);
       }
+      if (isTranslationTargetLanguage(data.translation_target_language)) {
+        setTranslationTargetLanguage(data.translation_target_language);
+      }
       setListenerCount(data.listener_count);
       if ('timer' in data) {
         setTimer(data.timer ?? null);
@@ -339,6 +350,9 @@ export function useBroadcastSession(
             payload.type === 'server_status' ||
             payload.type === 'status'
           ) {
+            if (isTranslationTargetLanguage(payload.translation_target_language)) {
+              setTranslationTargetLanguage(payload.translation_target_language);
+            }
             const sessionStatus =
               payload.session_status ?? payload.sessionStatus;
             if (typeof payload.input_transcript_enabled === 'boolean') {
@@ -652,6 +666,7 @@ export function useBroadcastSession(
     audioDroppedChunks,
     audioDroppedDurationSeconds,
     inputTranscriptEnabled,
+    translationTargetLanguage,
     setInputTranscriptEnabled,
     inputLines,
     outputLines,

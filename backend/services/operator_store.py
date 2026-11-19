@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from core.config import InterpreterName, Settings
+from core.config import (
+    DEFAULT_TRANSLATION_TARGET_LANGUAGE,
+    InterpreterName,
+    Settings,
+    TranslationTargetLanguage,
+)
 from core.paths import app_data_dir, ensure_user_data_dir, is_packaged
 
 DATA_DIR = app_data_dir()
@@ -18,6 +23,7 @@ class OperatorRecord:
     openai_api_key: str = ""
     audio_device: str = ""
     audio_channel: int | None = None
+    translation_target_language: TranslationTargetLanguage | None = None
     translation_session_auto_stop_minutes: int | None = None
     translation_session_warning_minutes: int | None = None
     translation_session_extension_minutes: int | None = None
@@ -46,6 +52,9 @@ class OperatorSettingsStore:
             openai_api_key=_as_str(raw.get("openai_api_key")),
             audio_device=_as_str(raw.get("audio_device")),
             audio_channel=_as_optional_int(raw.get("audio_channel")),
+            translation_target_language=_as_translation_target_language(
+                raw.get("translation_target_language")
+            ),
             translation_session_auto_stop_minutes=_as_optional_int(
                 raw.get("translation_session_auto_stop_minutes")
             ),
@@ -67,6 +76,7 @@ class OperatorSettingsStore:
         openai_api_key: str | None = None,
         audio_device: str | None = None,
         audio_channel: int | None = None,
+        translation_target_language: TranslationTargetLanguage | None = None,
         settings: Settings | None = None,
         translation_session_auto_stop_minutes: int | None = None,
         translation_session_warning_minutes: int | None = None,
@@ -85,6 +95,15 @@ class OperatorSettingsStore:
         device = current.audio_device
         if audio_device is not None and audio_device != "":
             device = audio_device
+        if translation_target_language is not None and translation_target_language not in (
+            "en",
+            "de",
+        ):
+            raise ValueError("Unsupported translation target language")
+        target_language = (
+            translation_target_language
+            or current.translation_target_language
+        )
         timer_updates = {
             "translation_session_auto_stop_minutes": (
                 translation_session_auto_stop_minutes
@@ -129,6 +148,7 @@ class OperatorSettingsStore:
             audio_channel=(
                 audio_channel if audio_channel is not None else current.audio_channel
             ),
+            translation_target_language=target_language,
             **timer_updates,
         )
         if is_packaged() and self._path.parent == app_data_dir():
@@ -140,6 +160,7 @@ class OperatorSettingsStore:
             "openai_api_key": record.openai_api_key,
             "audio_device": record.audio_device,
             "audio_channel": record.audio_channel,
+            "translation_target_language": record.translation_target_language,
             "translation_session_auto_stop_minutes": (
                 record.translation_session_auto_stop_minutes
             ),
@@ -176,6 +197,10 @@ class OperatorSettingsStore:
             "interpreter": interpreter,
             "audio_device": audio_device,
             "audio_channel": audio_channel,
+            "translation_target_language": (
+                record.translation_target_language
+                or DEFAULT_TRANSLATION_TARGET_LANGUAGE
+            ),
             "input_transcript_enabled": False,
             "translation_session_auto_stop_minutes": (
                 record.translation_session_auto_stop_minutes
@@ -269,6 +294,12 @@ class OperatorSettingsStore:
             return settings
         return Settings.model_validate({**settings.model_dump(), **updates})
 
+    def get_translation_target_language(self) -> TranslationTargetLanguage:
+        return (
+            self.load().translation_target_language
+            or DEFAULT_TRANSLATION_TARGET_LANGUAGE
+        )
+
 
 def _as_str(value: object) -> str:
     if isinstance(value, str):
@@ -278,6 +309,14 @@ def _as_str(value: object) -> str:
 
 def _as_optional_int(value: object) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+        return value
+    return None
+
+
+def _as_translation_target_language(
+    value: object,
+) -> TranslationTargetLanguage | None:
+    if value in ("en", "de"):
         return value
     return None
 

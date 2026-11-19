@@ -4,6 +4,10 @@ import {
   appendSentenceAfterGap,
   appendSentenceDelta,
 } from '../../utils/appendSentenceDelta';
+import {
+  isTranslationTargetLanguage,
+  type TranslationTargetLanguage,
+} from '../../shared/types/translation';
 
 const DEFAULT_SAMPLE_RATE = 24000;
 const RECONNECT_DELAY_MS = 1200;
@@ -62,6 +66,7 @@ interface SessionEvent {
   last_termination_reason?: string | null;
   session_id?: string | null;
   interpreter_reconnecting?: boolean;
+  translation_target_language?: unknown;
   reason?: string;
 }
 
@@ -102,6 +107,8 @@ export function useListenAudio() {
   const [connectionState, setConnectionState] =
     useState<ConnectionState>('idle');
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('unknown');
+  const [translationTargetLanguage, setTranslationTargetLanguage] =
+    useState<TranslationTargetLanguage>('de');
   const [hasSessionStatus, setHasSessionStatus] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
@@ -644,6 +651,9 @@ export function useListenAudio() {
           }
           if (payload.type === 'translation_status' && payload.session_status) {
             const status = payload.session_status;
+            if (isTranslationTargetLanguage(payload.translation_target_language)) {
+              setTranslationTargetLanguage(payload.translation_target_language);
+            }
             const sessionId =
               typeof payload.session_id === 'string' ? payload.session_id : null;
             const missedSessionChange =
@@ -806,6 +816,7 @@ export function useListenAudio() {
     sessionKey,
     sessionLabel,
     sessionStatus,
+    translationTargetLanguage,
     scripture,
     recoverAudio,
     startListening,

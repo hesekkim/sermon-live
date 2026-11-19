@@ -9,6 +9,8 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from core.paths import env_file_path, frontend_dist_path
 
 InterpreterName = Literal["echo", "openai"]
+TranslationTargetLanguage = Literal["en", "de"]
+DEFAULT_TRANSLATION_TARGET_LANGUAGE: TranslationTargetLanguage = "de"
 
 
 class Settings(BaseSettings):
@@ -37,7 +39,6 @@ class Settings(BaseSettings):
     operator_session_secret: SecretStr | None = None
     # Verify the model name against the official API when the OpenAI adapter is implemented.
     openai_model: str = "gpt-realtime-translate"
-    translation_target_language: str = "de"
     translation_session_auto_stop_minutes: int = 90
     translation_session_warning_minutes: int = 5
     translation_session_extension_minutes: int = 10

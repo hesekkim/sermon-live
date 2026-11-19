@@ -99,6 +99,9 @@ class _TranslationSessionService:
             "error": self._error,
             "session_id": self._session_id,
             "interpreter_reconnecting": self._interpreter_reconnecting,
+            "translation_target_language": (
+                self._store.get_translation_target_language()
+            ),
             "input_transcript_enabled": False,
             "last_termination_reason": self._last_termination_reason,
             "start_available": start_block_reason is None,
@@ -244,7 +247,12 @@ class _TranslationSessionService:
                 )
                 raise RuntimeError("OpenAI API key is not set")
 
-            interpreter = create_interpreter(runtime)
+            interpreter = create_interpreter(
+                runtime,
+                translation_target_language=(
+                    self._store.get_translation_target_language()
+                ),
+            )
             try:
                 await interpreter.validate_key()
             except KeyValidationError:

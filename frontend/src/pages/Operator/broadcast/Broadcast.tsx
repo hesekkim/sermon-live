@@ -10,6 +10,12 @@ export default function Broadcast() {
     (outletContext?.showInputPane ?? true) &&
     (outletContext?.inputTranscriptEnabled ?? false);
   const { labels } = useOperatorPrefs();
+  const translationTargetLanguage =
+    outletContext?.translationTargetLanguage ?? 'de';
+  const outputLanguageLabel =
+    translationTargetLanguage === 'en' ? labels.languageEn : labels.languageDe;
+  const localizeOutputLabel = (label: string) =>
+    label.replace('{language}', outputLanguageLabel);
   const inputLines = outletContext?.inputLines ?? [];
   const outputLines = outletContext?.outputLines ?? [];
 
@@ -26,10 +32,10 @@ export default function Broadcast() {
           />
         ) : null}
         <TranscriptPane
-          title={labels.outputLabel}
-          empty={labels.emptyOutput}
+          title={localizeOutputLabel(labels.outputLabel)}
+          empty={localizeOutputLabel(labels.emptyOutput)}
           lines={outputLines}
-          downloadLabel={labels.outputDownload}
+          downloadLabel={localizeOutputLabel(labels.outputDownload)}
           filename="sermon-output-transcript.txt"
           prominent={!showInputPane}
         />

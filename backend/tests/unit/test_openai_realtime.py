@@ -86,20 +86,20 @@ async def test_start_ignores_legacy_input_transcript_settings():
         {
             "interpreter": "openai",
             "openai_api_key": "test-key",
-            "translation_target_language": "fr",
             "translation_source_transcription_model": "custom-whisper",
             "input_transcript_enabled": True,
         }
     )
     adapter = OpenAIRealtimeInterpreter(
         settings,
+        translation_target_language="en",
         websocket_factory=factory_for(websocket),
     )
 
     await adapter.start()
 
     assert websocket.sent[0]["session"]["audio"] == {
-        "output": {"language": "fr"}
+        "output": {"language": "en"}
     }
     await adapter.close()
 

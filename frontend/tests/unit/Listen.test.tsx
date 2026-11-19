@@ -506,14 +506,37 @@ describe('Listener experience', () => {
     ).toBeNull();
   });
 
-  it('uses the browser language consistently across the listener interface', () => {
+  it('uses the selected translation output language across the listener interface', () => {
     Object.defineProperty(navigator, 'language', {
       configurable: true,
       value: 'en-US',
     });
     const container = renderListener();
 
-    expect(container.querySelector('[aria-label="German translation"]')).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="Deutsche Übersetzung"]'),
+    ).not.toBeNull();
+    expect(container.querySelector('[aria-label="Schriftgröße"]')).not.toBeNull();
+    expect(
+      container.querySelector('button[aria-label="anhören"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('button[aria-label="Dunkles Design aktivieren"]'),
+    ).not.toBeNull();
+
+    const socket = MockWebSocket.instances[0];
+    act(() => {
+      socket.open();
+      socket.message({
+        type: 'translation_status',
+        session_status: 'live',
+        translation_target_language: 'en',
+      });
+    });
+
+    expect(
+      container.querySelector('[aria-label="English translation"]'),
+    ).not.toBeNull();
     expect(container.querySelector('[aria-label="Font size"]')).not.toBeNull();
     expect(
       container.querySelector('button[aria-label="Start listening"]'),
@@ -521,12 +544,6 @@ describe('Listener experience', () => {
     expect(
       container.querySelector('button[aria-label="Change to dark theme"]'),
     ).not.toBeNull();
-
-    const socket = MockWebSocket.instances[0];
-    act(() => {
-      socket.open();
-      socket.message({ type: 'translation_status', session_status: 'live' });
-    });
     expect(container).toHaveTextContent('WAITING FOR TRANSLATION');
   });
 

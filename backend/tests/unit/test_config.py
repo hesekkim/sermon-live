@@ -60,8 +60,20 @@ def test_translation_defaults_match_openai_target_format():
     settings = Settings()
 
     assert settings.openai_model == "gpt-realtime-translate"
-    assert settings.translation_target_language == "de"
+    assert "translation_target_language" not in settings.model_dump()
     assert "input_transcript_enabled" not in settings.model_dump()
+
+
+def test_legacy_translation_target_language_env_is_ignored(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "APP_TRANSLATION_TARGET_LANGUAGE=en\n",
+        encoding="utf-8",
+    )
+
+    settings = Settings(_env_file=env_file)
+
+    assert "translation_target_language" not in settings.model_dump()
 
 
 def test_translation_timer_defaults():
