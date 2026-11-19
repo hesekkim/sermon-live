@@ -346,7 +346,7 @@ describe('Listener experience', () => {
     }
   });
 
-  it('explains when a secure context is required for the screen wake lock', async () => {
+  it('does not show an HTTP warning for the screen wake lock', async () => {
     Object.defineProperty(window, 'isSecureContext', {
       configurable: true,
       value: false,
@@ -359,9 +359,7 @@ describe('Listener experience', () => {
     });
     await click(container.querySelector('button[aria-label="anhören"]'));
 
-    expect(container).toHaveTextContent(
-      'Für das Wachhalten des Bildschirms ist eine vertrauenswürdige HTTPS-Verbindung erforderlich.',
-    );
+    expect(container).not.toHaveTextContent(/HTTP|HTTPS/);
   });
 
   it('explains when the browser does not support screen wake lock', async () => {
@@ -1418,7 +1416,7 @@ describe('Listener experience', () => {
         reason: 'manual',
       }),
     );
-    expect(container).not.toHaveTextContent('SENDUNG BEENDET');
+    expect(container).toHaveTextContent('SENDUNG BEENDET · DEUTSCH');
     expect(
       container.querySelector('button[aria-label="Sendung beendet"]'),
     ).toBeDisabled();
@@ -1433,7 +1431,7 @@ describe('Listener experience', () => {
         last_termination_reason: 'manual',
       });
     });
-    expect(container).not.toHaveTextContent('SENDUNG BEENDET');
+    expect(container).toHaveTextContent('SENDUNG BEENDET · DEUTSCH');
     expect(
       container.querySelector('button[aria-label="Sendung beendet"]'),
     ).toBeDisabled();

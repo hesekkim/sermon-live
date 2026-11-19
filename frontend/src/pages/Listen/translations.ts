@@ -33,8 +33,6 @@ const listenerCopy = {
     connectionHelp:
       'Wenn die Verbindung weiterhin fehlschlägt, öffnen Sie diese Seite bitte in einem anderen Browser erneut, zum Beispiel Chrome.',
     wakeLock: {
-      insecure:
-        'Für das Wachhalten des Bildschirms ist eine vertrauenswürdige HTTPS-Verbindung erforderlich.',
       unsupported: 'Der Browser unterstützt das Wachhalten des Bildschirms nicht.',
       requestFailed: 'Der Bildschirm konnte nicht wachgehalten werden.',
       released: 'Das Betriebssystem hat die Bildschirmsperre freigegeben.',
@@ -85,8 +83,6 @@ const listenerCopy = {
     connectionHelp:
       'If the connection keeps failing, try reopening this page in another browser, such as Chrome.',
     wakeLock: {
-      insecure:
-        'Keeping the screen awake requires a secure HTTPS connection.',
       unsupported: 'This browser does not support keeping the screen awake.',
       requestFailed: 'The screen could not be kept awake.',
       released: 'The operating system released the screen lock.',

@@ -5,7 +5,6 @@ export type ScreenWakeLockStatus =
   | 'requesting'
   | 'active'
   | 'unsupported'
-  | 'insecure'
   | 'requestFailed'
   | 'released';
 
@@ -19,7 +18,7 @@ export function useScreenWakeLock(enabled: boolean): ScreenWakeLockStatus {
       return;
     }
     if (!window.isSecureContext) {
-      setStatus('insecure');
+      setStatus('inactive');
       return;
     }
     if (!('wakeLock' in navigator)) {

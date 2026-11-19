@@ -54,15 +54,13 @@ export default function Listen() {
     isListening && sessionStatus === 'live' && !sessionEnded,
   );
   const screenWakeLockMessage =
-    screenWakeLockStatus === 'insecure'
-      ? copy.wakeLock.insecure
-      : screenWakeLockStatus === 'unsupported'
-        ? copy.wakeLock.unsupported
-        : screenWakeLockStatus === 'requestFailed'
-          ? copy.wakeLock.requestFailed
-          : screenWakeLockStatus === 'released'
-            ? copy.wakeLock.released
-            : '';
+    screenWakeLockStatus === 'unsupported'
+      ? copy.wakeLock.unsupported
+      : screenWakeLockStatus === 'requestFailed'
+        ? copy.wakeLock.requestFailed
+        : screenWakeLockStatus === 'released'
+          ? copy.wakeLock.released
+          : '';
   const [scriptureCards, setScriptureCards] = useState<ScripturePassage[]>([]);
   useLayoutEffect(() => {
     if (subtitleLines.length === 0) return;
@@ -135,16 +133,14 @@ export default function Listen() {
     <main className={styles.page} data-theme={theme}>
       <header className={styles.header}>
         <h1>Sermon Live</h1>
-        {sessionEnded ? null : (
-          <div
-            className={`${styles.sessionBadge} ${badgeStateClass}`}
-            role="status"
-            aria-live="polite"
-          >
-            <span className={styles.statusDot} />
-            {statusLabel}
-          </div>
-        )}
+        <div
+          className={`${styles.sessionBadge} ${badgeStateClass}`}
+          role="status"
+          aria-live="polite"
+        >
+          <span className={styles.statusDot} />
+          {statusLabel}
+        </div>
         <button
           type="button"
           className={styles.themeButton}
