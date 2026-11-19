@@ -215,7 +215,7 @@ def test_operator_settings_rejects_enabling_input_transcript(operator_client):
 
     assert response.status_code == 422
     assert response.json() == {
-        "detail": "Korean source transcripts are disabled"
+        "detail": "Original transcript is disabled"
     }
 
 

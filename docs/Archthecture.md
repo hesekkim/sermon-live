@@ -14,7 +14,7 @@
 
 다음 기능은 위 티켓 이후 구현되어 현재 코드에 포함되어 있다.
 
-- **Scripture popup**: SessionService가 독일어 번역 text에서 성경 구절 참조를 감지(`services/scripture.py`)하고 Lutherbibel 1912 본문을 `scripture` event로 Listen에 보낸다. Listen은 번역 자막을 가리지 않는 카드 stack으로 표시한다. 입력(한국어) transcript는 감지 대상이 아니다.
+- **Scripture popup**: SessionService가 독일어 번역 text에서 성경 구절 참조를 감지(`services/scripture.py`)하고 Lutherbibel 1912 본문을 `scripture` event로 Listen에 보낸다. Listen은 번역 자막을 가리지 않는 카드 stack으로 표시한다. Source transcript는 감지 대상이 아니다.
 - **Listen QR 공유**: Operator layout에서 LAN Listen URL을 QR로 보여준다.
 - **Listen 화면 유지**: 신뢰된 HTTPS origin에서 듣는 중 Screen Wake Lock을 요청해 페이지가 보이는 동안 자동 화면 꺼짐을 막고, 화면 복귀 시 다시 요청한다. 화면을 직접 잠그거나 앱을 백그라운드로 보낸 뒤의 재생은 보장하지 않는다.
 - **오디오 복구**: AudioContext가 OS/브라우저에 의해 suspended/interrupted되면 예약된 오디오를 비우고 사용자 gesture 기반 "오디오 다시 재생" 버튼을 보여준다.

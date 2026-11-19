@@ -25,7 +25,7 @@ export function buildTranscriptDownload(
 ): string {
   const outputLanguage =
     translationTargetLanguage === 'en' ? 'English' : 'German';
-  return `Input (Korean)\n\n${inputLines.join('\n')}\n\nOutput (${outputLanguage})\n\n${outputLines.join('\n')}\n`;
+  return `Original transcript\n\n${inputLines.join('\n')}\n\nOutput (${outputLanguage})\n\n${outputLines.join('\n')}\n`;
 }
 
 export function buildTranscriptPaneDownload(lines: string[]): string {

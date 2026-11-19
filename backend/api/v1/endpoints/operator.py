@@ -66,7 +66,7 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
     if body.input_transcript_enabled is True:
         raise HTTPException(
             status_code=422,
-            detail="Korean source transcripts are disabled",
+            detail="Original transcript is disabled",
         )
     current_settings = get_settings()
     current_view = store.public_view(current_settings)

@@ -83,7 +83,7 @@ describe('transcriptFile', () => {
 
   it('builds a downloadable text document', () => {
     const body = buildTranscriptDownload(['안녕하세요'], ['Guten Tag']);
-    expect(body).toContain('Input (Korean)');
+    expect(body).toContain('Original transcript');
     expect(body).toContain('안녕하세요');
     expect(body).toContain('Output (German)');
     expect(body).toContain('Guten Tag');

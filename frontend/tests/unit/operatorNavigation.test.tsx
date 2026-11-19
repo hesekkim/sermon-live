@@ -141,6 +141,7 @@ beforeEach(() => {
           openai_key_set: false,
           audio_device: '',
           input_transcript_enabled: inputTranscriptEnabled,
+          translation_target_language: 'de',
         };
       } else if (url.includes('/operator/network')) {
         payload = { lan_ip: detectedLanIp };
@@ -248,7 +249,7 @@ describe('Operator navigation', () => {
     expect(
       container.querySelector('button[aria-label="다크 모드"]'),
     ).not.toBeNull();
-    expect(container).not.toHaveTextContent('입력 (한국어)');
+    expect(container).not.toHaveTextContent('원문 자막');
 
     act(() => {
       (
@@ -266,7 +267,7 @@ describe('Operator navigation', () => {
   it('redirects the disabled sermon session route to Broadcast', async () => {
     const page = await renderApp('/operator/sermon-session');
 
-    expect(page.container).not.toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('원문 자막');
     expect(page.container).not.toHaveTextContent('설교 제목');
     expect(page.container.querySelector('a[aria-label="설정"]')).not.toBeNull();
 
@@ -311,7 +312,7 @@ describe('Operator navigation', () => {
     settingsRender.cleanup();
 
     const broadcastRender = await renderApp('/operator/broadcast');
-    expect(broadcastRender.container).toHaveTextContent('입력 (한국어)');
+    expect(broadcastRender.container).toHaveTextContent('원문 자막');
     broadcastRender.cleanup();
   });
 
@@ -319,7 +320,7 @@ describe('Operator navigation', () => {
     const page = await renderApp('/operator');
     const socket = MockWebSocket.instances[0];
 
-    expect(page.container).not.toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('원문 자막');
     act(() => {
       socket?.message({
         type: 'translation_status',
@@ -329,7 +330,7 @@ describe('Operator navigation', () => {
         input_transcript_enabled: true,
       });
     });
-    expect(page.container).toHaveTextContent('입력 (한국어)');
+    expect(page.container).toHaveTextContent('원문 자막');
 
     act(() => {
       socket?.message({
@@ -340,8 +341,72 @@ describe('Operator navigation', () => {
         input_transcript_enabled: false,
       });
     });
-    expect(page.container).not.toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('원문 자막');
     page.cleanup();
+  });
+
+  it.each([
+    {
+      language: 'ko',
+      title: '원문 자막',
+      empty: '인식된 원문이 여기에 표시됩니다',
+      download: '원문 자막 다운로드',
+      setting: '원문 음성 인식',
+      description:
+        '원문 음성 인식은 현재 비활성화되어 있습니다. 음성은 계속 통역에 사용됩니다.',
+    },
+    {
+      language: 'en',
+      title: 'Original transcript',
+      empty: 'The original speech transcript will appear here',
+      download: 'Download original transcript',
+      setting: 'Original speech transcription',
+      description:
+        'Original speech transcription is currently disabled. Audio is still used for translation.',
+    },
+    {
+      language: 'de',
+      title: 'Originaltranskript',
+      empty: 'Das Originaltranskript erscheint hier',
+      download: 'Originaltranskript herunterladen',
+      setting: 'Originaltranskript erstellen',
+      description:
+        'Das Originaltranskript ist derzeit deaktiviert. Das Audio wird weiterhin übersetzt.',
+    },
+  ])('uses language-neutral source transcript copy in $language', async (copy) => {
+    installStorage({ operatorUiLanguage: copy.language });
+    inputTranscriptEnabled = true;
+    const broadcast = await renderApp('/operator/broadcast');
+
+    expect(broadcast.container).toHaveTextContent(copy.title);
+    expect(broadcast.container).toHaveTextContent(copy.empty);
+    expect(
+      broadcast.container.querySelector(
+        `button[aria-label="${copy.download}"]`,
+      ),
+    ).not.toBeNull();
+    broadcast.cleanup();
+
+    inputTranscriptEnabled = false;
+    const settings = await renderApp('/operator/settings');
+    const apiTab = settings.container.querySelector(
+      '[role="tab"][id="settings-tab-api"]',
+    ) as HTMLButtonElement | null;
+    await act(async () => {
+      apiTab?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const inputTranscriptToggle = settings.container.querySelector(
+      'input[name="input_transcript_enabled"]',
+    ) as HTMLInputElement | null;
+    expect(inputTranscriptToggle).not.toBeNull();
+    expect(inputTranscriptToggle?.disabled).toBe(true);
+    expect(inputTranscriptToggle?.checked).toBe(false);
+    expect(settings.container).toHaveTextContent(copy.setting);
+    expect(settings.container).toHaveTextContent(copy.description);
+    settings.cleanup();
   });
 
   it('gates Operator routes until login and returns to the requested route after logout', async () => {
@@ -473,7 +538,7 @@ describe('Operator navigation', () => {
     expect(document.body).toHaveTextContent(
       '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.',
     );
-    expect(page.container).not.toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('원문 자막');
     expect(page.container).not.toHaveTextContent('Operator 로그인');
     page.cleanup();
   });
@@ -495,7 +560,7 @@ describe('Operator navigation', () => {
     expect(document.body).toHaveTextContent(
       '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.',
     );
-    expect(page.container).not.toHaveTextContent('입력 (한국어)');
+    expect(page.container).not.toHaveTextContent('원문 자막');
     expect(page.container).not.toHaveTextContent('Operator 로그인');
     page.cleanup();
   });

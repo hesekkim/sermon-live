@@ -74,7 +74,7 @@ export default function InterpreterSection({
       ) : null}
       {keyValidationFailed ? (
         <p className={styles.timerHint}>{labels.keyValidationFailed}</p>
-      ) : keyWarning ? (
+      ) : keyWarning && keyStatus !== 'missing' ? (
         <p className={styles.timerHint}>{keyWarning}</p>
       ) : null}
       <Select
