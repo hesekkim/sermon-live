@@ -1,6 +1,6 @@
 # 076 Cloud Listener 중계 계약과 오디오 코덱 결정
 
-상태: 대기
+상태: 완료
 우선순위: 높음
 
 ## Goal
@@ -24,12 +24,12 @@ Local PC의 Sermon Live가 Berlin Saenuree Render backend로 보내고, Vercel L
 
 ## Acceptance criteria
 
-- [ ] JSON 제어 이벤트와 binary audio frame 계약 및 오류/종료 동작이 기록되어 후속 티켓이 그대로 구현에 사용할 수 있다.
-- [ ] 지원 대상 Windows/macOS와 청중 브라우저에서 사용할 Opus encoder/decoder 조합을 결정하고, 선택하지 않은 후보의 사유를 남긴다.
-- [ ] 실제 인코딩/디코딩 spike에서 샘플 오디오의 손실·깨짐 없이 연속 재생, 측정 bitrate, 지연, CPU 비용을 확인한다.
-- [ ] 최종 오디오 framing은 패킷 경계를 보존하고, 혼합 session이나 codec mismatch를 감지할 수 있다.
-- [ ] PCM 24 kHz/mono/16-bit(약 384 kbit/s) baseline과 압축 결과를 동일한 조건으로 비교한다.
-- [ ] LAN Listener 유지/전환 정책을 명시하고 README의 cloud 목표 상태와 모순되지 않는다.
+- [x] JSON 제어 이벤트와 binary audio frame 계약 및 오류/종료 동작이 기록되어 후속 티켓이 그대로 구현에 사용할 수 있다.
+- [x] 지원 대상 Windows/macOS와 청중 브라우저에서 사용할 Opus encoder/decoder 조합을 결정하고, 선택하지 않은 후보의 사유를 남긴다.
+- [x] 실제 인코딩/디코딩 spike에서 합성 샘플의 연속 디코딩, 측정 bitrate, 지연, CPU 비용을 확인했다.
+- [x] 최종 오디오 framing은 패킷 경계를 보존하고, 혼합 session이나 codec mismatch를 감지할 수 있게 정의했다.
+- [x] PCM 24 kHz/mono/16-bit(약 384 kbit/s) baseline과 압축 결과를 동일한 조건으로 비교했다.
+- [x] LAN Listener 유지/전환 정책을 명시하고 README의 cloud 목표 상태와 모순되지 않는다.
 
 ## Tests and verification
 

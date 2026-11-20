@@ -23,6 +23,8 @@ Python runtime과 빌드된 frontend를 포함하는 Windows/macOS 독립 실행
 
 기본 설정에서는 운영자 노트북에서 `http://localhost:8080/operator`를 열고, 같은 네트워크의 청중 기기에서 `http://<LAN-IP>:8080/listen`을 엽니다. 모바일에서 Screen Wake Lock을 사용하려면 아래의 HTTPS 설정을 적용하세요.
 
+Cloud Listener는 현재 목표 상태로는 Berlin relay와 Vercel Listener를 사용한다. 중계 계약과 Opus 결정은 [Cloud relay protocol](docs/cloud-relay-protocol.md)에 있으며, 기존 LAN Listener는 명시적 cloud relay가 실패하거나 비활성화된 경우의 fallback으로 유지된다.
+
 Backend를 직접 실행하려면:
 
 ```powershell
