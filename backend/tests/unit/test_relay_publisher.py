@@ -1,5 +1,6 @@
 import asyncio
 import json
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -16,11 +17,17 @@ from services.relay_publisher import (
 
 
 class FakeResponse:
-    status_code = 200
+    def __init__(self, status_code=200, payload=None):
+        self.status_code = status_code
+        self.payload = payload or {"status": "live", "listener_count": 1}
+
+    def json(self):
+        return self.payload
 
 
 class FakeHttpClient:
     requests = []
+    status_payload = {"status": "live", "listener_count": 1}
 
     def __init__(self, timeout):
         self.timeout = timeout
@@ -34,6 +41,9 @@ class FakeHttpClient:
     async def post(self, url, *, headers, json=None):
         self.requests.append((url, headers, json))
         return FakeResponse()
+
+    async def get(self, _url, *, headers):
+        return FakeResponse(payload=self.status_payload)
 
 
 class FakeSocket:
@@ -112,6 +122,71 @@ async def test_relay_publisher_provisions_and_sends_encoded_events(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_send_audio_skips_encoding_when_status_confirms_no_listeners(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        FakeHttpClient,
+        "status_payload",
+        {"status": "live", "listener_count": 0},
+    )
+    monkeypatch.setattr(relay_module.httpx, "AsyncClient", FakeHttpClient)
+    socket = FakeSocket()
+    publisher = RelayPublisher(
+        Settings(
+            _env_file=None,
+            relay_url="https://relay.example.com",
+            relay_publisher_credential=SecretStr("p" * 40),
+        )
+    )
+    publisher._socket = socket
+    publisher._session_id = "a" * 32
+    status_task = asyncio.create_task(publisher._poll_listener_status())
+    await asyncio.sleep(0)
+
+    await publisher.send_audio(bytes(960), 24000)
+
+    assert publisher._listener_status_known
+    assert publisher.listener_count == 0
+    assert publisher._encoder is None
+    assert socket.sent == []
+    status_task.cancel()
+    await asyncio.gather(status_task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_opus_encoding_does_not_block_the_event_loop():
+    worker_started = threading.Event()
+    release_worker = threading.Event()
+
+    class BlockingEncoder:
+        def encode(self, _pcm, _sample_rate):
+            worker_started.set()
+            release_worker.wait(0.5)
+            return []
+
+    publisher = RelayPublisher(
+        Settings(
+            _env_file=None,
+            relay_url="https://relay.example.com",
+            relay_publisher_credential=SecretStr("p" * 40),
+        )
+    )
+    publisher._socket = FakeSocket()
+    publisher._encoder = BlockingEncoder()
+    send_task = asyncio.create_task(publisher.send_audio(bytes(960), 24000))
+
+    started = await asyncio.to_thread(worker_started.wait, 1)
+    await asyncio.sleep(0)
+    remained_pending = not send_task.done()
+    release_worker.set()
+    await send_task
+
+    assert started
+    assert remained_pending
+
+
+@pytest.mark.asyncio
 async def test_oversized_scripture_is_logged_and_skipped_without_affecting_publisher(
     caplog,
 ):
@@ -171,6 +246,33 @@ async def test_start_cancellation_ends_provisioned_remote_session(monkeypatch):
     assert FakeHttpClient.requests[0][0].endswith("/sessions/" + "a" * 32)
     assert FakeHttpClient.requests[-1][0].endswith(
         "/sessions/" + "a" * 32 + "/end"
+    )
+
+
+@pytest.mark.asyncio
+async def test_start_error_reports_provision_and_cleanup_failures(monkeypatch):
+    class RejectingHttpClient(FakeHttpClient):
+        async def post(self, url, *, headers, json=None):
+            self.requests.append((url, headers, json))
+            return FakeResponse(422 if not url.endswith("/end") else 401)
+
+    FakeHttpClient.requests = []
+    monkeypatch.setattr(relay_module.httpx, "AsyncClient", RejectingHttpClient)
+    publisher = RelayPublisher(
+        Settings(
+            _env_file=None,
+            relay_url="https://relay.example.com/api/v1/relay",
+            relay_publisher_credential=SecretStr("p" * 40),
+        )
+    )
+
+    with pytest.raises(RelayPublisherError) as error:
+        await publisher.start("a" * 32)
+
+    assert str(error.value) == (
+        "Cloud relay session setup failed (HTTP 422); "
+        "remote session cleanup also failed: "
+        "Cloud relay session shutdown failed (HTTP 401)"
     )
 
 

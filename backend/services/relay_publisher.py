@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Callable
 from collections import deque
 from typing import Any
 from urllib.parse import urlparse
@@ -115,12 +116,16 @@ class OpusPacketEncoder:
 
 
 class RelayPublisher:
+    _NO_LISTENER_POLL_INTERVAL_SECONDS = 2
+    _LISTENER_POLL_INTERVAL_SECONDS = 5
+
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._socket: Any | None = None
         self._session_id: str | None = None
         self._sequence = 0
         self._send_lock = asyncio.Lock()
+        self._encoder_lock = asyncio.Lock()
         self._encoder: OpusPacketEncoder | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._status_task: asyncio.Task[None] | None = None
@@ -143,6 +148,7 @@ class RelayPublisher:
         )
         self._stopping = False
         self._listener_count = 0
+        self._listener_status_known = False
 
     @property
     def enabled(self) -> bool:
@@ -176,6 +182,7 @@ class RelayPublisher:
         if not self.enabled:
             return
         self._stopping = False
+        self._listener_status_known = False
         self._state = "starting"
         self._last_error = None
         credential: str | None = None
@@ -268,9 +275,10 @@ class RelayPublisher:
             if base_url is not None and credential is not None:
                 try:
                     await self._end_remote_session(base_url, session_id, credential)
-                except RelayPublisherError:
+                except RelayPublisherError as cleanup_error:
                     raise RelayPublisherError(
-                        "Cloud relay setup failed and the remote session could not be ended"
+                        f"{relay_error}; remote session cleanup also failed: "
+                        f"{cleanup_error}"
                     ) from error
             if isinstance(error, RelayPublisherError):
                 raise
@@ -327,16 +335,24 @@ class RelayPublisher:
         await self._send_json(event, ensure_ascii=False)
 
     async def send_audio(self, pcm: bytes, sample_rate: int) -> None:
-        if self._stopping or not self.enabled:
+        if (
+            self._stopping
+            or not self.enabled
+            or (self._listener_status_known and self._listener_count == 0)
+        ):
             return
         try:
-            if self._encoder is None:
-                self._encoder = OpusPacketEncoder(self._audio_epoch << 28)
-            packets = self._encoder.encode(pcm, sample_rate)
-            if self._socket is None or self._recovery_in_progress:
-                for packet in packets:
-                    self._queue_audio_packet(packet)
-                return
+            async with self._encoder_lock:
+                if self._encoder is None:
+                    self._encoder = OpusPacketEncoder(self._audio_epoch << 28)
+                encoder = self._encoder
+                packets = await self._run_encoder_work(
+                    lambda: encoder.encode(pcm, sample_rate)
+                )
+                if self._socket is None or self._recovery_in_progress:
+                    for packet in packets:
+                        self._queue_audio_packet(packet)
+                    return
         except RelayPublisherError:
             raise
         socket = self._socket
@@ -387,8 +403,15 @@ class RelayPublisher:
             return
         send_error: Exception | None = None
         try:
-            if self._encoder is not None and self._socket is not None:
-                for packet in self._encoder.flush():
+            async with self._encoder_lock:
+                encoder = self._encoder
+                packets = (
+                    await self._run_encoder_work(encoder.flush)
+                    if encoder is not None and self._socket is not None
+                    else []
+                )
+            if self._socket is not None:
+                for packet in packets:
                     async with self._send_lock:
                         await self._socket.send(packet)
             if self._socket is not None:
@@ -441,6 +464,18 @@ class RelayPublisher:
         self._sequence += 1
         return value
 
+    @staticmethod
+    async def _run_encoder_work(operation: Callable[[], list[bytes]]) -> list[bytes]:
+        worker = asyncio.create_task(asyncio.to_thread(operation))
+        try:
+            return await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            try:
+                await worker
+            except Exception:
+                logger.exception("Opus encoder worker failed during cancellation")
+            raise
+
     async def _close_socket(self) -> None:
         heartbeat_task = self._heartbeat_task
         self._heartbeat_task = None
@@ -453,9 +488,11 @@ class RelayPublisher:
             status_task.cancel()
             await asyncio.gather(status_task, return_exceptions=True)
         self._listener_count = 0
+        self._listener_status_known = False
         socket = self._socket
         self._socket = None
-        self._encoder = None
+        async with self._encoder_lock:
+            self._encoder = None
         self._session_id = None
         if socket is not None:
             try:
@@ -500,10 +537,18 @@ class RelayPublisher:
                         max_size=2 * 1024 * 1024,
                     )
                     self._audio_epoch += 1
-                    if self._encoder is not None:
-                        for packet in self._encoder.flush():
+                    async with self._encoder_lock:
+                        encoder = self._encoder
+                        packets = (
+                            await self._run_encoder_work(encoder.flush)
+                            if encoder is not None
+                            else []
+                        )
+                        self._encoder = OpusPacketEncoder(
+                            self._audio_epoch << 28
+                        )
+                    for packet in packets:
                             self._queue_audio_packet(packet)
-                    self._encoder = OpusPacketEncoder(self._audio_epoch << 28)
                     await socket.send(
                         json.dumps(
                             {
@@ -632,6 +677,7 @@ class RelayPublisher:
             status_task.cancel()
             await asyncio.gather(status_task, return_exceptions=True)
         self._listener_count = 0
+        self._listener_status_known = False
         socket = self._socket
         self._socket = None
         if socket is not None:
@@ -642,9 +688,6 @@ class RelayPublisher:
 
     async def _poll_listener_status(self) -> None:
         while self._socket is not None and self._session_id is not None:
-            await asyncio.sleep(5)
-            if self._socket is None or self._session_id is None:
-                return
             try:
                 session_id = self._session_id
                 credential = self._secret(self._settings.relay_publisher_credential)
@@ -660,17 +703,21 @@ class RelayPublisher:
                         raise ValueError("Invalid cloud relay status response")
                     if payload.get("status") != "live":
                         self._listener_count = 0
+                        self._listener_status_known = False
                         self._last_error = "Cloud relay session is no longer live"
                         self._state = "error"
                         return
                     count = payload.get("listener_count")
-                    self._listener_count = (
-                        count
-                        if isinstance(count, int)
+                    if (
+                        isinstance(count, int)
                         and not isinstance(count, bool)
                         and count >= 0
-                        else 0
-                    )
+                    ):
+                        self._listener_count = count
+                        self._listener_status_known = True
+                    else:
+                        self._listener_count = 0
+                        self._listener_status_known = False
                     if self._last_error in {
                         "Cloud relay listener status could not be refreshed",
                         "Cloud relay listener status is unavailable",
@@ -678,6 +725,7 @@ class RelayPublisher:
                         self._last_error = None
                 else:
                     self._listener_count = 0
+                    self._listener_status_known = False
                     self._last_error = (
                         "Cloud relay listener status could not be refreshed"
                     )
@@ -691,7 +739,13 @@ class RelayPublisher:
                 ValueError,
             ):
                 self._listener_count = 0
+                self._listener_status_known = False
                 self._last_error = "Cloud relay listener status is unavailable"
+            await asyncio.sleep(
+                self._NO_LISTENER_POLL_INTERVAL_SECONDS
+                if self._listener_status_known and self._listener_count == 0
+                else self._LISTENER_POLL_INTERVAL_SECONDS
+            )
 
     async def _run_heartbeat(self) -> None:
         try:

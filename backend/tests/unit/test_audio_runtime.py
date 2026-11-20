@@ -359,7 +359,12 @@ async def test_translation_queue_caps_audio_duration_and_keeps_latest_chunks(mon
     assert retained == [second, third]
     assert runtime.dropped_chunks == 1
     assert runtime.dropped_duration_seconds == pytest.approx(0.1)
-    await asyncio.wait_for(hub.overflow_events.get(), timeout=1)
+    overflow_event = await asyncio.wait_for(hub.overflow_events.get(), timeout=1)
+    assert overflow_event["audio_capture_dropped_chunks"] == 0
+    assert overflow_event["audio_translation_queue_dropped_chunks"] == 1
+    assert overflow_event["audio_translation_queue_dropped_duration_seconds"] == pytest.approx(
+        0.1
+    )
     assert [event["type"] for event in hub.session_events].count("audio_queue_overflow") == 1
 
     await capture.chunks_queue.put(first + second + third)
@@ -391,10 +396,15 @@ async def test_capture_queue_drops_are_included_in_session_overflow(monkeypatch)
     capture.dropped_duration_seconds = 0.128
     await capture.chunks_queue.put(b"\x01\x00")
 
-    await asyncio.wait_for(hub.overflow_events.get(), timeout=1)
+    overflow_event = await asyncio.wait_for(hub.overflow_events.get(), timeout=1)
 
     assert runtime.dropped_chunks == 2
     assert runtime.dropped_duration_seconds == pytest.approx(0.128)
+    assert overflow_event["audio_capture_dropped_chunks"] == 2
+    assert overflow_event["audio_capture_dropped_duration_seconds"] == pytest.approx(
+        0.128
+    )
+    assert overflow_event["audio_translation_queue_dropped_chunks"] == 0
     assert queue.get_nowait() == b"\x01\x00"
     capture.dropped_chunks += 1
     capture.dropped_duration_seconds += 0.064

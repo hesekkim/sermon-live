@@ -5,6 +5,7 @@ import logging
 import time
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import Literal, Awaitable, Callable
 
 from core.config import Settings
 from services.audio_capture import AudioCapture
@@ -14,6 +15,8 @@ from services.interpreters.protocol import LiveInterpreter
 from services.operator_store import OperatorSettingsStore, store as default_store
 
 logger = logging.getLogger(__name__)
+
+_OverflowSnapshot = tuple[int, float, int, float, int, float]
 
 
 class _DurationTrackedQueue(asyncio.Queue[bytes | None]):
@@ -57,7 +60,7 @@ class AudioRuntime:
         self._capture_task: asyncio.Task[None] | None = None
         self._audio_level_queue: asyncio.Queue[float] | None = None
         self._audio_level_task: asyncio.Task[None] | None = None
-        self._overflow_warning_queue: asyncio.Queue[tuple[int, float]] | None = None
+        self._overflow_warning_queue: asyncio.Queue[_OverflowSnapshot] | None = None
         self._overflow_warning_task: asyncio.Task[None] | None = None
         self._translation_queue: _DurationTrackedQueue | None = None
         self._test_queues: set[asyncio.Queue[bytes | None]] = set()
@@ -72,6 +75,10 @@ class AudioRuntime:
         self._clock = time.monotonic
         self._dropped_chunks = 0
         self._dropped_duration_seconds = 0.0
+        self._capture_dropped_chunks = 0
+        self._capture_dropped_duration_seconds = 0.0
+        self._translation_queue_dropped_chunks = 0
+        self._translation_queue_dropped_duration_seconds = 0.0
         self._capture_dropped_chunks_seen = 0
         self._capture_dropped_duration_seen = 0.0
         self._last_overflow_warning: float | None = None
@@ -317,6 +324,10 @@ class AudioRuntime:
         self._target_frame_size = target_format[1] * target_format[2]
         self._dropped_chunks = 0
         self._dropped_duration_seconds = 0.0
+        self._capture_dropped_chunks = 0
+        self._capture_dropped_duration_seconds = 0.0
+        self._translation_queue_dropped_chunks = 0
+        self._translation_queue_dropped_duration_seconds = 0.0
         self._capture_dropped_chunks_seen = int(
             getattr(self._capture, "dropped_chunks", 0)
         )
@@ -437,16 +448,44 @@ class AudioRuntime:
                 logger.exception("Audio level broadcast failed")
 
     async def _pump_overflow_warnings(
-        self, queue: asyncio.Queue[tuple[int, float]]
+        self, queue: asyncio.Queue[_OverflowSnapshot]
     ) -> None:
         while True:
-            dropped_chunks, dropped_duration_seconds = await queue.get()
+            (
+                dropped_chunks,
+                dropped_duration_seconds,
+                capture_dropped_chunks,
+                capture_dropped_duration_seconds,
+                translation_queue_dropped_chunks,
+                translation_queue_dropped_duration_seconds,
+            ) = await queue.get()
+            logger.warning(
+                "Translation audio input dropped: total_chunks=%s total_seconds=%.3f "
+                "capture_chunks=%s capture_seconds=%.3f "
+                "translation_queue_chunks=%s translation_queue_seconds=%.3f",
+                dropped_chunks,
+                dropped_duration_seconds,
+                capture_dropped_chunks,
+                capture_dropped_duration_seconds,
+                translation_queue_dropped_chunks,
+                translation_queue_dropped_duration_seconds,
+            )
             try:
                 await self._hub.broadcast_session(
                     {
                         "type": "audio_queue_overflow",
                         "audio_dropped_chunks": dropped_chunks,
                         "audio_dropped_duration_seconds": dropped_duration_seconds,
+                        "audio_capture_dropped_chunks": capture_dropped_chunks,
+                        "audio_capture_dropped_duration_seconds": (
+                            capture_dropped_duration_seconds
+                        ),
+                        "audio_translation_queue_dropped_chunks": (
+                            translation_queue_dropped_chunks
+                        ),
+                        "audio_translation_queue_dropped_duration_seconds": (
+                            translation_queue_dropped_duration_seconds
+                        ),
                     }
                 )
             except asyncio.CancelledError:
@@ -514,7 +553,9 @@ class AudioRuntime:
         duration_seconds = sum(
             len(chunk) / (sample_rate * frame_size) for chunk in chunks
         )
-        await self._record_dropped_audio(len(chunks), duration_seconds)
+        await self._record_dropped_audio(
+            len(chunks), duration_seconds, source="translation_queue"
+        )
 
     async def _record_capture_drops(self) -> None:
         capture = self._capture
@@ -527,13 +568,27 @@ class AudioRuntime:
         self._capture_dropped_chunks_seen = dropped_chunks
         self._capture_dropped_duration_seen = dropped_duration
         if chunk_delta > 0 or duration_delta > 0:
-            await self._record_dropped_audio(chunk_delta, max(0.0, duration_delta))
+            await self._record_dropped_audio(
+                chunk_delta,
+                max(0.0, duration_delta),
+                source="capture",
+            )
 
     async def _record_dropped_audio(
-        self, chunks: int, duration_seconds: float
+        self,
+        chunks: int,
+        duration_seconds: float,
+        *,
+        source: Literal["capture", "translation_queue"],
     ) -> None:
         self._dropped_chunks += chunks
         self._dropped_duration_seconds += duration_seconds
+        if source == "capture":
+            self._capture_dropped_chunks += chunks
+            self._capture_dropped_duration_seconds += duration_seconds
+        else:
+            self._translation_queue_dropped_chunks += chunks
+            self._translation_queue_dropped_duration_seconds += duration_seconds
         now = self._clock()
         if (
             self._last_overflow_warning is not None
@@ -549,7 +604,16 @@ class AudioRuntime:
                 queue.get_nowait()
             except asyncio.QueueEmpty:
                 pass
-        queue.put_nowait((self._dropped_chunks, self._dropped_duration_seconds))
+        queue.put_nowait(
+            (
+                self._dropped_chunks,
+                self._dropped_duration_seconds,
+                self._capture_dropped_chunks,
+                self._capture_dropped_duration_seconds,
+                self._translation_queue_dropped_chunks,
+                self._translation_queue_dropped_duration_seconds,
+            )
+        )
 
     def _broadcast_test_chunk(self, chunk: bytes) -> None:
         for queue in tuple(self._test_queues):
