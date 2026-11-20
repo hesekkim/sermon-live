@@ -4,6 +4,7 @@ import pytest
 from fastapi.routing import APIRoute
 
 from api.v1.endpoints import operator as operator_endpoint
+from core.config import Settings
 from main import app
 from services.operator_store import store
 
@@ -35,6 +36,81 @@ def test_operator_network_reports_unavailable_address(operator_client, monkeypat
 
     assert response.status_code == 200
     assert response.json() == {"lan_ip": None}
+
+
+def test_listener_share_requires_a_live_cloud_relay(
+    operator_client, monkeypatch
+):
+    monkeypatch.setattr(
+        operator_endpoint,
+        "get_settings",
+        lambda: Settings(relay_listener_url="https://listener.example"),
+    )
+    monkeypatch.setattr(
+        operator_endpoint.session,
+        "status",
+        lambda: {
+            "session_status": "live",
+            "relay_status": "disabled",
+            "session_id": "session-123",
+        },
+    )
+
+    response = operator_client.get("/api/v1/operator/listener-share")
+
+    assert response.status_code == 200
+    assert response.json() == {"listener_url": None, "session_id": None}
+
+
+def test_listener_share_includes_session_only_for_live_cloud_relay(
+    operator_client, monkeypatch
+):
+    monkeypatch.setattr(
+        operator_endpoint,
+        "get_settings",
+        lambda: Settings(relay_listener_url="https://listener.example"),
+    )
+    monkeypatch.setattr(
+        operator_endpoint.session,
+        "status",
+        lambda: {
+            "session_status": "live",
+            "relay_status": "live",
+            "session_id": "session-123",
+        },
+    )
+
+    response = operator_client.get("/api/v1/operator/listener-share")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "listener_url": "https://listener.example/listen?session=session-123",
+        "session_id": "session-123",
+    }
+
+
+def test_listener_share_is_unavailable_without_a_session_id(
+    operator_client, monkeypatch
+):
+    monkeypatch.setattr(
+        operator_endpoint,
+        "get_settings",
+        lambda: Settings(relay_listener_url="https://listener.example"),
+    )
+    monkeypatch.setattr(
+        operator_endpoint.session,
+        "status",
+        lambda: {
+            "session_status": "live",
+            "relay_status": "live",
+            "session_id": None,
+        },
+    )
+
+    response = operator_client.get("/api/v1/operator/listener-share")
+
+    assert response.status_code == 200
+    assert response.json() == {"listener_url": None, "session_id": None}
 
 
 def test_sermon_session_routes_are_not_registered(operator_client):

@@ -77,7 +77,7 @@ async def test_relay_publisher_provisions_and_sends_encoded_events(monkeypatch):
     )
     publisher = RelayPublisher(settings)
 
-    await publisher.start("a" * 32)
+    await publisher.start("a" * 32, SecretStr("operator-selected-password"))
     await publisher.send_subtitle("Guten Morgen", "de")
     await publisher.send_audio(bytes(960), 24000)
     await publisher.stop("manual")
@@ -85,7 +85,7 @@ async def test_relay_publisher_provisions_and_sends_encoded_events(monkeypatch):
     assert FakeHttpClient.requests[0] == (
         "https://relay.example.com/api/v1/relay/sessions/" + "a" * 32,
         {"X-Publisher-Credential": "p" * 40},
-        {"listener_password": "listener-password"},
+        {"listener_password": "operator-selected-password"},
     )
     assert FakeHttpClient.requests[-1][0].endswith("/sessions/" + "a" * 32 + "/end")
     assert connect_args[0][0] == (

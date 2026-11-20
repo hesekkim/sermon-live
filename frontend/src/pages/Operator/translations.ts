@@ -109,6 +109,14 @@ export interface OperatorCopy {
   serverOnline: string;
   serverConnecting: string;
   serverOffline: string;
+  cloudRelayStatus: string;
+  cloudRelayDisabled: string;
+  cloudRelayIdle: string;
+  cloudRelayStarting: string;
+  cloudRelayLive: string;
+  cloudRelayReconnecting: string;
+  cloudRelayError: string;
+  cloudRelayEnded: string;
   operatorConnection: string;
   operatorConnected: string;
   operatorConnecting: string;
@@ -310,6 +318,14 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     serverOnline: '온라인',
     serverConnecting: '연결 중',
     serverOffline: '오프라인',
+    cloudRelayStatus: 'Cloud relay',
+    cloudRelayDisabled: '비활성',
+    cloudRelayIdle: '대기',
+    cloudRelayStarting: '시작 중',
+    cloudRelayLive: 'LIVE',
+    cloudRelayReconnecting: '재연결 중',
+    cloudRelayError: '오류',
+    cloudRelayEnded: '종료',
     operatorConnection: '운영 연결',
     operatorConnected: '연결됨',
     operatorConnecting: '연결 중',
@@ -516,6 +532,14 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     serverOnline: 'Online',
     serverConnecting: 'Connecting',
     serverOffline: 'Offline',
+    cloudRelayStatus: 'Cloud relay',
+    cloudRelayDisabled: 'Disabled',
+    cloudRelayIdle: 'Idle',
+    cloudRelayStarting: 'Starting',
+    cloudRelayLive: 'LIVE',
+    cloudRelayReconnecting: 'Reconnecting',
+    cloudRelayError: 'Error',
+    cloudRelayEnded: 'Ended',
     operatorConnection: 'Operator connection',
     operatorConnected: 'Connected',
     operatorConnecting: 'Connecting',
@@ -722,6 +746,14 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     serverOnline: 'Online',
     serverConnecting: 'Verbindung wird hergestellt',
     serverOffline: 'Offline',
+    cloudRelayStatus: 'Cloud-Relay',
+    cloudRelayDisabled: 'Deaktiviert',
+    cloudRelayIdle: 'Inaktiv',
+    cloudRelayStarting: 'Startet',
+    cloudRelayLive: 'LIVE',
+    cloudRelayReconnecting: 'Verbindung wird wiederhergestellt',
+    cloudRelayError: 'Fehler',
+    cloudRelayEnded: 'Beendet',
     operatorConnection: 'Operator-Verbindung',
     operatorConnected: 'Verbunden',
     operatorConnecting: 'Verbindung wird hergestellt',

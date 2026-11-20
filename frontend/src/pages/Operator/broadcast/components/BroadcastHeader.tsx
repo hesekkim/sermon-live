@@ -5,6 +5,7 @@ import type { OperatorCopy } from '../../translations';
 import type {
   InterpreterStatus,
   OperatorConnectionStatus,
+  RelayStatus,
   ServerStatus,
   SessionTimerState,
   TranslationSessionStatus,
@@ -19,6 +20,8 @@ interface BroadcastHeaderProps {
   startBlockReason: string | null;
   sessionError: string | null;
   listenerCount: number;
+  relayStatus: RelayStatus;
+  relayError: string | null;
   audioLevel: number | null;
   audioLevelStale: boolean;
   latencyMs: number | null;
@@ -53,6 +56,8 @@ export default function BroadcastHeader({
   startBlockReason,
   sessionError,
   listenerCount,
+  relayStatus,
+  relayError,
   audioLevel,
   audioLevelStale,
   latencyMs,
@@ -96,6 +101,26 @@ export default function BroadcastHeader({
     stopping: labels.translationStopping,
     error: labels.translationError,
   }[sessionStatus];
+  const relayLabel = {
+    disabled: labels.cloudRelayDisabled,
+    idle: labels.cloudRelayIdle,
+    starting: labels.cloudRelayStarting,
+    live: labels.cloudRelayLive,
+    live_recovered: labels.cloudRelayLive,
+    reconnecting: labels.cloudRelayReconnecting,
+    error: labels.cloudRelayError,
+    ended: labels.cloudRelayEnded,
+  }[relayStatus];
+  const relayDataState =
+    relayStatus === 'live' || relayStatus === 'live_recovered'
+      ? 'live'
+      : relayStatus === 'reconnecting'
+        ? 'reconnecting'
+        : relayStatus === 'error'
+          ? 'error'
+          : relayStatus === 'starting'
+            ? 'connecting'
+            : 'off';
   const isLive = sessionStatus === 'live';
   const showWarningDialog = Boolean(timer?.warning && isLive);
   const warnTitle = timer?.hardLimitReached
@@ -151,6 +176,17 @@ export default function BroadcastHeader({
             <dd data-state={serverStatus} title={serverLabel}>
               {serverLabel}
             </dd>
+          </div>
+          <div className={styles.statusItem}>
+            <dt>{labels.cloudRelayStatus}</dt>
+            <dd data-state={relayDataState} title={relayLabel}>
+              {relayLabel}
+            </dd>
+            {relayError ? (
+              <p role="alert" className={styles.relayError}>
+                {relayError}
+              </p>
+            ) : null}
           </div>
           <div className={styles.statusItem}>
             <dt>{labels.operatorConnection}</dt>

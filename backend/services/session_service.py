@@ -81,10 +81,20 @@ class _TranslationSessionService:
 
     def status(self) -> dict[str, object]:
         start_block_reason = self._start_block_reason()
+        relay_listener_count = getattr(self._relay, "listener_count", None)
+        listener_count = (
+            relay_listener_count
+            if getattr(self._relay, "enabled", False)
+            and getattr(self._relay, "state", "") in {"live", "reconnecting"}
+            and isinstance(relay_listener_count, int)
+            else self._hub.listener_count
+            if not getattr(self._relay, "enabled", False)
+            else 0
+        )
         payload = {
             "running": self.running,
             "session_status": self._state,
-            "listener_count": self._hub.listener_count,
+            "listener_count": listener_count,
             "audio_ready": self._audio.ready,
             "audio_error": self._audio.error,
             "audio_stored_device_setting": getattr(
@@ -270,7 +280,9 @@ class _TranslationSessionService:
             await interpreter.start()
             if runtime.interpreter == "openai":
                 self._store.set_key_status(runtime.interpreter, "valid")
-            await self._relay.start(self._session_id)
+            await self._relay.start(
+                self._session_id, runtime.relay_listener_password
+            )
 
             self._scripture_stream.reset()
             audio_queue = self._audio.attach_translation(interpreter)

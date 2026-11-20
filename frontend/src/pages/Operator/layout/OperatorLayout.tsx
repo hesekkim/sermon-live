@@ -141,6 +141,8 @@ export default function OperatorLayout({
           startBlockReason={session.startBlockReason}
           sessionError={session.sessionError}
           listenerCount={session.listenerCount}
+          relayStatus={session.relayStatus}
+          relayError={session.relayError}
           audioLevel={session.audioLevel}
           audioLevelStale={session.audioLevelStale}
           latencyMs={session.latencyMs}

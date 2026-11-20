@@ -111,6 +111,41 @@ def make_service(
     return service, hub
 
 
+@pytest.mark.asyncio
+async def test_start_passes_operator_listener_password_to_relay(tmp_path):
+    class CapturingRelayPublisher:
+        enabled = True
+        active = False
+        state = "live"
+        listener_count = 0
+        last_error = None
+        queue_duration_seconds = 0.0
+        listener_password = None
+
+        async def start(self, _session_id, listener_password=None):
+            self.listener_password = listener_password
+
+        async def send_status(self, _status):
+            return None
+
+    operator_store = OperatorSettingsStore(tmp_path / "operator.json")
+    operator_store.save(
+        interpreter="echo",
+        relay_listener_password="operator-selected-password",
+    )
+    relay = CapturingRelayPublisher()
+    service, _hub = make_service(
+        tmp_path,
+        operator_store=operator_store,
+        relay_publisher=relay,
+    )
+
+    await service.start()
+
+    assert relay.listener_password.get_secret_value() == "operator-selected-password"
+    await service.stop()
+
+
 def assert_session_released(service):
     assert service._interpreter is None
     assert service._audio_task is None
@@ -222,7 +257,7 @@ async def test_shutdown_stops_relay_when_start_is_cancelled_during_relay_setup(
         active = False
         stopped_with = []
 
-        async def start(self, _session_id):
+        async def start(self, _session_id, _listener_password=None):
             self.active = True
             relay_starting.set()
             await asyncio.Event().wait()

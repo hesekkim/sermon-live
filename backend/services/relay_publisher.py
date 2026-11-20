@@ -122,6 +122,7 @@ class RelayPublisher:
         self._send_lock = asyncio.Lock()
         self._encoder: OpusPacketEncoder | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
+        self._status_task: asyncio.Task[None] | None = None
         self._reconnect_task: asyncio.Task[None] | None = None
         self._background_error: RelayPublisherError | None = None
         self._state = "disabled" if not self.enabled else "idle"
@@ -140,6 +141,7 @@ class RelayPublisher:
             settings, "relay_reconnect_max_seconds", 8.0
         )
         self._stopping = False
+        self._listener_count = 0
 
     @property
     def enabled(self) -> bool:
@@ -165,17 +167,29 @@ class RelayPublisher:
     def queue_bytes(self) -> int:
         return sum(len(item) for item in self._audio_queue)
 
-    async def start(self, session_id: str) -> None:
+    @property
+    def listener_count(self) -> int:
+        return self._listener_count
+
+    async def start(
+        self, session_id: str, listener_password: SecretStr | None = None
+    ) -> None:
         if not self.enabled:
             return
         self._stopping = False
         self._state = "starting"
         self._last_error = None
-        credential = self._secret(self._settings.relay_publisher_credential)
-        password = self._secret(self._settings.relay_listener_password)
-        base_url = self._validate_base_url(self._settings.relay_url)
+        credential: str | None = None
+        base_url: str | None = None
         self._background_error = None
         try:
+            credential = self._secret(self._settings.relay_publisher_credential)
+            password = self._secret(
+                listener_password
+                if listener_password is not None
+                else self._settings.relay_listener_password
+            )
+            base_url = self._validate_base_url(self._settings.relay_url)
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.post(
                     f"{base_url}/sessions/{session_id}",
@@ -234,26 +248,40 @@ class RelayPublisher:
             self._heartbeat_task = asyncio.create_task(
                 self._run_heartbeat(), name="cloud-relay-publisher-heartbeat"
             )
+            self._status_task = asyncio.create_task(
+                self._poll_listener_status(),
+                name="cloud-relay-publisher-status",
+            )
         except asyncio.CancelledError:
             await self._close_socket()
-            try:
-                await self._end_remote_session(base_url, session_id, credential)
-            except RelayPublisherError:
-                logger.exception(
-                    "Cloud relay session shutdown failed after Publisher startup cancellation"
-                )
+            self._state = "ended"
+            if base_url is not None and credential is not None:
+                try:
+                    await self._end_remote_session(base_url, session_id, credential)
+                except RelayPublisherError:
+                    logger.exception(
+                        "Cloud relay session shutdown failed after Publisher startup cancellation"
+                    )
             raise
         except Exception as error:
             await self._close_socket()
-            try:
-                await self._end_remote_session(base_url, session_id, credential)
-            except RelayPublisherError:
-                raise RelayPublisherError(
-                    "Cloud relay setup failed and the remote session could not be ended"
-                ) from error
+            relay_error = (
+                error
+                if isinstance(error, RelayPublisherError)
+                else RelayPublisherError("Could not connect to the cloud relay")
+            )
+            self._last_error = str(relay_error)
+            self._state = "error"
+            if base_url is not None and credential is not None:
+                try:
+                    await self._end_remote_session(base_url, session_id, credential)
+                except RelayPublisherError:
+                    raise RelayPublisherError(
+                        "Cloud relay setup failed and the remote session could not be ended"
+                    ) from error
             if isinstance(error, RelayPublisherError):
                 raise
-            raise RelayPublisherError("Could not connect to the cloud relay") from error
+            raise relay_error from error
 
     async def send_status(self, session_status: str) -> None:
         if self._socket is None or self._session_id is None:
@@ -401,6 +429,12 @@ class RelayPublisher:
         if heartbeat_task is not None and heartbeat_task is not asyncio.current_task():
             heartbeat_task.cancel()
             await asyncio.gather(heartbeat_task, return_exceptions=True)
+        status_task = self._status_task
+        self._status_task = None
+        if status_task is not None and status_task is not asyncio.current_task():
+            status_task.cancel()
+            await asyncio.gather(status_task, return_exceptions=True)
+        self._listener_count = 0
         socket = self._socket
         self._socket = None
         self._encoder = None
@@ -522,6 +556,10 @@ class RelayPublisher:
                         self._run_heartbeat(),
                         name="cloud-relay-publisher-heartbeat",
                     )
+                    self._status_task = asyncio.create_task(
+                        self._poll_listener_status(),
+                        name="cloud-relay-publisher-status",
+                    )
                     return
                 except asyncio.CancelledError:
                     raise
@@ -570,6 +608,12 @@ class RelayPublisher:
         if heartbeat_task is not None and heartbeat_task is not asyncio.current_task():
             heartbeat_task.cancel()
             await asyncio.gather(heartbeat_task, return_exceptions=True)
+        status_task = self._status_task
+        self._status_task = None
+        if status_task is not None and status_task is not asyncio.current_task():
+            status_task.cancel()
+            await asyncio.gather(status_task, return_exceptions=True)
+        self._listener_count = 0
         socket = self._socket
         self._socket = None
         if socket is not None:
@@ -577,6 +621,59 @@ class RelayPublisher:
                 await socket.close()
             except (ConnectionClosed, OSError):
                 pass
+
+    async def _poll_listener_status(self) -> None:
+        while self._socket is not None and self._session_id is not None:
+            await asyncio.sleep(5)
+            if self._socket is None or self._session_id is None:
+                return
+            try:
+                session_id = self._session_id
+                credential = self._secret(self._settings.relay_publisher_credential)
+                base_url = self._validate_base_url(self._settings.relay_url)
+                async with httpx.AsyncClient(timeout=5) as client:
+                    response = await client.get(
+                        f"{base_url}/sessions/{session_id}/status",
+                        headers={"X-Publisher-Credential": credential},
+                    )
+                if response.status_code == 200:
+                    payload = response.json()
+                    if not isinstance(payload, dict):
+                        raise ValueError("Invalid cloud relay status response")
+                    if payload.get("status") != "live":
+                        self._listener_count = 0
+                        self._last_error = "Cloud relay session is no longer live"
+                        self._state = "error"
+                        return
+                    count = payload.get("listener_count")
+                    self._listener_count = (
+                        count
+                        if isinstance(count, int)
+                        and not isinstance(count, bool)
+                        and count >= 0
+                        else 0
+                    )
+                    if self._last_error in {
+                        "Cloud relay listener status could not be refreshed",
+                        "Cloud relay listener status is unavailable",
+                    }:
+                        self._last_error = None
+                else:
+                    self._listener_count = 0
+                    self._last_error = (
+                        "Cloud relay listener status could not be refreshed"
+                    )
+            except asyncio.CancelledError:
+                raise
+            except (
+                asyncio.TimeoutError,
+                httpx.HTTPError,
+                RelayPublisherError,
+                OSError,
+                ValueError,
+            ):
+                self._listener_count = 0
+                self._last_error = "Cloud relay listener status is unavailable"
 
     async def _run_heartbeat(self) -> None:
         try:

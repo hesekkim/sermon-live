@@ -9,6 +9,7 @@ const LOOPBACK_HOSTS = new Set([
 export function buildListenQrUrl(
   origin: string,
   lanIp: string | null,
+  sessionId?: string | null,
 ): string | null {
   const url = new URL(origin);
   if (LOOPBACK_HOSTS.has(url.hostname)) {
@@ -20,5 +21,8 @@ export function buildListenQrUrl(
   url.pathname = '/listen';
   url.search = '';
   url.hash = '';
+  if (sessionId) {
+    url.searchParams.set('session', sessionId);
+  }
   return url.toString();
 }

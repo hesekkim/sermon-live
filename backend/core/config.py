@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     relay_publisher_credential: SecretStr | None = None
     relay_url: str = ""
     relay_listener_password: SecretStr | None = None
+    relay_listener_url: str = ""
     relay_queue_max_seconds: float = 2.0
     relay_reconnect_initial_seconds: float = 0.5
     relay_reconnect_max_seconds: float = 8.0

@@ -4,7 +4,6 @@ import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../../src/App';
 import { operatorFetch } from '../../src/pages/Operator/auth/operatorAuthApi';
-import { buildListenQrUrl } from '../../src/pages/Operator/layout/listenQrUrl';
 
 (
   globalThis as typeof globalThis & {
@@ -93,7 +92,9 @@ let loginInvalid = false;
 let logoutUnavailable = false;
 let logoutForbidden = false;
 let protectedApiForbidden = false;
-let detectedLanIp: string | null = '192.168.1.12';
+let listenerShareUrl = 'https://listener.example/listen?session=session-123';
+let relayStatus = 'disabled';
+let relayError: string | null = null;
 let inputTranscriptEnabled = false;
 
 beforeEach(() => {
@@ -106,7 +107,9 @@ beforeEach(() => {
   logoutUnavailable = false;
   logoutForbidden = false;
   protectedApiForbidden = false;
-  detectedLanIp = '192.168.1.12';
+  listenerShareUrl = 'https://listener.example/listen?session=session-123';
+  relayStatus = 'disabled';
+  relayError = null;
   inputTranscriptEnabled = false;
   vi.stubGlobal('WebSocket', MockWebSocket);
   vi.stubGlobal(
@@ -143,14 +146,19 @@ beforeEach(() => {
           input_transcript_enabled: inputTranscriptEnabled,
           translation_target_language: 'de',
         };
-      } else if (url.includes('/operator/network')) {
-        payload = { lan_ip: detectedLanIp };
+      } else if (url.includes('/operator/listener-share')) {
+        payload = {
+          listener_url: listenerShareUrl,
+          session_id: 'session-123',
+        };
       } else if (url.includes('/api/v1/session') && protectedApiForbidden) {
         return { ok: false, status: 403, json: async () => ({}) } as Response;
       } else if (url.includes('/api/v1/session')) {
         payload = {
           running: false,
           listener_count: 0,
+          relay_status: relayStatus,
+          relay_error: relayError,
           input_transcript_enabled: inputTranscriptEnabled,
         };
       } else if (url.includes('/audio/devices')) {
@@ -199,7 +207,7 @@ describe('Operator navigation', () => {
     });
 
     let dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;
-    const firstUrl = buildListenQrUrl(window.location.origin, detectedLanIp);
+    const firstUrl = listenerShareUrl;
     expect((dialog.querySelector('input') as HTMLInputElement).value).toBe(
       firstUrl,
     );
@@ -215,7 +223,7 @@ describe('Operator navigation', () => {
     expect(writeText).toHaveBeenCalledWith(firstUrl);
     expect(dialog).toHaveTextContent('주소를 복사했습니다');
 
-    detectedLanIp = '192.168.1.13';
+    listenerShareUrl = 'https://listener.example/listen?session=session-456';
     const refreshButton = Array.from(dialog.querySelectorAll('button')).find(
       (button) => button.textContent?.includes('다시 확인'),
     );
@@ -226,7 +234,21 @@ describe('Operator navigation', () => {
     });
     dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;
     expect((dialog.querySelector('input') as HTMLInputElement).value).toBe(
-      buildListenQrUrl(window.location.origin, detectedLanIp),
+      listenerShareUrl,
+    );
+
+    page.cleanup();
+  });
+
+  it('shows the cloud relay state and last error', async () => {
+    relayStatus = 'error';
+    relayError = 'Cloud relay Publisher authentication failed';
+    const page = await renderApp('/operator');
+
+    expect(page.container).toHaveTextContent('Cloud relay');
+    expect(page.container).toHaveTextContent('오류');
+    expect(page.container).toHaveTextContent(
+      'Cloud relay Publisher authentication failed',
     );
 
     page.cleanup();

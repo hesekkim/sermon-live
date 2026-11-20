@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import Button from '../../../shared/components/Button/Button';
 import LoadingSpinner from '../../../shared/components/LoadingSpinner/LoadingSpinner';
+import InputField from '../../../shared/components/InputField/InputField';
 import { useToast } from '../../../shared/components/Toast/ToastProvider';
 import { useOperatorPrefs } from '../OperatorPrefs';
 import AppearanceSection from './components/AppearanceSection';
@@ -14,7 +15,7 @@ import { useOperatorSettings } from './hooks/useOperatorSettings';
 import type { OperatorOutletContext } from '../layout/OperatorLayout';
 import styles from './Settings.module.css';
 
-type SettingsTab = 'appearance' | 'devices' | 'safety' | 'api';
+type SettingsTab = 'appearance' | 'devices' | 'safety' | 'api' | 'cloud';
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -77,6 +78,10 @@ export default function Settings() {
     saveDevice,
     saveSafety,
     saveApiModel,
+    saveCloud,
+    relayListenerPassword,
+    setRelayListenerPassword,
+    relayListenerPasswordMasked,
   } = useOperatorSettings({
     labels,
     language,
@@ -130,6 +135,7 @@ export default function Settings() {
     { id: 'devices' as const, label: labels.audioDevice },
     { id: 'safety' as const, label: labels.safety },
     { id: 'api' as const, label: labels.interpreter },
+    { id: 'cloud' as const, label: 'Cloud relay' },
   ];
 
   const handleDeviceChange = async (nextDevice: string) => {
@@ -233,6 +239,68 @@ export default function Settings() {
           onRunTest={() => void runTest()}
           onStopTest={stopTest}
         />
+      );
+    }
+
+    if (String(activeTab) === 'cloud') {
+      if (settingsLoadStatus === 'loading') {
+        return (
+          <div
+            className={styles.settingsLoading}
+            role="status"
+            aria-live="polite"
+          >
+            <LoadingSpinner size="small" />
+            <span>{labels.settingsLoading}</span>
+          </div>
+        );
+      }
+
+      if (settingsLoadStatus === 'error') {
+        return <p role="alert">{labels.settingsLoadFailed}</p>;
+      }
+
+      return (
+        <>
+          <section className={styles.section}>
+            <h2>Cloud relay</h2>
+            <div className={styles.cloudGrid}>
+              <InputField
+                label="Listener entry password"
+                type="password"
+                showPasswordToggle
+                showPasswordLabel={labels.showApiKey}
+                hidePasswordLabel={labels.hideApiKey}
+                value={relayListenerPassword}
+                disabled={isSessionBusy}
+                onChange={setRelayListenerPassword}
+                placeholder={
+                  relayListenerPasswordMasked || 'Enter listener password'
+                }
+                autoComplete="new-password"
+              />
+            </div>
+            {isSessionBusy ? (
+              <p role="status" className={styles.timerHint}>
+                Stop the active broadcast before changing cloud settings.
+              </p>
+            ) : null}
+            <div className={styles.applyActions}>
+              <Button
+                icon={isSaving ? <LoadingSpinner size="small" /> : undefined}
+                aria-busy={isSaving}
+                disabled={isSessionBusy || isSaving}
+                onClick={async () => {
+                  const saved = await saveCloud();
+                  if (saved.success) info(labels.applySaved);
+                  else error(saved.message);
+                }}
+              >
+                {isSaving ? labels.saving : labels.apply}
+              </Button>
+            </div>
+          </section>
+        </>
       );
     }
 

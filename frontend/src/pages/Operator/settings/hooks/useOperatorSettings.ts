@@ -7,6 +7,7 @@ import type { TranslationTargetLanguage } from '../../../../shared/types/transla
 type InterpreterName = 'echo' | 'openai';
 type KeyStatus = 'valid' | 'missing' | 'invalid' | 'unverified';
 type SaveScope = 'device' | 'safety' | 'api';
+type SaveScopeWithCloud = SaveScope | 'cloud';
 type SettingsValue = string | number | boolean | undefined;
 type TimerValueKey =
 	| 'autoStopMinutes'
@@ -27,6 +28,8 @@ interface SettingsResponse {
 	openai_key_masked?: string;
 	openai_key_status?: KeyStatus;
 	openai_key_warning?: string | null;
+	relay_listener_password_set?: boolean;
+	relay_listener_password_masked?: string;
 }
 
 type KeyValidationState = 'idle' | 'loading' | 'failed';
@@ -64,6 +67,8 @@ export function useOperatorSettings({
 	const [openaiKeyStatus, setOpenaiKeyStatus] = useState<KeyStatus>('missing');
 	const [openaiKeyMasked, setOpenaiKeyMasked] = useState('');
 	const [openaiKeyWarning, setOpenaiKeyWarning] = useState('');
+	const [relayListenerPassword, setRelayListenerPassword] = useState('');
+	const [relayListenerPasswordMasked, setRelayListenerPasswordMasked] = useState('');
 	const [keyValidationState, setKeyValidationState] =
 		useState<KeyValidationState>('idle');
 	const [draftLanguage, setDraftLanguage] = useState<UiLanguage>(language);
@@ -101,6 +106,7 @@ export function useOperatorSettings({
 		);
 		setOpenaiKeyMasked(data.openai_key_masked ?? '');
 		setOpenaiKeyWarning(data.openai_key_warning ?? '');
+		setRelayListenerPasswordMasked(data.relay_listener_password_masked ?? '');
 	};
 
 	const applySettingsResponse = (data: SettingsResponse) => {
@@ -176,7 +182,7 @@ export function useOperatorSettings({
 
 	const submitSettings = async (
 		body: Record<string, SettingsValue>,
-		scope: SaveScope
+		scope: SaveScopeWithCloud
 	) => {
 		if (isSaving) return { success: false as const, message: labels.applyFailed };
 		setIsSaving(true);
@@ -207,6 +213,9 @@ export function useOperatorSettings({
 				const values = getTimerDraftValues(data);
 				setTimerValues(values);
 				savedTimerValuesRef.current = values;
+			} else if (scope === 'cloud') {
+				applyApiModelResponse(data);
+				setRelayListenerPassword('');
 			} else {
 				applyApiModelResponse(data);
 				setSettingsLoadStatus('loaded');
@@ -260,6 +269,18 @@ export function useOperatorSettings({
 		}
 		return submitSettings(body, 'api');
 	};
+	const saveCloud = async () => {
+		if (settingsLoadStatus !== 'loaded') {
+			return { success: false as const, message: labels.settingsLoadFailed };
+		}
+		const body: Record<string, SettingsValue> = {
+			interpreter: savedInterpreterRef.current,
+		};
+		if (relayListenerPassword.trim()) {
+			body.relay_listener_password = relayListenerPassword.trim();
+		}
+		return submitSettings(body, 'cloud');
+	};
 	const isSafetyDirty =
 		savedTimerValuesRef.current !== null &&
 		Object.keys(timerValues).some((key) => {
@@ -296,6 +317,10 @@ export function useOperatorSettings({
 		saveDevice,
 		saveSafety,
 		saveApiModel,
+		saveCloud,
+		relayListenerPassword,
+		setRelayListenerPassword,
+		relayListenerPasswordMasked,
 	};
 }
 

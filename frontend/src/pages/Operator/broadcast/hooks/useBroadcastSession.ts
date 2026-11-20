@@ -26,6 +26,15 @@ export type TranslationSessionStatus =
   | 'live'
   | 'stopping'
   | 'error';
+export type RelayStatus =
+  | 'disabled'
+  | 'idle'
+  | 'starting'
+  | 'live'
+  | 'live_recovered'
+  | 'reconnecting'
+  | 'error'
+  | 'ended';
 export type TerminationReason =
   | 'manual'
   | 'auto_stop'
@@ -55,6 +64,8 @@ interface SessionStatus {
   running: boolean;
   listener_count: number;
   session_status?: TranslationSessionStatus;
+  relay_status?: string;
+  relay_error?: string | null;
   audio_ready?: boolean;
   audio_error?: string | null;
   audio_stored_device_setting?: string | null;
@@ -79,6 +90,8 @@ interface OperatorMessage {
   running?: boolean;
   session_status?: TranslationSessionStatus;
   sessionStatus?: TranslationSessionStatus;
+  relay_status?: string;
+  relay_error?: string | null;
   audio_ready?: boolean;
   audioReady?: boolean;
   audio_error?: string | null;
@@ -104,6 +117,22 @@ interface OperatorMessage {
   input_transcript_enabled?: boolean;
   translation_target_language?: TranslationTargetLanguage;
   interpreter_reconnecting?: boolean;
+}
+
+function parseRelayStatus(value: string | undefined): RelayStatus | null {
+  switch (value) {
+    case 'disabled':
+    case 'idle':
+    case 'starting':
+    case 'live':
+    case 'live_recovered':
+    case 'reconnecting':
+    case 'error':
+    case 'ended':
+      return value;
+    default:
+      return null;
+  }
 }
 
 function liveInterpreterStatus(
@@ -159,6 +188,8 @@ export function useBroadcastSession(
   const [startBlockReason, setStartBlockReason] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [listenerCount, setListenerCount] = useState(0);
+  const [relayStatus, setRelayStatus] = useState<RelayStatus>('disabled');
+  const [relayError, setRelayError] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState<number | null>(null);
   const [audioLevelStale, setAudioLevelStale] = useState(false);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
@@ -282,6 +313,9 @@ export function useBroadcastSession(
         setTranslationTargetLanguage(data.translation_target_language);
       }
       setListenerCount(data.listener_count);
+      const nextRelayStatus = parseRelayStatus(data.relay_status);
+      if (nextRelayStatus) setRelayStatus(nextRelayStatus);
+      if ('relay_error' in data) setRelayError(data.relay_error ?? null);
       if ('timer' in data) {
         setTimer(data.timer ?? null);
       } else if (!data.running) {
@@ -355,6 +389,10 @@ export function useBroadcastSession(
             }
             const sessionStatus =
               payload.session_status ?? payload.sessionStatus;
+            const relayStatus = parseRelayStatus(payload.relay_status);
+            if (relayStatus) setRelayStatus(relayStatus);
+            if ('relay_error' in payload)
+              setRelayError(payload.relay_error ?? null);
             if (typeof payload.input_transcript_enabled === 'boolean') {
               setInputTranscriptEnabled(payload.input_transcript_enabled);
             }
@@ -655,6 +693,8 @@ export function useBroadcastSession(
     startBlockReason,
     sessionError,
     listenerCount,
+    relayStatus,
+    relayError,
     audioLevel,
     audioLevelStale,
     latencyMs,

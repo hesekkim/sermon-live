@@ -1,9 +1,8 @@
 import { useCallback, useState } from 'react';
 import { operatorFetch } from '../auth/operatorAuthApi';
-import { buildListenQrUrl } from './listenQrUrl';
-
-interface OperatorNetworkResponse {
-  lan_ip: string | null;
+interface OperatorListenerShareResponse {
+  listener_url: string | null;
+  session_id: string | null;
 }
 
 export function useListenQr() {
@@ -16,16 +15,15 @@ export function useListenQr() {
     setHasError(false);
     setUrl(null);
     try {
-      const response = await operatorFetch('/api/v1/operator/network');
-      if (!response.ok) {
-        throw new Error('Could not load the operator network address');
+      const shareResponse = await operatorFetch('/api/v1/operator/listener-share');
+      if (shareResponse.ok) {
+        const share = (await shareResponse.json()) as OperatorListenerShareResponse;
+        if (share.listener_url) {
+          setUrl(share.listener_url);
+          return;
+        }
       }
-      const network = (await response.json()) as OperatorNetworkResponse;
-      const nextUrl = buildListenQrUrl(window.location.origin, network.lan_ip);
-      if (!nextUrl) {
-        throw new Error('No LAN address is available');
-      }
-      setUrl(nextUrl);
+      throw new Error('No configured cloud Listener address is available');
     } catch {
       setHasError(true);
     } finally {

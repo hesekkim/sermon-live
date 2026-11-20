@@ -27,10 +27,16 @@ class OperatorSettingsBody(BaseModel):
     translation_session_warning_minutes: int | None = Field(default=None, gt=0)
     translation_session_extension_minutes: int | None = Field(default=None, gt=0)
     translation_session_hard_limit_minutes: int | None = Field(default=None, gt=0)
+    relay_listener_password: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class OperatorNetworkResponse(BaseModel):
     lan_ip: str | None
+
+
+class OperatorListenerShareResponse(BaseModel):
+    listener_url: str | None
+    session_id: str | None
 
 
 @router.get(
@@ -40,6 +46,50 @@ class OperatorNetworkResponse(BaseModel):
 )
 def get_operator_network() -> OperatorNetworkResponse:
     return OperatorNetworkResponse(lan_ip=network.detect_lan_ip())
+
+
+@router.get(
+    "/api/v1/operator/listener-share",
+    response_model=OperatorListenerShareResponse,
+    dependencies=[Depends(require_http_operator)],
+)
+def get_operator_listener_share() -> OperatorListenerShareResponse:
+    settings = get_settings()
+    listener_url = settings.relay_listener_url
+    session_status = session.status()
+    session_id = session_status.get("session_id")
+    relay_is_live = (
+        session_status.get("session_status") == "live"
+        and session_status.get("relay_status") == "live"
+    )
+    if (
+        not relay_is_live
+        or not isinstance(session_id, str)
+        or not session_id
+    ):
+        return OperatorListenerShareResponse(
+            listener_url=None,
+            session_id=None,
+        )
+    if listener_url and session_id:
+        from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
+
+        parsed = urlsplit(listener_url)
+        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        query["session"] = session_id
+        listener_url = urlunsplit(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path or "/listen",
+                urlencode(query),
+                "",
+            )
+        )
+    return OperatorListenerShareResponse(
+        listener_url=listener_url or None,
+        session_id=session_id,
+    )
 
 
 @router.get(
@@ -101,6 +151,14 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
         and body.translation_target_language
         != current_view["translation_target_language"]
     )
+    relay_changed = (
+        body.relay_listener_password not in (None, "")
+    )
+    if relay_changed and session_busy:
+        raise HTTPException(
+            status_code=409,
+            detail="Stop the translation session before changing cloud relay settings",
+        )
     protected_settings_changed = api_model_changed or target_language_changed
     for field in timer_fields:
         requested = getattr(body, field)
@@ -144,6 +202,7 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
             translation_session_hard_limit_minutes=(
                 body.translation_session_hard_limit_minutes
             ),
+            relay_listener_password=body.relay_listener_password,
         )
     except OSError as exc:
         raise HTTPException(
