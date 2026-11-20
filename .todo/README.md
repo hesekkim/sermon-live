@@ -18,11 +18,10 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 
 1. `076-cloud-listener-protocol-and-codec-decision.md` — 중계 계약과 Opus 인코딩/브라우저 디코딩 실현성 검증
 2. `077-berlin-relay-session-authentication.md` — 방송별 청중 비밀번호, 단기 Listener 권한 및 Publisher 인증
-3. `080-operator-cloud-broadcast-controls.md` — Operator의 중계 설정, 입장 비밀번호 및 Listener 링크/QR 제어
-4. `081-vercel-listener-cloud-playback.md` — remote-only Vercel Listener의 인증, relay 연결 및 압축 오디오 재생
-5. `084-listener-token-renewal-and-reconnect.md` — 90분 access token 갱신과 만료 전 Listener WSS 교체
-6. `082-cloud-relay-resilience-and-load-validation.md` — 재연결·종료·백프레셔·보안 및 사용량/부하 검증
-7. `083-cloud-listener-deployment-and-operations.md` — Berlin/Render 및 Vercel 배포 설정과 운영 문서
+3. `081-vercel-listener-cloud-playback.md` — remote-only Vercel Listener의 인증, relay 연결 및 압축 오디오 재생
+4. `084-listener-token-renewal-and-reconnect.md` — 90분 access token 갱신과 만료 전 Listener WSS 교체
+5. `082-cloud-relay-resilience-and-load-validation.md` — 재연결·종료·백프레셔·보안 및 사용량/부하 검증
+6. `083-cloud-listener-deployment-and-operations.md` — Berlin/Render 및 Vercel 배포 설정과 운영 문서
 
 ### Windows/macOS 사용자 배포
 
@@ -121,6 +120,7 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 65. `077-berlin-relay-session-authentication.md` — Berlin 방송별 인증과 Listener 권한
 66. `078-berlin-live-relay-websocket.md` — Berlin Publisher/Listener WSS relay와 fan-out
 67. `079-local-cloud-publisher-and-opus-encoding.md` — Local Publisher의 Opus 압축 송출, 재접속 큐와 종료 처리
+68. `080-operator-cloud-broadcast-controls.md` — Operator의 중계 설정, 입장 비밀번호 및 Listener 링크/QR 제어
 
 ## 결정 사항
 

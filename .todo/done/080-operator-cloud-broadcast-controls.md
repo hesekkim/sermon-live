@@ -49,3 +49,4 @@ Operator가 Berlin relay를 설정하고, 방송별 청중 입장 비밀번호�
 
 - frontend/backend unit test에서 secret masking, password 미반환, QR payload, relay 오류/연결 상태를 검증한다.
 - Browser test에서 Publisher credential 및 입장 비밀번호가 localStorage, URL, console/log에 남지 않는지 검사한다.
+- 대상 회귀 테스트 결과: Sermon Live backend 73개, Berlin relay backend 17개, frontend 19개 통과; frontend 타입 검사 및 build 통과.
