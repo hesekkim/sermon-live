@@ -5,7 +5,6 @@ from core.config import InterpreterName, TranslationTargetLanguage, get_settings
 from services.broadcast import hub
 from services.audio_capture import AudioCapture
 from services.key_validation import validate_operator_key
-from services import network
 from services.operator_store import store
 from services.runtime import audio, session
 from services.session_service import SessionTransitionError
@@ -30,22 +29,9 @@ class OperatorSettingsBody(BaseModel):
     relay_listener_password: str | None = Field(default=None, min_length=8, max_length=128)
 
 
-class OperatorNetworkResponse(BaseModel):
-    lan_ip: str | None
-
-
 class OperatorListenerShareResponse(BaseModel):
     listener_url: str | None
     session_id: str | None
-
-
-@router.get(
-    "/api/v1/operator/network",
-    response_model=OperatorNetworkResponse,
-    dependencies=[Depends(require_http_operator)],
-)
-def get_operator_network() -> OperatorNetworkResponse:
-    return OperatorNetworkResponse(lan_ip=network.detect_lan_ip())
 
 
 @router.get(
@@ -282,7 +268,7 @@ async def extend_session() -> dict[str, object]:
 async def operator_socket(websocket: WebSocket) -> None:
     if not await require_websocket_operator(websocket):
         return
-    await hub.register(websocket, kind="operator")
+    await hub.register(websocket)
     await websocket.send_json(session.session_event())
     try:
         while True:

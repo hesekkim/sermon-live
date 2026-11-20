@@ -46,29 +46,16 @@ class FakeAudioRuntime:
 
 class FakeHub:
     def __init__(self):
-        self.listener_count = 1
         self.operator_events = []
-        self.listener_events = []
-        self.audio_events = []
-        self.audio_received = asyncio.Event()
-        self.listen_text = []
         self.ended = asyncio.Event()
 
     async def broadcast_session(self, payload):
         self.operator_events.append(payload)
-        self.listener_events.append(payload)
         if payload.get("type") == "session_ended":
             self.ended.set()
 
     async def broadcast_operator(self, payload):
         self.operator_events.append(payload)
-
-    async def broadcast_audio(self, pcm, sample_rate):
-        self.audio_events.append((pcm, sample_rate))
-        self.audio_received.set()
-
-    async def broadcast_text(self, text):
-        self.listen_text.append(text)
 
 
 class ErrorInterpreter:
@@ -165,15 +152,12 @@ async def test_start_stop_keeps_server_audio_ready_and_rejects_duplicate_transit
     await service.start()
     assert service.state == "live"
     assert "sermon_session_id" not in service.status()
-    await audio.queue.put(b"\x01\x00\x02\x00")
-    await asyncio.wait_for(hub.audio_received.wait(), timeout=1)
     with pytest.raises(SessionTransitionError):
         await service.start()
 
     await service.stop()
 
     assert service.state == "off"
-    assert hub.audio_events == [(b"\x01\x00\x02\x00", 16000)]
     assert audio.ready is True
     assert service.status()["last_termination_reason"] == "manual"
     assert_session_released(service)
@@ -181,7 +165,6 @@ async def test_start_stop_keeps_server_audio_ready_and_rejects_duplicate_transit
         await service.stop()
     assert hub.operator_events[-1]["type"] == "session_ended"
     assert hub.operator_events[-1]["reason"] == "manual"
-    assert hub.listener_events[-1] == hub.operator_events[-1]
 
 
 def test_session_status_ignores_legacy_input_transcript_setting(tmp_path):
@@ -358,7 +341,7 @@ async def test_translation_status_uses_standardized_contract(tmp_path):
     )
     assert status["type"] == "translation_status"
     assert status["session_status"] == "live"
-    assert status["listener_count"] == 1
+    assert status["listener_count"] == 0
     assert status["running"] is True
     assert status["translation_target_language"] == "en"
 
@@ -375,7 +358,6 @@ async def test_automatic_end_reasons_are_broadcast(tmp_path, reason):
 
     assert service.status()["last_termination_reason"] == reason
     assert hub.operator_events[-1]["reason"] == reason
-    assert hub.listener_events[-1] == hub.operator_events[-1]
 
 
 @pytest.mark.asyncio
@@ -396,7 +378,6 @@ async def test_translation_timer_warns_and_auto_stops_using_monotonic_time(tmp_p
     assert service.state == "off"
     assert service.status()["last_termination_reason"] == "auto_stop"
     assert hub.operator_events[-1]["reason"] == "auto_stop"
-    assert hub.listener_events[-1] == hub.operator_events[-1]
     assert_session_released(service)
 
 
@@ -666,7 +647,6 @@ async def test_interpreter_error_ends_session_for_operator_and_listener(tmp_path
     assert service.status()["last_termination_reason"] == "interpreter_error"
     error_event = next(event for event in hub.operator_events if event.get("type") == "error")
     assert error_event["text"] == "Interpreter disconnected"
-    assert hub.listener_events == hub.operator_events
     assert_session_released(service)
 
 
@@ -680,7 +660,6 @@ async def test_device_error_ends_live_session_with_reason(tmp_path):
     assert service.state == "error"
     assert service.status()["last_termination_reason"] == "device_error"
     assert hub.operator_events[-1]["reason"] == "device_error"
-    assert hub.listener_events[-1] == hub.operator_events[-1]
     assert_session_released(service)
 
 
@@ -691,88 +670,8 @@ class RecordingWebSocket:
     async def send_json(self, payload):
         self.messages.append(payload)
 
-    async def send_bytes(self, payload):
-        self.messages.append(payload)
-
     async def close(self, **_kwargs):
         return None
-
-
-async def broadcast_to_listener(payload):
-    hub = BroadcastHub()
-    operator = RecordingWebSocket()
-    listener = RecordingWebSocket()
-    hub._operator_clients.add(operator)
-    hub._add_listener(listener)
-    await hub.broadcast_session(payload)
-    await hub.flush_listeners(1)
-    hub.unregister(listener)
-    return operator.messages, listener.messages
-
-
-@pytest.mark.asyncio
-async def test_broadcast_hub_sends_identical_lifecycle_event_to_both_client_groups():
-    payload = {"type": "session_ended", "reason": "manual", "session_id": "abc"}
-
-    operator_messages, listener_messages = await broadcast_to_listener(payload)
-
-    assert operator_messages == [payload]
-    assert listener_messages == [payload]
-
-
-@pytest.mark.asyncio
-async def test_broadcast_hub_hides_error_details_from_public_listeners():
-    payload = {
-        "type": "error",
-        "text": "Provider rejected the configured credential",
-        "session_status": "error",
-    }
-
-    operator_messages, listener_messages = await broadcast_to_listener(payload)
-
-    assert operator_messages == [payload]
-    assert listener_messages == [{"type": "error", "session_status": "error"}]
-
-
-@pytest.mark.asyncio
-async def test_broadcast_hub_limits_public_session_status_fields():
-    payload = {
-        "type": "translation_status",
-        "session_status": "live",
-        "last_termination_reason": None,
-        "session_id": "abc",
-        "interpreter_reconnecting": True,
-        "translation_target_language": "en",
-        "input_transcript_enabled": True,
-        "error": "upstream diagnostic",
-        "audio_error": "device path",
-        "start_block_reason": "private operator detail",
-        "audio_dropped_chunks": 12,
-    }
-
-    operator_messages, listener_messages = await broadcast_to_listener(payload)
-
-    assert operator_messages == [payload]
-    assert listener_messages == [
-        {
-            "type": "translation_status",
-            "session_status": "live",
-            "last_termination_reason": None,
-            "session_id": "abc",
-            "interpreter_reconnecting": True,
-            "translation_target_language": "en",
-        }
-    ]
-
-
-@pytest.mark.asyncio
-async def test_broadcast_hub_does_not_send_operator_only_events_to_listeners():
-    payload = {"type": "audio_status", "ready": False, "error": "device detail"}
-
-    operator_messages, listener_messages = await broadcast_to_listener(payload)
-
-    assert operator_messages == [payload]
-    assert listener_messages == []
 
 
 @pytest.mark.asyncio
@@ -802,48 +701,3 @@ async def test_broadcast_hub_times_out_slow_operator_without_blocking_healthy_cl
     assert slow.closed is True
     assert slow not in hub._operator_clients
     assert healthy in hub._operator_clients
-
-
-@pytest.mark.parametrize("send_audio", [False, True])
-@pytest.mark.asyncio
-async def test_broadcast_hub_disconnects_slow_listen_without_blocking_healthy_clients(
-    monkeypatch, send_audio
-):
-    class SlowWebSocket:
-        def __init__(self):
-            self.closed = False
-
-        async def send_json(self, _payload):
-            await asyncio.Event().wait()
-
-        async def send_bytes(self, _payload):
-            await asyncio.Event().wait()
-
-        async def close(self, **_kwargs):
-            self.closed = True
-
-    monkeypatch.setattr(BroadcastHub, "_LISTEN_SEND_TIMEOUT_SECONDS", 0.01)
-    hub = BroadcastHub()
-    hub._sample_rate = 24000
-    operator = RecordingWebSocket()
-    hub._operator_clients.add(operator)
-    slow = SlowWebSocket()
-    healthy = RecordingWebSocket()
-    for websocket in (slow, healthy):
-        hub._add_listener(websocket)
-        hub.set_listener_audio(websocket, True)
-
-    if send_audio:
-        await asyncio.wait_for(hub.broadcast_audio(b"pcm", 24000), timeout=0.2)
-        expected = b"pcm"
-    else:
-        await asyncio.wait_for(hub.broadcast_text("Hallo"), timeout=0.2)
-        expected = {"text": "Hallo"}
-    await hub.flush_listeners(1)
-    await asyncio.sleep(0.01)
-
-    assert healthy.messages == [{"sampleRate": 24000}, expected]
-    assert slow.closed is True
-    assert slow not in hub._listen_clients
-    assert healthy in hub._listen_clients
-    assert operator.messages[-1] == {"type": "listener_count", "listener_count": 1}

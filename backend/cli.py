@@ -4,7 +4,6 @@ from main import app, settings
 import logging
 
 import uvicorn
-from services.network import detect_lan_ip
 
 logger = logging.getLogger(__name__)
 
@@ -12,13 +11,6 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     scheme = "https" if settings.ssl_certfile else "http"
     logger.info("Operator CLI starting on %s://%s:%s", scheme, settings.host, settings.port)
-    address = detect_lan_ip()
-    if address:
-        logger.info(
-            "Congregation URL: %s://%s:%s/listen", scheme, address, settings.port
-        )
-    else:
-        logger.warning("Could not detect a LAN address for the Listener")
     uvicorn.run(
         app,
         host=settings.host,

@@ -46,7 +46,6 @@ def test_main_passes_tls_paths_to_uvicorn(monkeypatch, tmp_path):
     run_calls = []
     monkeypatch.setattr(main_module, "settings", settings)
     monkeypatch.setattr(main_module, "is_packaged", lambda: True)
-    monkeypatch.setattr(main_module, "detect_lan_ip", lambda: "192.168.1.20")
     monkeypatch.setattr(sys, "argv", ["main"])
     monkeypatch.setattr(
         main_module.uvicorn,
@@ -69,7 +68,6 @@ def test_main_keeps_http_when_tls_is_not_configured(monkeypatch):
         Settings(_env_file=None),
     )
     monkeypatch.setattr(main_module, "is_packaged", lambda: True)
-    monkeypatch.setattr(main_module, "detect_lan_ip", lambda: None)
     monkeypatch.setattr(sys, "argv", ["main"])
     monkeypatch.setattr(
         main_module.uvicorn,

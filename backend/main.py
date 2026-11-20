@@ -34,7 +34,6 @@ from core.paths import (
     migrate_legacy_project,
 )
 from services.broadcast import hub
-from services.network import detect_lan_ip
 from services.runtime import audio, session, settings
 
 logging.basicConfig(
@@ -176,13 +175,6 @@ def main() -> None:
         "Operator URL: %s",
         _operator_url(scheme, settings.host, settings.port),
     )
-    address = detect_lan_ip()
-    if address:
-        logger.info(
-            "Congregation URL: %s://%s:%s/listen", scheme, address, settings.port
-        )
-    else:
-        logger.warning("Could not detect a LAN address for the Listener")
     packaged = is_packaged()
     uvicorn.run(
         app if packaged or not settings.debug else "main:app",

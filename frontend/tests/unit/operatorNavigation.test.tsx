@@ -305,13 +305,11 @@ describe('Operator navigation', () => {
     page.cleanup();
   });
 
-  it('redirects the removed local Listener route to Operator', async () => {
+  it('does not mount an Operator route at the removed local Listener path', async () => {
     const page = await renderApp('/listen');
-    const socket = MockWebSocket.instances[0];
 
-    expect(page.container.querySelector('a[aria-label="설정"]')).not.toBeNull();
-    expect(socket?.url).toContain('/ws/operator');
-    expect(socket?.url).not.toContain('/ws/listen');
+    expect(page.container.querySelector('a[aria-label="설정"]')).toBeNull();
+    expect(MockWebSocket.instances).toHaveLength(0);
 
     page.cleanup();
   });

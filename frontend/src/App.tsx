@@ -31,7 +31,6 @@ export default function App() {
         <Route path="broadcast" element={<Broadcast />} />
         <Route path="*" element={<Navigate to="/operator/broadcast" replace />} />
       </Route>
-      <Route path="*" element={<Navigate to="/operator" replace />} />
     </Routes>
   );
 }

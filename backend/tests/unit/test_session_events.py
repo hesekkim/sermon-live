@@ -11,23 +11,45 @@ from services.session_service import SessionService
 
 class FakeHub:
     def __init__(self) -> None:
-        self.listen_text: list[str] = []
         self.operator: list[dict[str, object]] = []
-        self.audio: list[tuple[bytes, int]] = []
-        self.scripture: list[dict[str, object]] = []
-        self.listener_count = 0
-
-    async def broadcast_audio(self, pcm: bytes, sample_rate: int) -> None:
-        self.audio.append((pcm, sample_rate))
-
-    async def broadcast_text(self, text: str) -> None:
-        self.listen_text.append(text)
-
-    async def broadcast_scripture(self, payload: dict[str, object]) -> None:
-        self.scripture.append(payload)
 
     async def broadcast_operator(self, payload: dict[str, object]) -> None:
         self.operator.append(payload)
+
+    async def broadcast_session(self, payload: dict[str, object]) -> None:
+        await self.broadcast_operator(payload)
+
+
+class FakeRelayPublisher:
+    enabled = False
+    active = False
+    state = "disabled"
+    listener_count = 0
+    last_error = None
+    queue_duration_seconds = 0.0
+
+    def __init__(self) -> None:
+        self.audio: list[tuple[bytes, int]] = []
+        self.subtitles: list[tuple[str, str]] = []
+        self.scripture: list[dict[str, object]] = []
+
+    async def start(self, *_args, **_kwargs) -> None:
+        return None
+
+    async def stop(self, *_args, **_kwargs) -> None:
+        return None
+
+    async def send_status(self, _status: str) -> None:
+        return None
+
+    async def send_audio(self, pcm: bytes, sample_rate: int) -> None:
+        self.audio.append((pcm, sample_rate))
+
+    async def send_subtitle(self, text: str, language: str) -> None:
+        self.subtitles.append((text, language))
+
+    async def send_scripture(self, payload: dict[str, object]) -> None:
+        self.scripture.append(payload)
 
 
 class FakeInterpreter:
@@ -109,6 +131,7 @@ class FakeOpenAIInterpreter:
 @pytest.mark.asyncio
 async def test_active_session_routes_interpreter_events(tmp_path):
     hub = FakeHub()
+    relay = FakeRelayPublisher()
 
     class FakeAudioRuntime:
         ready = True
@@ -119,7 +142,13 @@ async def test_active_session_routes_interpreter_events(tmp_path):
         on_device_error = None
 
     store = OperatorSettingsStore(tmp_path / "active.json")
-    service = SessionService(Settings(interpreter="echo"), hub, FakeAudioRuntime(), store)
+    service = SessionService(
+        Settings(interpreter="echo"),
+        hub,
+        FakeAudioRuntime(),
+        store,
+        relay_publisher=relay,
+    )
     assert type(service) is type(runtime_session)
     loop = asyncio.get_running_loop()
     service._first_audio_chunk_since_text_sent_at = loop.time() - 0.275
@@ -133,8 +162,8 @@ async def test_active_session_routes_interpreter_events(tmp_path):
 
     await service._pump_events(interpreter)
 
-    assert hub.audio == [(b"translated", 24000)]
-    assert hub.listen_text == ["Guten Tag"]
+    assert relay.audio == [(b"translated", 24000)]
+    assert relay.subtitles == [("Guten Tag", "de")]
     assert hub.operator[0] == {"type": "transcript", "role": "input", "text": "안녕하세요"}
     assert hub.operator[1]["milliseconds"] >= 275
     assert hub.operator[2] == {"type": "transcript", "role": "output", "text": "Guten Tag"}
@@ -143,8 +172,15 @@ async def test_active_session_routes_interpreter_events(tmp_path):
 @pytest.mark.asyncio
 async def test_scripture_reference_is_broadcast_separately_from_translation(tmp_path):
     hub = FakeHub()
+    relay = FakeRelayPublisher()
     store = OperatorSettingsStore(tmp_path / "scripture.json")
-    service = SessionService(Settings(interpreter="echo"), hub, FakeAudioRuntime(), store)
+    service = SessionService(
+        Settings(interpreter="echo"),
+        hub,
+        FakeAudioRuntime(),
+        store,
+        relay_publisher=relay,
+    )
     interpreter = FakeInterpreter(
         [
             InterpreterEvent(kind="output_text", text="Wir lesen Römer3, Vers"),
@@ -163,23 +199,23 @@ async def test_scripture_reference_is_broadcast_separately_from_translation(tmp_
 
     await service._pump_events(interpreter)
 
-    assert hub.listen_text == [
-        "Wir lesen Römer3, Vers",
-        "28.",
-        "Jesaja, Kapitel 41, Vers 10: Fürchte dich nicht.",
-        "Philipper 4,6 und 7, werde ich lesen.",
+    assert relay.subtitles == [
+        ("Wir lesen Römer3, Vers", "de"),
+        ("28.", "de"),
+        ("Jesaja, Kapitel 41, Vers 10: Fürchte dich nicht.", "de"),
+        ("Philipper 4,6 und 7, werde ich lesen.", "de"),
     ]
-    assert len(hub.scripture) == 3
-    assert hub.scripture[0]["type"] == "scripture"
-    assert hub.scripture[0]["reference"] == "Römer 3,28"
-    assert hub.scripture[0]["version"] == "Lutherbibel 1912"
-    assert [verse["verse"] for verse in hub.scripture[0]["verses"]] == [28]
-    assert [event["reference"] for event in hub.scripture[1:]] == [
+    assert len(relay.scripture) == 3
+    assert relay.scripture[0]["type"] == "scripture"
+    assert relay.scripture[0]["reference"] == "Römer 3,28"
+    assert relay.scripture[0]["version"] == "Lutherbibel 1912"
+    assert [verse["verse"] for verse in relay.scripture[0]["verses"]] == [28]
+    assert [event["reference"] for event in relay.scripture[1:]] == [
         "Jesaja 41,10",
         "Philipper 4,6-7",
     ]
-    assert [verse["verse"] for verse in hub.scripture[1]["verses"]] == [10]
-    assert [verse["verse"] for verse in hub.scripture[2]["verses"]] == [6, 7]
+    assert [verse["verse"] for verse in relay.scripture[1]["verses"]] == [10]
+    assert [verse["verse"] for verse in relay.scripture[2]["verses"]] == [6, 7]
 
 
 @pytest.mark.asyncio
@@ -190,13 +226,20 @@ async def test_openai_session_streams_audio_and_flushes_final_events_before_stop
     store.save(interpreter="openai", openai_api_key="test-key")
     audio = FakeAudioRuntime()
     hub = FakeHub()
+    relay = FakeRelayPublisher()
     interpreter = FakeOpenAIInterpreter()
     monkeypatch.setattr(
         session_service_module,
         "create_interpreter",
         lambda _settings, **_kwargs: interpreter,
     )
-    service = SessionService(Settings(interpreter="echo"), hub, audio, store)
+    service = SessionService(
+        Settings(interpreter="echo"),
+        hub,
+        audio,
+        store,
+        relay_publisher=relay,
+    )
 
     await service.start()
     assert service.state == "live"
@@ -221,11 +264,11 @@ async def test_openai_session_streams_audio_and_flushes_final_events_before_stop
 
     assert interpreter.sent_audio == [b"input-1", b"input-2"]
     assert interpreter.closed is True
-    assert hub.audio == [
+    assert relay.audio == [
         (b"stream-audio", 24000),
         (b"final-audio", 24000),
     ]
-    assert hub.listen_text == ["Guten Tag.", "Letzter Satz."]
+    assert relay.subtitles == [("Guten Tag.", "de"), ("Letzter Satz.", "de")]
     assert [
         (event["role"], event["text"])
         for event in hub.operator

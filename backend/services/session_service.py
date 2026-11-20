@@ -87,8 +87,6 @@ class _TranslationSessionService:
             if getattr(self._relay, "enabled", False)
             and getattr(self._relay, "state", "") in {"live", "reconnecting"}
             and isinstance(relay_listener_count, int)
-            else self._hub.listener_count
-            if not getattr(self._relay, "enabled", False)
             else 0
         )
         payload = {
@@ -559,7 +557,6 @@ class _TranslationSessionService:
                 self._audio_in_flight = None
 
     async def _broadcast_output_text(self, text: str) -> None:
-        await self._hub.broadcast_text(text)
         await self._relay.send_subtitle(
             text, self._store.get_translation_target_language()
         )
@@ -588,14 +585,12 @@ class _TranslationSessionService:
                 for verse in verses
             ],
         }
-        await self._hub.broadcast_scripture(payload)
         await self._relay.send_scripture(payload)
 
     async def _pump_events(self, interpreter: LiveInterpreter) -> None:
         try:
             async for event in interpreter.events():
                 if event.kind == "audio" and event.pcm:
-                    await self._hub.broadcast_audio(event.pcm, event.sample_rate)
                     await self._relay.send_audio(event.pcm, event.sample_rate)
                 elif event.kind in ("text", "output_text") and event.text:
                     await self._broadcast_output_text(event.text)
@@ -782,7 +777,6 @@ class SessionService(_TranslationSessionService):
         try:
             async for event in interpreter.events():
                 if event.kind == "audio" and event.pcm:
-                    await self._hub.broadcast_audio(event.pcm, event.sample_rate)
                     await self._relay.send_audio(event.pcm, event.sample_rate)
                 elif event.kind in ("text", "output_text") and event.text:
                     if self._first_audio_chunk_since_text_sent_at is not None:
