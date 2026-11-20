@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     relay_publisher_credential: SecretStr | None = None
     relay_url: str = ""
     relay_listener_password: SecretStr | None = None
+    relay_queue_max_seconds: float = 2.0
+    relay_reconnect_initial_seconds: float = 0.5
+    relay_reconnect_max_seconds: float = 8.0
     # Verify the model name against the official API when the OpenAI adapter is implemented.
     openai_model: str = "gpt-realtime-translate"
     translation_session_auto_stop_minutes: int = 90
@@ -102,6 +105,15 @@ class Settings(BaseSettings):
             raise ValueError("translation_queue_max_seconds must be greater than 0")
         if self.translation_drain_timeout_seconds <= 0:
             raise ValueError("translation_drain_timeout_seconds must be greater than 0")
+        if self.relay_queue_max_seconds <= 0:
+            raise ValueError("relay_queue_max_seconds must be greater than 0")
+        if self.relay_reconnect_initial_seconds <= 0:
+            raise ValueError("relay_reconnect_initial_seconds must be greater than 0")
+        if self.relay_reconnect_max_seconds < self.relay_reconnect_initial_seconds:
+            raise ValueError(
+                "relay_reconnect_max_seconds must be greater than or equal to "
+                "relay_reconnect_initial_seconds"
+            )
         return self
 
     @property

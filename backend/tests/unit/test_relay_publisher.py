@@ -1,8 +1,10 @@
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
 from pydantic import SecretStr
+from websockets.exceptions import InvalidStatus
 
 from core.config import Settings
 from services import relay_publisher as relay_module
@@ -194,3 +196,157 @@ def test_cloud_relay_rejects_non_https_url_outside_debug():
 
     with pytest.raises(RelayPublisherError, match="HTTPS"):
         publisher._validate_base_url(publisher._settings.relay_url)
+
+
+def test_opus_encoder_flushes_partial_frame_with_silence():
+    encoder = OpusPacketEncoder()
+
+    frames = encoder.encode(bytes(960), 24000)
+    assert len(frames) == 1
+
+    # 10 ms is 240 samples and must be padded to a 20 ms Opus frame on flush.
+    encoder = OpusPacketEncoder()
+    encoder.encode(bytes(480), 24000)
+    frames = encoder.flush()
+    assert len(frames) == 1
+
+    encoder = OpusPacketEncoder()
+    encoder.encode(bytes(240), 24000)
+    frames = encoder.flush()
+    assert len(frames) == 1
+    assert frames[0][:4] == b"SL1A"
+    assert int.from_bytes(frames[0][6:8], "little") == len(frames[0]) - 20
+
+
+def test_relay_audio_queue_keeps_only_configured_duration():
+    settings = Settings(
+        _env_file=None,
+        relay_url="https://relay.example.com",
+        relay_publisher_credential=SecretStr("p" * 40),
+        relay_listener_password=SecretStr("listener-password"),
+        relay_queue_max_seconds=0.04,
+    )
+    publisher = RelayPublisher(settings)
+
+    for _ in range(4):
+        publisher._queue_audio_packet(b"S" * 100)
+
+    assert publisher.queue_duration_seconds <= 0.04
+    assert publisher.queue_bytes <= 400
+
+
+@pytest.mark.asyncio
+async def test_relay_send_failures_start_reconnect_without_raising(monkeypatch):
+    settings = Settings(
+        _env_file=None,
+        relay_url="https://relay.example.com",
+        relay_publisher_credential=SecretStr("p" * 40),
+        relay_listener_password=SecretStr("listener-password"),
+    )
+    publisher = RelayPublisher(settings)
+
+    class DroppingSocket:
+        async def send(self, _payload):
+            raise OSError("connection lost")
+
+    async def blocked_reconnect():
+        await asyncio.Event().wait()
+
+    publisher._session_id = "a" * 32
+    publisher._socket = DroppingSocket()
+    monkeypatch.setattr(publisher, "_run_reconnect", blocked_reconnect)
+
+    await publisher.send_audio(bytes(960), 24000)
+
+    assert publisher.state == "reconnecting"
+    assert publisher.queue_duration_seconds > 0
+    reconnect_task = publisher._reconnect_task
+    assert reconnect_task is not None
+    reconnect_task.cancel()
+    await asyncio.gather(reconnect_task, return_exceptions=True)
+
+    publisher._socket = DroppingSocket()
+    await publisher.send_subtitle("Guten Morgen", "de")
+    assert publisher.state == "reconnecting"
+    reconnect_task = publisher._reconnect_task
+    assert reconnect_task is not None
+    reconnect_task.cancel()
+    await asyncio.gather(reconnect_task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_reconnect_drains_queued_audio_before_sending_new_audio(monkeypatch):
+    settings = Settings(
+        _env_file=None,
+        relay_url="https://relay.example.com",
+        relay_publisher_credential=SecretStr("p" * 40),
+        relay_listener_password=SecretStr("listener-password"),
+    )
+    publisher = RelayPublisher(settings)
+    queued_send_started = asyncio.Event()
+    allow_queued_send = asyncio.Event()
+
+    class PausingSocket(FakeSocket):
+        async def send(self, payload):
+            if isinstance(payload, bytes) and not queued_send_started.is_set():
+                queued_send_started.set()
+                await allow_queued_send.wait()
+            self.sent.append(payload)
+
+    socket = PausingSocket()
+
+    async def fake_connect(_url, **_kwargs):
+        return socket
+
+    old_packet = (
+        b"SL1A"
+        + bytes((1, 0))
+        + (1).to_bytes(2, "little")
+        + bytes(8)
+        + (7).to_bytes(4, "big")
+        + b"x"
+    )
+    publisher._session_id = "a" * 32
+    publisher._queue_audio_packet(old_packet)
+    monkeypatch.setattr(relay_module, "connect", fake_connect)
+
+    reconnect_task = asyncio.create_task(publisher._run_reconnect())
+    await queued_send_started.wait()
+    await publisher.send_audio(bytes(960), 24000)
+    allow_queued_send.set()
+    await reconnect_task
+
+    audio_packets = [item for item in socket.sent if isinstance(item, bytes)]
+    assert [int.from_bytes(item[16:20], "big") for item in audio_packets] == [
+        7,
+        1 << 28,
+    ]
+
+    publisher._stopping = True
+    heartbeat_task = publisher._heartbeat_task
+    if heartbeat_task is not None:
+        heartbeat_task.cancel()
+        await asyncio.gather(heartbeat_task, return_exceptions=True)
+    await publisher._close_socket()
+
+
+@pytest.mark.asyncio
+async def test_reconnect_surfaces_http_authentication_rejection(monkeypatch):
+    settings = Settings(
+        _env_file=None,
+        relay_url="https://relay.example.com",
+        relay_publisher_credential=SecretStr("p" * 40),
+        relay_listener_password=SecretStr("listener-password"),
+    )
+    publisher = RelayPublisher(settings)
+    publisher._session_id = "a" * 32
+
+    async def rejected_connect(_url, **_kwargs):
+        raise InvalidStatus(SimpleNamespace(status_code=403))
+
+    monkeypatch.setattr(relay_module, "connect", rejected_connect)
+
+    await publisher._run_reconnect()
+
+    assert publisher.state == "error"
+    assert publisher.last_error == "Cloud relay Publisher authentication failed"

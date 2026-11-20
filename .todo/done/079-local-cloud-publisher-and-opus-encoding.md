@@ -1,6 +1,6 @@
 # 079 Local Publisher와 압축 오디오 송출
 
-상태: 대기
+상태: 완료
 우선순위: 높음
 
 ## Goal
@@ -33,16 +33,23 @@ Sermon Live backend가 기존 OpenAI Translation 출력을 받아 압축 오디�
 
 ## Acceptance criteria
 
-- [ ] mock OpenAI 이벤트가 encoder를 거쳐 protocol-valid compressed frame으로 Publisher WebSocket에 전달된다.
-- [ ] 자막과 오디오는 독립적으로 전달되고 텍스트 자막의 언어·내용·기존 operator transcript 의미가 보존된다.
-- [ ] 압축 오디오 평균 wire bitrate가 076에서 정한 상한 이하이며 PCM 대비 측정치가 기록된다.
-- [ ] 연결 끊김/복구 중 queue memory와 audio duration은 설정 상한을 넘지 않고 재연결 시 현재 방송이 복구된다.
-- [ ] 정상 stop, 자동 stop, encoder 실패, relay 인증 실패 및 네트워크 단절이 구별된 상태/오류로 노출된다.
-- [ ] Publisher secret, OpenAI API key, PCM/압축 payload가 로그/API/browser에 노출되지 않는다.
-- [ ] 패키지 및 backend 테스트가 실제 OpenAI 또는 Render 연결 없이 실행된다.
+- [x] mock OpenAI 이벤트가 encoder를 거쳐 protocol-valid compressed frame으로 Publisher WebSocket에 전달된다.
+- [x] 자막과 오디오는 독립적으로 전달되고 텍스트 자막의 언어·내용·기존 operator transcript 의미가 보존된다.
+- [x] 압축 오디오 평균 wire bitrate가 076에서 정한 상한 이하이며 PCM 대비 측정치가 기록된다.
+- [x] 연결 끊김/복구 중 queue memory와 audio duration은 설정 상한을 넘지 않고 재연결 시 현재 방송이 복구된다.
+- [x] 정상 stop, 자동 stop, encoder 실패, relay 인증 실패 및 네트워크 단절이 구별된 상태/오류로 노출된다.
+- [x] Publisher secret, OpenAI API key, PCM/압축 payload가 로그/API/browser에 노출되지 않는다.
+- [x] 패키지 및 backend 테스트가 실제 OpenAI 또는 Render 연결 없이 실행된다.
 
 ## Tests and verification
 
 - backend unit test에서 encoder framing, 재연결, queue overflow, flush, stop/error 경로를 검증한다.
 - 합성 PCM과 fake relay server로 연속 송출을 검증한다.
 - Windows/macOS 패키지에서 코덱 dependency load 검증은 대상 OS smoke-test로 남긴다.
+
+## Implementation status
+
+- `backend/services/relay_publisher.py`에 PyAV/libopus Opus 인코더, Publisher provisioning/WebSocket handshake, 재접속 및 duration 제한 queue를 구현했다.
+- `backend/services/session_service.py`에 relay 송출 수명주기와 상태 전달을 연결했다.
+- `backend/tests/unit/test_relay_publisher.py`와 session lifecycle 테스트로 encoder framing, 재연결, queue, flush, stop/error 경로를 검증했다.
+- Windows/macOS 실제 패키지 smoke-test와 실환경 Render 부하 검증은 후속 운영 티켓에서 수행한다.

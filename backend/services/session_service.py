@@ -116,6 +116,11 @@ class _TranslationSessionService:
             "audio_queued_duration_seconds": getattr(
                 self._audio, "queued_duration_seconds", 0.0
             ),
+            "relay_status": getattr(self._relay, "state", "disabled"),
+            "relay_error": getattr(self._relay, "last_error", None),
+            "relay_audio_queue_duration_seconds": getattr(
+                self._relay, "queue_duration_seconds", 0.0
+            ),
         }
         timer = self._timer_status()
         if timer is not None:
@@ -683,7 +688,20 @@ class _TranslationSessionService:
         except Exception:
             pass
         api_key = settings.openai_api_key
-        return message.replace(api_key, "[REDACTED]") if api_key else message
+        for secret in (
+            api_key,
+            getattr(settings, "relay_publisher_credential", None),
+            getattr(settings, "relay_listener_password", None),
+        ):
+            if secret:
+                value = (
+                    secret.get_secret_value()
+                    if hasattr(secret, "get_secret_value")
+                    else str(secret)
+                )
+                if value:
+                    message = message.replace(value, "[REDACTED]")
+        return message
 
     def safe_error_message(self, message: str) -> str:
         return self._safe_error_message(message)
