@@ -5,7 +5,7 @@ const DEFAULT_FONT_SIZE = 20;
 const MIN_FONT_SIZE = 16;
 const MAX_FONT_SIZE = 24;
 
-type ListenerTheme = 'light' | 'dark';
+export type ListenerTheme = 'light' | 'dark';
 
 interface ListenerPreferences {
   theme: ListenerTheme;

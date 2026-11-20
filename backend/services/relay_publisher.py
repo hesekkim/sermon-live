@@ -22,6 +22,7 @@ PROTOCOL = "sermon-live/1"
 SAMPLE_RATE = 24000
 FRAME_SAMPLES = 480
 MAX_OPUS_PACKET_BYTES = 1275
+MAX_SCRIPTURE_EVENT_BYTES = 8 * 1024
 
 logger = logging.getLogger(__name__)
 
@@ -310,6 +311,29 @@ class RelayPublisher:
             }
         )
 
+    async def send_scripture(self, payload: dict[str, object]) -> None:
+        if self._socket is None or self._session_id is None:
+            return
+        event = {
+            **payload,
+            "type": "scripture",
+            "session_id": self._session_id,
+            "sequence": self._sequence,
+            "timestamp_ms": time.monotonic_ns() // 1_000_000,
+        }
+        event_size = len(json.dumps(event, ensure_ascii=False).encode("utf-8"))
+        if event_size > MAX_SCRIPTURE_EVENT_BYTES:
+            logger.warning(
+                "Skipping oversized Listener scripture event "
+                "(session_id=%s, size_bytes=%d, limit_bytes=%d)",
+                self._session_id,
+                event_size,
+                MAX_SCRIPTURE_EVENT_BYTES,
+            )
+            return
+        self._next_sequence()
+        await self._send_json(event, ensure_ascii=False)
+
     async def send_audio(self, pcm: bytes, sample_rate: int) -> None:
         if self._stopping or not self.enabled:
             return
@@ -399,7 +423,9 @@ class RelayPublisher:
         if send_error is not None:
             raise send_error
 
-    async def _send_json(self, payload: dict[str, object]) -> None:
+    async def _send_json(
+        self, payload: dict[str, object], *, ensure_ascii: bool = True
+    ) -> None:
         if self._socket is None or self._recovery_in_progress:
             return
         if self._background_error is not None:
@@ -411,7 +437,7 @@ class RelayPublisher:
             async with self._send_lock:
                 if self._recovery_in_progress or self._socket is not socket:
                     return
-                await socket.send(json.dumps(payload))
+                await socket.send(json.dumps(payload, ensure_ascii=ensure_ascii))
         except (ConnectionClosed, OSError) as error:
             relay_error = RelayPublisherError("Cloud relay connection was lost")
             if self._stopping:

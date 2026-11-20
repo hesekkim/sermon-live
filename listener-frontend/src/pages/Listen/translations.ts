@@ -2,8 +2,48 @@ import type { TranslationTargetLanguage } from '../../shared/types/translation';
 
 type ListenerLanguage = TranslationTargetLanguage;
 
+export type AdmissionErrorKey =
+  | 'missingCredentials'
+  | 'invalidCredentials'
+  | 'broadcastNotLive'
+  | 'rateLimited'
+  | 'relayUnavailable'
+  | 'relayConfiguration'
+  | 'authenticationFailed'
+  | 'invalidRelayMessage'
+  | 'unsupportedRelayFormat'
+  | 'accessExpired'
+  | 'accessRejected';
+
 const listenerCopy = {
   de: {
+    admission: {
+      title: 'Sendung beitreten',
+      sessionCode: 'Sendungscode',
+      sessionCodeHint:
+        'Der Code identifiziert die Sendung, ist aber kein Passwort. Über den geteilten Link wird er automatisch eingetragen.',
+      password: 'Zuschauer-Passwort',
+      submit: 'Verbinden',
+      submitting: 'Wird geprüft...',
+      errors: {
+        missingCredentials: 'Bitte geben Sie Sendungscode und Passwort ein.',
+        invalidCredentials: 'Sendungscode oder Passwort ist nicht korrekt.',
+        broadcastNotLive: 'Die Sendung ist derzeit nicht live. Bitte versuchen Sie es später erneut.',
+        rateLimited: 'Zu viele Versuche. Bitte warten Sie einen Moment.',
+        relayUnavailable: 'Der Berlin-Relay ist vorübergehend nicht erreichbar.',
+        relayConfiguration: 'Der Listener-Relay-Endpunkt ist nicht konfiguriert.',
+        authenticationFailed: 'Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut.',
+        invalidRelayMessage: 'Der Berlin-Relay hat eine ungültige Nachricht gesendet.',
+        unsupportedRelayFormat: 'Das Audioformat des Berlin-Relays wird nicht unterstützt.',
+        accessExpired: 'Ihr Listener-Zugang ist abgelaufen. Bitte geben Sie das Passwort erneut ein.',
+        accessRejected: 'Der Listener-Zugang wurde abgelehnt. Bitte geben Sie das Passwort erneut ein.',
+      },
+    },
+    sessionEnded: {
+      title: 'Sendung beendet',
+      message: (seconds: number) =>
+        `Die Sendung wurde beendet. Sie werden in ${seconds} Sekunden abgemeldet.`,
+    },
     retry: {
       initialRetrying: 'ERSTVERBINDUNG FEHLGESCHLAGEN · NEUER VERSUCH',
       timedOutRetrying: 'VERBINDUNGSZEITÜBERSCHREITUNG · NEUER VERSUCH',
@@ -54,6 +94,33 @@ const listenerCopy = {
     dismissScriptureButton: 'Schließen',
   },
   en: {
+    admission: {
+      title: 'Join broadcast',
+      sessionCode: 'Session code',
+      sessionCodeHint:
+        'This code identifies the broadcast; it is not a password. A shared link fills it in automatically.',
+      password: 'Listener password',
+      submit: 'Connect',
+      submitting: 'Checking...',
+      errors: {
+        missingCredentials: 'Enter the session code and password.',
+        invalidCredentials: 'The session code or password is incorrect.',
+        broadcastNotLive: 'The broadcast is not live right now. Please try again later.',
+        rateLimited: 'Too many attempts. Wait a moment and try again.',
+        relayUnavailable: 'The Berlin relay is temporarily unavailable.',
+        relayConfiguration: 'The Listener relay endpoint is not configured.',
+        authenticationFailed: 'Listener authentication failed. Try again.',
+        invalidRelayMessage: 'The Berlin relay sent an invalid message.',
+        unsupportedRelayFormat: 'The Berlin relay audio format is not supported.',
+        accessExpired: 'Your Listener access expired. Enter the password again.',
+        accessRejected: 'Listener access was rejected. Enter the password again.',
+      },
+    },
+    sessionEnded: {
+      title: 'Broadcast ended',
+      message: (seconds: number) =>
+        `The broadcast has ended. You will be signed out in ${seconds} seconds.`,
+    },
     retry: {
       initialRetrying: 'Initial connection failed · retrying',
       timedOutRetrying: 'Connection timed out · retrying',
@@ -105,6 +172,12 @@ const listenerCopy = {
   },
 } as const satisfies Record<ListenerLanguage, object>;
 
-export function getListenerCopy(language: TranslationTargetLanguage) {
+export type ListenerCopy = (typeof listenerCopy)[ListenerLanguage];
+
+export function getListenerCopy(language: ListenerLanguage): ListenerCopy {
   return listenerCopy[language];
+}
+
+export function getBrowserListenerLanguage(language: string): ListenerLanguage {
+  return language.toLowerCase().startsWith('de') ? 'de' : 'en';
 }

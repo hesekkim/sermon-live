@@ -579,17 +579,17 @@ class _TranslationSessionService:
         verses = self._scripture_corpus.lookup(reference)
         if verses is None:
             return
-        await self._hub.broadcast_scripture(
-            {
-                "type": "scripture",
-                "reference": reference.label,
-                "version": "Lutherbibel 1912",
-                "verses": [
-                    {"verse": verse.verse, "text": verse.text}
-                    for verse in verses
-                ],
-            }
-        )
+        payload = {
+            "type": "scripture",
+            "reference": reference.label,
+            "version": "Lutherbibel 1912",
+            "verses": [
+                {"verse": verse.verse, "text": verse.text}
+                for verse in verses
+            ],
+        }
+        await self._hub.broadcast_scripture(payload)
+        await self._relay.send_scripture(payload)
 
     async def _pump_events(self, interpreter: LiveInterpreter) -> None:
         try:

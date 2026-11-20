@@ -6,7 +6,7 @@
 
 초기 제품 방향과 OpenAI translation 설계는 [Archthecture.md](Archthecture.md)에 남아 있다. 초기 문서와 본 문서의 운영 UX/route 결정이 다르면 이 문서를 현재 roadmap의 기준으로 삼는다. 새 작업 티켓은 [.todo/README.md](../.todo/README.md)를 참조한다.
 
-이 목표 상태는 Local PC가 FastAPI와 React 애플리케이션을 실행하고, 같은 교회 Wi-Fi에 연결된 청취자에게 Listen을 제공하는 배포를 전제로 한다. 앱 서버는 외부에 호스팅하지 않지만, 번역을 위해 Backend는 OpenAI Realtime API에 outbound 연결한다.
+현재 제품 경계는 Local PC의 Operator/Translation Publisher, Berlin relay, 별도 Vercel static Listener다. Local PC Backend는 청중 Listener 연결을 받지 않는다.
 
 이 문서는 새 UX/안정성 티켓만 완료된 상태를 기술한다. 기존 backlog에 남은 OpenAI 실제 장비 end-to-end 확인, Glossary 기능은 완료된 것으로 간주하지 않는다. Sermon Session은 현재 애플리케이션에서 비활성화되며 번역 context로 사용하지 않는다.
 
@@ -14,11 +14,11 @@
 
 다음 기능은 위 티켓 이후 구현되어 현재 코드에 포함되어 있다.
 
-- **Scripture popup**: SessionService가 독일어 번역 text에서 성경 구절 참조를 감지(`services/scripture.py`)하고 Lutherbibel 1912 본문을 `scripture` event로 Listen에 보낸다. Listen은 번역 자막을 가리지 않는 카드 stack으로 표시한다. Source transcript는 감지 대상이 아니다.
-- **Listen QR 공유**: Operator layout에서 LAN Listen URL을 QR로 보여준다.
+- **Scripture popup**: SessionService가 독일어 번역 text에서 성경 구절 참조를 감지(`services/scripture.py`)하고 Lutherbibel 1912 본문을 Berlin relay의 `scripture` event로 보낸다. Listener는 번역 자막을 가리지 않는 카드 stack으로 표시한다. Source transcript는 감지 대상이 아니다.
+- **Listener QR 공유**: Operator layout은 `APP_RELAY_LISTENER_URL` 기반 Vercel URL을 QR로 보여준다. LAN URL로 대체하지 않는다.
 - **Listen 화면 유지**: 신뢰된 HTTPS origin에서 듣는 중 Screen Wake Lock을 요청해 페이지가 보이는 동안 자동 화면 꺼짐을 막고, 화면 복귀 시 다시 요청한다. 화면을 직접 잠그거나 앱을 백그라운드로 보낸 뒤의 재생은 보장하지 않는다.
 - **오디오 복구**: AudioContext가 OS/브라우저에 의해 suspended/interrupted되면 예약된 오디오를 비우고 사용자 gesture 기반 "오디오 다시 재생" 버튼을 보여준다.
-- **Listen 연결 안정성**: heartbeat, 재연결 backoff, 청취자별 전송 큐, 오디오 구독, session id, OpenAI upstream 재연결. 자세한 계약은 [Listen 연결과 재연결](#listen-연결과-재연결)을 따른다.
+- **Cloud Listener 연결 안정성**: HTTPS 비밀번호 admission, session-bound token, WSS heartbeat, exponential reconnect, Opus packet decoder 및 사용자 gesture 기반 오디오 복구. 자세한 계약은 [Listen 연결과 재연결](#listen-연결과-재연결)을 따른다.
 
 ## 제품 경계
 
@@ -40,7 +40,8 @@ Local PC: AudioCapture -> AudioProcessor -> AudioRuntime
         |                    translated audio / text deltas
         |                                      |
         v                                      v
-Operator Browser <---- BroadcastHub/WebSocket ----> Listen Browsers
+Operator Browser <---- Local FastAPI/WebSocket
+Local PC Publisher ---- WSS ----> Berlin Relay <---- HTTPS/WSS ---- Vercel Listener
 ```
 
 출력 언어는 Operator Settings에서 영어(`en`) 또는 독일어(`de`)를 선택하며 기본값은 독일어다. Listen UI도 선택한 출력 언어로 표시한다. 입력 언어는 provider에 지정하지 않는다. OpenAI API key는 Backend에서만 사용하고 Browser나 Listen client에 전달하지 않는다.
@@ -55,14 +56,14 @@ FastAPI 프로세스는 HTTP API, WebSocket, Operator 인증, 오디오 입력 r
 - AudioRuntime은 시작 시 입력 장치를 열고 장치 상태와 input level을 관리한다.
 - 비용이 발생하는 외부 Translation Session은 Operator가 시작할 때만 연결한다.
 - 서버 종료 시 활성 Translation Session을 종료하고 AudioRuntime 및 WebSocket client를 정리한다.
-- listen clients가 증가해도 OpenAI API key 또는 OpenAI socket은 client 쪽에 생성되지 않는다.
+- remote Listener 수가 증가해도 OpenAI API key 또는 OpenAI socket은 Listener client 쪽에 생성되지 않는다.
 
 ### Browser 애플리케이션
 
-React 앱은 두 가지 사용자 surface를 제공한다.
+두 개의 별도 React 앱이 사용자 surface를 제공한다.
 
-- `/listen`: 같은 Wi-Fi 청취자가 쓰는 공개 Listen 화면.
-- `/operator/*`: 로그인한 운영자가 쓰는 Broadcast와 Settings.
+- `frontend/`: Local PC에서 로그인한 운영자가 쓰는 `/operator/*` Broadcast와 Settings.
+- `listener-frontend/`: Vercel에서 정적으로 제공하는 Listener UI. Berlin relay 외의 전송 경로는 없다.
 
 Operator shell은 Broadcast 상태 구독과 조작을 route component보다 상위에서 소유한다. Broadcast와 Settings 사이를 이동해도 WebSocket, status refresh, live timer, pending action이 unmount되지 않는다.
 
@@ -70,11 +71,11 @@ Operator shell은 Broadcast 상태 구독과 조작을 route component보다 상
 
 ### Listen
 
-Listen은 로그인 없이 접근할 수 있다. 연결 상태, translation 상태, 선택된 출력 언어의 자막, 명시적인 Listen 시작, 글자 크기와 listener theme을 제공한다. UI 문구도 출력 언어가 영어면 영어, 독일어면 독일어로 표시하며 브라우저 언어와 독립적이다. 재연결, 대기, 정상 종료, 통역 오류를 구분한다.
+Listener는 방송 코드와 비밀번호로 Berlin에 HTTPS admission을 요청한다. 승인된 token은 메모리에만 유지하고 WSS handshake로 보낸다. 연결 상태, translation 상태, 선택된 출력 언어의 자막, 명시적인 Listen 시작, 글자 크기와 theme을 제공한다. 자막 자동 이동과 scripture 카드도 유지한다. Relay 장애 시 Local/LAN 경로로 전환하지 않는다.
 
 오디오 playback은 Listen Browser의 AudioContext에서 수행한다. 사용자 음량은 기기의 하드웨어/OS 조절을 사용하며 앱에 별도의 volume control을 두지 않는다. Listen Browser에는 Operator 설정이나 API key가 전달되지 않는다.
 
-모바일 브라우저(특히 iOS Safari)는 화면이 잠기거나 앱이 background로 가면 AudioContext와 WebSocket을 중단할 수 있다. 신뢰된 HTTPS origin에서 Wake Lock 요청에 성공하면 Listen 페이지가 보이는 동안 자동 화면 꺼짐을 막는다. Wake Lock은 직접 잠금이나 background 재생을 막지 않는다. 화면 복귀 시 socket은 자동 재연결되고 오디오는 자동 resume 또는 복구 버튼으로 재개된다. 이 제한은 운영 안내에 포함한다.
+모바일 브라우저(특히 iOS Safari)는 화면이 잠기거나 앱이 background로 가면 AudioContext와 WebSocket을 중단할 수 있다. Vercel HTTPS origin에서 Wake Lock 요청에 성공하면 Listener 페이지가 보이는 동안 자동 화면 꺼짐을 막는다. Wake Lock은 직접 잠금이나 background 재생을 막지 않는다. 화면 복귀 시 socket은 exponential backoff로 재연결되고 AudioContext는 복구 버튼으로 재개된다. 이 제한은 운영 안내에 포함한다.
 
 ### Operator Broadcast
 
@@ -126,16 +127,14 @@ HTTP endpoint와 WebSocket 모두 Backend에서 실제 인증을 확인한다. R
 ### 공개 대상
 
 - `/health`
-- `/listen`
-- `/ws/listen`
 
-Listen 공개는 같은 Wi-Fi에 있는 누구든 진행 중인 독일어 audio와 subtitle을 수신할 수 있다는 의미다. 이는 운영 정책이다.
+청중 Listener의 admission 및 stream은 Berlin relay에서 방송별 비밀번호와 session-bound token으로 보호한다. Local PC Backend에는 `/listen` UI나 `/ws/listen` endpoint가 없다.
 
 ### 세션과 보안 한계
 
 Operator password 및 세션 signing secret은 Local PC의 environment configuration에서 설정한다. 로그인 후에는 HttpOnly/SameSite cookie session을 사용하며 credential을 localStorage, URL, API response 또는 log에 넣지 않는다. Unsafe HTTP 요청에는 Origin/CSRF 검증을 적용한다. 로그인 실패 시도를 제한한다.
 
-기본 실행은 HTTP/ws이며, `APP_SSL_CERTFILE`과 `APP_SSL_KEYFILE`을 함께 설정하면 HTTPS/WSS를 사용할 수 있다. 모바일 Wake Lock에는 청중 기기에서 신뢰하는 인증서가 필요하다. HTTPS를 설정하지 않은 HTTP LAN에서는 앱 로그인은 임의 Operator 조작을 막지만, 같은 Wi-Fi의 능동적 네트워크 공격자에게 credential/session 기밀성을 보장하지 않는다. 운영은 신뢰 가능한 private Wi-Fi와 Windows 방화벽 제한을 전제로 하고 router port forwarding을 하지 않는다. 로컬 CA 신뢰 설치와 모바일 실기기 검증은 배포 환경에서 별도로 확인해야 한다.
+Local PC Operator 기본 실행은 HTTP/ws이며, `APP_SSL_CERTFILE`과 `APP_SSL_KEYFILE`을 함께 설정하면 HTTPS/WSS를 사용할 수 있다. 청중 Listener는 Vercel HTTPS에서 실행되며 Local PC listener transport에 의존하지 않는다.
 
 OpenAI API key는 Browser에 노출되지 않지만 현재 설정 저장소의 at-rest 암호화는 별도 범위다. Local PC 사용자 계정 또는 해당 설정 파일이 탈취되는 경우를 앱 로그인만으로 방어한다고 간주하지 않는다.
 
@@ -148,7 +147,6 @@ Router는 HTTP/WebSocket 입출력과 인증 적용을 담당하고 capture, int
 | Surface | 접근 | 책임 |
 | --- | --- | --- |
 | `/health` | 공개 | process health 확인 |
-| `/ws/listen` | 공개 | Listen client 등록 및 broadcast 수신 |
 | `/api/v1/auth/*` 또는 동등한 auth route | 공개 진입 | 로그인, 현재 session 확인, logout |
 | `/api/v1/operator/settings` | Operator 인증 | runtime/operator 설정 조회와 저장 |
 | `/api/v1/session/*` | Operator 인증 | translation session 조회와 lifecycle control |
@@ -228,19 +226,11 @@ OpenAI websocket이 `session.closed` 없이 끊기면(network 순단, server clo
 
 ### BroadcastHub
 
-BroadcastHub는 application event/audio를 등록 client에 fan-out한다.
+Local BroadcastHub는 application event와 Operator client를 연결한다. 청중 audio/text는 독립된 `RelayPublisher`를 거쳐 Berlin으로 나간다.
 
-- Listen clients: session status, selected-language translated text, output sample rate, binary translated audio, ended state
-- Operator clients: session/audio status, input level, listener count, latency, queue drop telemetry, input/output transcript, errors, localized 가능한 종료 reason code
+- Operator clients: session/audio status, input level, Berlin listener count, latency, queue drop telemetry, input/output transcript, errors, localized 가능한 종료 reason code
 
-BroadcastHub는 OpenAI websocket/payload 또는 API key를 알지 않는다. Listener count는 등록/해제 시 갱신한다. 하나의 listener 연결 실패가 다른 client 전달을 막지 않는다.
-
-Listen client마다 FIFO 전송 큐와 전용 sender task를 둔다. `broadcast_audio`/`broadcast_text`는 큐에 넣고 즉시 반환하므로 느린 청취자가 event pump나 다른 청취자를 지연시키지 않는다. 같은 socket으로의 전송은 sender task 하나가 순서대로 수행한다.
-
-- 바이너리 audio는 오디오를 구독한 청취자(`{"type":"audio","enabled":true}`)에게만 보낸다. 자막만 보는 청취자에게는 audio bandwidth(24 kHz PCM16 약 384 kbps)를 쓰지 않는다.
-- 청취자별 대기 audio는 3초로 제한하고 넘치면 가장 오래된 audio chunk부터 버린다. JSON(status/text/scripture)은 버리지 않는다.
-- 대기 message가 256개를 넘거나 한 전송이 5초를 넘으면 해당 청취자를 code 1013으로 닫고 count를 갱신한다. 청취자는 자동 재연결한다.
-- Server shutdown 시 마지막 `session_ended`가 전달되도록 짧게(0.5초) 큐를 flush한 뒤 socket을 닫는다.
+BroadcastHub는 OpenAI websocket/payload 또는 API key를 알지 않는다. Berlin listener count는 relay Publisher status API에서 Operator에 전달한다. Local PC에는 청중 WebSocket이나 LAN audio transport가 없다.
 
 ## Data flow
 
@@ -255,8 +245,9 @@ sequenceDiagram
     participant Engine as LiveInterpreter
     participant OpenAI as OpenAI Translation API
     participant Hub as BroadcastHub
-    participant Listen as Listen Browsers
     participant Operator as Operator Browser
+    participant Relay as Berlin Relay
+    participant Listener as Vercel Listener
 
     Device->>Capture: input stream
     Capture->>Runtime: small capture chunk + capture tuple
@@ -266,12 +257,13 @@ sequenceDiagram
     Engine->>OpenAI: translation audio append
     OpenAI-->>Engine: audio/text deltas and session events
     Engine-->>Session: application-level interpreter events
-    Session->>Hub: audio, translated text, source text, status/error
-    Hub-->>Listen: text/status JSON and binary output audio
+    Session->>Hub: source text, status/error, input level
     Hub-->>Operator: transcript/status/level/listener/latency/drop events
+    Session->>Relay: subtitles, scripture, status and Opus audio
+    Relay-->>Listener: authenticated text/status and subscribed Opus packets
 ```
 
-Translation 입력은 continuous streaming을 전제로 한다. 전체 설교를 메모리에 모아 한 번에 처리하지 않는다. Output audio는 target sample rate metadata와 함께 전달한다.
+Translation 입력은 continuous streaming을 전제로 한다. 전체 설교를 메모리에 모아 한 번에 처리하지 않는다. Listener로 보내는 Output audio는 Local PC에서 24 kHz mono Opus로 압축하고 Berlin relay는 packet을 그대로 fan-out한다.
 
 ### Broadcast 상태와 지연
 
@@ -291,29 +283,29 @@ Backend는 HTTP polling snapshot과 WebSocket event를 같은 application-level 
 
 | Event | 목적 | 대상 |
 | --- | --- | --- |
-| `translation_status` | session state, listener count, start availability, timer, `session_id`, `interpreter_reconnecting`, `translation_target_language` | Operator, Listen snapshot(공개 field만) |
+| `translation_status` | session state, relay listener count, start availability, timer, `session_id`, `interpreter_reconnecting`, `translation_target_language` | Operator |
 | `audio_status` | input runtime ready/error | Operator |
 | `audio_level` | throttled dBFS input measurement | Operator |
 | `listener_count` | 현재 Listen 연결 수 변경 | Operator |
 | `latency` | 명시된 번역 latency 측정 | Operator |
 | `transcript` | `input` source 또는 선택된 출력 언어의 `output` text delta | Operator |
 | `audio_overflow` | 누적 dropped chunk/duration과 최근 drop | Operator |
-| `error` | 이해 가능한 오류 상태 | Operator, 필요 시 Listen |
-| `session_ended` | 최종 reason code, `session_id` | Operator, Listen |
-| `scripture` | 감지된 성경 구절과 Lutherbibel 1912 본문 | Listen |
-| `pong` | Listen heartbeat 응답 | Listen |
-| binary audio + sample-rate metadata | translated PCM playback | 오디오를 구독한 Listen |
+| `error` | 이해 가능한 오류 상태 | Operator |
+| `session_ended` | 최종 reason code, `session_id` | Operator |
+| `subtitle`, `status`, `scripture`, `audio_gap` | 선택 언어 자막, 방송 상태, 성경 구절, Opus packet gap | Berlin relay를 경유하는 Listener |
+| `pong` | Listener heartbeat 응답 | Berlin relay의 Listener |
+| binary Opus packet | framed 24 kHz mono playback | 오디오 구독 중인 Listener |
 
-Listen에 전달되는 `translation_status`는 공개 상태 필드와 `translation_target_language`만 포함한다. `error`는 Listen에 `type`/`session_status`만 전달하고 오류 상세는 Operator에만 보낸다.
+Vercel Listener는 Local PC `/ws/listen` endpoint에서 상태나 audio를 받지 않는다. Berlin relay의 Listener admission 및 event contract는 [cloud relay protocol](cloud-relay-protocol.md)에 정의한다.
 
-Listen client가 서버로 보내는 message는 다음 두 가지뿐이며 나머지는 무시한다.
+Listener가 Berlin relay로 보내는 message는 다음 두 가지다.
 
 | Message | 의미 |
 | --- | --- |
 | `{"type":"ping"}` | heartbeat. 서버는 `{"type":"pong"}`으로 응답한다. |
 | `{"type":"audio","enabled":true\|false}` | 이 연결로 바이너리 audio를 받을지 여부. 연결 기본값은 `false`. |
 
-`session_id`는 Translation Session을 시작할 때마다 새로 발급되고 종료 후에도 마지막 값을 유지한다. `interpreter_reconnecting`은 live 중 OpenAI upstream을 재연결하는 동안만 `true`다.
+`session_id`는 Translation Session을 시작할 때마다 새로 발급된다. Listener access token은 session별 최대 90분이며 자동 갱신은 `.todo/084` 범위다.
 
 HTTP status와 WebSocket 종료 이벤트의 도착 순서가 달라도 Operator의 최종 UI 상태는 일관돼야 한다. `session_ended`를 받은 뒤 정상 종료는 OFF, fatal error 종료는 error로 정규화한다. `auto_stop` 같은 내부 code는 UI에서 localization된 label로 변환한다.
 
@@ -321,32 +313,9 @@ HTTP status와 WebSocket 종료 이벤트의 도착 순서가 달라도 Operator
 
 ## Listen 연결과 재연결
 
-### 연결 유지와 끊김 감지
+Listener는 Vercel static assets를 제공받은 뒤 Berlin relay에 직접 HTTPS admission과 WSS 연결을 시작한다. WSS 첫 JSON은 session-bound `listener_hello`이며 token은 URL에 포함하지 않는다. 연결 유지는 5초 ping 및 stale connection 감지로 처리하며 reconnect backoff는 1초부터 2배씩 최대 30초까지 증가한다. Token 만료나 relay가 인증을 거부하면 재연결을 멈추고 비밀번호 재입력을 요청한다. Token 자동 갱신은 `.todo/084`에서 구현한다.
 
-- Listen client는 연결 후 5초마다 `ping`을 보내고, 12초 동안 서버 message(status, text, audio, `pong` 등)를 하나도 받지 못하면 socket을 half-open으로 보고 닫은 뒤 재연결한다. Live 중에는 서버가 매초 `translation_status`를 보내므로 끊김을 더 빨리 알아챌 수 있다.
-- 서버는 30초 동안 client message가 없는 Listen socket을 code 1001로 닫는다. Uvicorn WebSocket ping은 보조 수단이다.
-- 연결 시도가 8초 안에 열리지 않으면 timeout으로 보고 재시도한다.
-- 재연결 지연은 1.2초에서 시작해 2배씩 늘고 최대 5초다. 연결에 성공하면 초기화한다.
-- UI는 최초 연결 실패, 연결 시간 초과, 서버의 정상 close, 연결 끊김을 구분해 표시한다.
-
-### 재연결 후 상태 복구
-
-서버는 새 Listen 연결마다 `sampleRate`(알려진 경우)와 현재 `translation_status` snapshot을 큐 순서대로 먼저 보낸다. Client는 다음 규칙으로 복구한다.
-
-- **같은 session에 재접속**: 듣는 중이던 client는 open 직후 `audio: true`를 다시 보내고, 사용자 조작 없이 audio를 계속 재생한다. 끊긴 동안의 자막/audio는 복구하지 않는다. 미완성 자막 줄은 `…`로 닫고, 재접속 후 첫 text는 새 줄로 시작해 서로 다른 문장이 섞이지 않게 한다. 남아 있던 홀수 PCM byte는 버린다.
-- **끊긴 사이 session이 바뀜**: snapshot의 `session_id`가 마지막으로 본 값과 다르고 `starting`이 아니면, client는 이전 방송의 종료를 놓친 것으로 본다. 그래서 자막과 scripture card를 초기화하고 듣기를 멈춘다. 사용자는 새 방송에서 다시 "anhören"을 누른다.
-- **`starting` 수신**: 자막과 scripture card를 초기화한다.
-
-### 종료와 오류에서의 듣기 상태
-
-- 정상 종료(`manual`, `auto_stop`, `hard_limit`, `server_shutdown`, `off` status): 듣기를 멈추고 "Sendung beendet"를 표시한다.
-- 오류 종료(`interpreter_error`, `device_error`, `error` event/status): 듣기 의도를 유지한다. "ÜBERSETZUNG NICHT VERFÜGBAR"를 표시하고, Operator가 다시 시작하면 사용자가 버튼을 다시 누르지 않아도 audio가 재개된다.
-- OpenAI upstream 재연결 중(`interpreter_reconnecting: true`): session은 live 상태로 유지하고 Listen은 "ÜBERSETZUNG WIRD WIEDERHERGESTELLT", Operator는 interpreter 상태 "재연결 중"을 표시한다.
-
-### 재생 버퍼
-
-- 재생이 비어 있는 상태(underrun)에서 도착한 chunk는 250ms jitter buffer 뒤에 시작하고, 이후 chunk는 앞 chunk 끝에 이어 붙인다. Wi-Fi 지터로 인한 끊김을 줄이기 위해서다.
-- 예약된 재생이 6초를 넘으면 아직 시작하지 않은 chunk를 버리고 최신 chunk부터 다시 재생한다. 지연이 계속 쌓이는 것을 막는 상한이며, 서버 쪽 청취자별 3초 제한 덕분에 평소에는 도달하지 않는다.
+Relay ready에서 protocol, session, Opus codec, sample rate, channels, packet duration 및 현재 status를 검증한다. 오디오 binary는 20-byte `SL1A` header와 단일 Opus packet으로 구성한다. sequence 또는 timestamp gap은 decoder reset 및 자막 줄 경계로 처리한다. AudioContext는 사용자 입력으로만 시작하며 화면 복귀 뒤에는 명시적 복구 버튼을 제공한다. Relay 장애 시 Local/LAN transport로 fallback하지 않는다.
 
 ## 설정과 데이터 저장
 
@@ -371,39 +340,41 @@ Sermon Session JSON store/API implementation은 파일로 남을 수 있으나 a
 - Interpreter connect/API key failure: SessionService error 종료, Operator에 오류 표시. key 값은 노출하지 않음.
 - Interpreter stream/network failure: adapter가 먼저 OpenAI session을 재연결하고 `interpreter_reconnecting`을 publish한다. 재연결이 최종 실패하면 adapter error event로 변환하고, SessionService가 error/cleanup을 수행하며, Listen은 unavailable 상태를 표시하되 듣기 의도를 유지한다.
 - Queue overflow: 최신 audio 유지, 오래된 audio drop 누계 및 warning을 Operator에 전달.
-- 느린 Listen client: 해당 청취자의 대기 audio만 버리고, 계속 밀리면 그 청취자 연결만 닫는다. 다른 청취자와 event pump에는 영향이 없다.
-- WebSocket reconnect: Operator가 status snapshot으로 복구하고 Listen은 heartbeat/backoff 규칙에 따라 공개 endpoint에 재접속한 뒤 `session_id` 기준으로 상태를 복구한다.
+- 느린 Listener: Berlin relay의 bounded queue/backpressure 정책으로 격리한다. Local PC의 Operator와 다른 Listener에 영향을 주지 않는다.
+- Listener WebSocket reconnect: exponential backoff로 Berlin relay에 재접속하고, token 만료/인증 실패는 비밀번호 재입력 상태로 분리한다.
 - Auto Stop: 정상 종료, control OFF, localised reason. 오류 종료와 혼동하지 않음.
 
 ## 배포 및 신뢰 경계
 
 ```text
-교회 Wi-Fi
-  ├── Operator device -- login cookie --> Local PC FastAPI
-  ├── Listen devices ------------------> Local PC FastAPI/WebSocket
-  └── Local PC FastAPI -- API key -----> OpenAI Realtime API (outbound Internet)
+Vercel Listener -- HTTPS/WSS --> Berlin Saenuree Relay
+                                      ^
+                                      |
+Local PC Operator --> Local FastAPI --+-- Publisher WSS
+                  Local FastAPI -- API key --> OpenAI Realtime API (outbound Internet)
 ```
 
-- 앱 port는 Local PC LAN interface에 노출될 수 있으므로 OS firewall에서 Private network만 허용한다.
+- Local PC API는 Operator용이다. 앱 port는 LAN interface에 노출될 수 있으므로 OS firewall에서 Private network만 허용한다.
 - Router port forwarding을 설정하지 않는다.
-- Listen endpoint 공개는 의도된 기능이다. Wi-Fi에 접속한 client는 방송 output을 수신할 수 있다.
-- 앱 로그인은 Operator 제어를 보호하지만, TLS가 없으면 같은 Wi-Fi의 공격자에 대한 transport confidentiality/integrity를 제공하지 않는다.
+- Berlin은 HTTPS password admission, session-bound Listener token 및 허용된 WebSocket Origin을 확인한다.
+- Vercel은 정적 Listener UI만 제공하며 relay API나 WebSocket을 proxy하지 않는다.
 - OpenAI 연결을 위해 Local PC의 outbound Internet access가 필요하다. 외부 호스팅이 아니라 외부 AI API call이다.
 
 ## 테스트 아키텍처
 
 ### Backend unit tests
 
-- Operator auth: session signing, cookie/Origin/CSRF, protected route 및 WebSocket admission, public route 예외
+- Operator auth: session signing, cookie/Origin/CSRF, protected route 및 WebSocket admission
 - Audio: device capability/open negotiation, native tuple report, PCM conversion/resampling, interpreter target contract
 - Runtime: queue duration limit, drop policy/telemetry, bounded shutdown drain
 - SessionService: 실제 활성 class의 event routing, lifecycle, auto-stop, close/flush, device/interpreter errors
 - Interpreter: OpenAI event mapping, 예기치 않은 끊김 후 재연결/재전송/최종 실패를 mocked websocket으로만 검증. 실제 OpenAI API key/network 호출은 하지 않음
-- BroadcastHub/Listen endpoint: 청취자별 전송 순서, audio 구독, 느린 청취자 격리, audio backlog drop, ping/pong, heartbeat timeout
+- Berlin relay: Listener admission, session isolation, Opus packet contract, bounded queue/backpressure, Origin, ping/pong, token expiry
 - Router registration: Sermon Session route가 앱에 등록되지 않는지 확인
 
 ### Frontend unit tests
 
+- Listener: HTTPS password admission, WSS hello, relay event/session status, Opus packet decode, reconnect, AudioContext recovery, secret non-persistence
 - Operator auth pending/login/expiry/logout과 route guard
 - auto-stop 후 OFF state, 종료 reason localization, 다음 click의 start 동작
 - sidebar control과 session ownership, Listener count/input level/queue warning state

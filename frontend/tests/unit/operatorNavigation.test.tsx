@@ -188,6 +188,15 @@ afterEach(() => {
 });
 
 describe('Operator navigation', () => {
+  it('opens the Operator from the Local app root', async () => {
+    const page = await renderApp('/');
+
+    expect(page.container.querySelector('a[aria-label="설정"]')).not.toBeNull();
+    expect(MockWebSocket.instances[0]?.url).toContain('/ws/operator');
+
+    page.cleanup();
+  });
+
   it('shows a scannable Listen QR and lets the operator copy or refresh its URL', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
@@ -292,6 +301,17 @@ describe('Operator navigation', () => {
     expect(page.container).not.toHaveTextContent('원문 자막');
     expect(page.container).not.toHaveTextContent('설교 제목');
     expect(page.container.querySelector('a[aria-label="설정"]')).not.toBeNull();
+
+    page.cleanup();
+  });
+
+  it('redirects the removed local Listener route to Operator', async () => {
+    const page = await renderApp('/listen');
+    const socket = MockWebSocket.instances[0];
+
+    expect(page.container.querySelector('a[aria-label="설정"]')).not.toBeNull();
+    expect(socket?.url).toContain('/ws/operator');
+    expect(socket?.url).not.toContain('/ws/listen');
 
     page.cleanup();
   });

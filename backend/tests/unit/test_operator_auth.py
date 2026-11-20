@@ -1,5 +1,7 @@
+import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
+from starlette.websockets import WebSocketDisconnect
 
 from core.config import Settings, get_settings
 from main import app
@@ -216,9 +218,8 @@ def test_missing_secrets_fail_closed_but_health_is_public(monkeypatch):
     assert health.status_code == 200
 
 
-def test_public_listen_websocket_remains_available():
+def test_local_listener_websocket_is_not_registered():
     with TestClient(app) as client:
-        with client.websocket_connect(
-            "/ws/listen", headers={"Origin": SAME_ORIGIN}
-        ) as websocket:
-            assert websocket.receive_json()["type"] == "translation_status"
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect("/ws/listen"):
+                pass

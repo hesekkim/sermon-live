@@ -128,6 +128,9 @@ async def test_start_passes_operator_listener_password_to_relay(tmp_path):
         async def send_status(self, _status):
             return None
 
+        async def send_scripture(self, _payload):
+            return None
+
     operator_store = OperatorSettingsStore(tmp_path / "operator.json")
     operator_store.save(
         interpreter="echo",
@@ -267,6 +270,9 @@ async def test_shutdown_stops_relay_when_start_is_cancelled_during_relay_setup(
             self.active = False
 
         async def send_status(self, _status):
+            return None
+
+        async def send_scripture(self, _payload):
             return None
 
     monkeypatch.setattr(

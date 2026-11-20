@@ -3,7 +3,6 @@ import Broadcast from './pages/Operator/broadcast/Broadcast.tsx';
 import OperatorAuthGate from './pages/Operator/auth/OperatorAuthGate.tsx';
 import { OperatorPrefsProvider } from './pages/Operator/OperatorPrefs.tsx';
 import Settings from './pages/Operator/settings/Settings.tsx';
-import Listen from './pages/Listen/Listen.tsx';
 import { ToastProvider } from './shared/components/Toast/ToastProvider.tsx';
 import { useOperatorPrefs } from './pages/Operator/OperatorPrefs.tsx';
 
@@ -16,8 +15,7 @@ function OperatorProviders({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/listen" replace />} />
-      <Route path="/listen" element={<Listen />} />
+      <Route path="/" element={<Navigate to="/operator" replace />} />
       <Route
         path="/operator"
         element={
@@ -33,6 +31,7 @@ export default function App() {
         <Route path="broadcast" element={<Broadcast />} />
         <Route path="*" element={<Navigate to="/operator/broadcast" replace />} />
       </Route>
+      <Route path="*" element={<Navigate to="/operator" replace />} />
     </Routes>
   );
 }

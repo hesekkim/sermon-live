@@ -7,8 +7,9 @@
 - Berlin validates Publisher and Listener access, relays already-encoded frames, and does not re-encode audio.
 - The Listener UI is served statically by Vercel. It connects only to the Berlin relay.
 - A Listener password authenticates audience access; it is separate from the Publisher service credential.
+- The Vercel project root is `sermon-live/listener-frontend`; the Operator app is a separate Local PC frontend.
 
-LAN broadcast remains supported. Cloud relay mode is opt-in: setting `APP_RELAY_URL` enables it. A relay failure or disabled relay never silently switches to LAN or public routing.
+Listener delivery is remote-only through Berlin. Cloud relay mode is opt-in on the Local PC Publisher: setting `APP_RELAY_URL` enables it. If the relay is disabled or unavailable, Listener sharing is unavailable; there is no LAN/local fallback.
 
 ## Local Publisher configuration
 
@@ -48,6 +49,7 @@ All subsequent control events are UTF-8 JSON text frames:
 | --- | --- |
 | `subtitle` | `type`, `session_id`, `sequence`, `timestamp_ms`, `language`, `text` |
 | `status` | `type`, `session_id`, `sequence`, `timestamp_ms`, `status` |
+| `scripture` | `type`, `session_id`, `sequence`, `timestamp_ms`, `reference`, `version`, `verses` |
 | `publisher_ping` | `type`, `session_id`, `timestamp_ms` |
 | `publisher_close` | `type`, `session_id`, `reason`, `sequence` |
 
@@ -91,9 +93,21 @@ Raw Opus packets are preferred over an Ogg container for WebSockets. One WebSock
 
 ## Listener admission
 
-Before audio/text admission, the Listener authenticates by the session-specific HTTP password-check flow specified in ticket 077. After admission, the Listener opens a WebSocket and sends no credentials in the URL.
+Before audio/text admission, the Listener authenticates by the session-specific HTTP password-check flow specified in ticket 077. A valid password receives a token only while the Publisher reports the broadcast as live; a valid password for an inactive broadcast receives HTTP 409. Invalid credentials retain the generic HTTP 401 response. After admission, the Listener opens a WebSocket and sends no credentials in the URL.
 
 The Listener requests a token with `POST {APP_RELAY_URL}/sessions/{sessionId}/listener-token`, then opens `WSS {APP_RELAY_URL}/ws/listener/{sessionId}`. The first WebSocket text message is `{"type":"listener_hello","session_id":"...","listener_token":"..."}`. The relay validates the token before registering the Listener or sending `listener_ready`; the token is never placed in a query parameter.
+
+The standalone Vercel Listener receives its public relay API base through
+`VITE_RELAY_API_BASE_URL` (ending in `/api/v1/relay`). It is a public endpoint,
+not a secret. The password is sent only in the HTTPS admission request body;
+the issued token stays in browser memory and is sent only in the first
+WebSocket message. Vercel serves static assets only and does not proxy relay
+HTTP or WebSocket traffic. See [Listener Vercel deployment](../listener-frontend/DEPLOY.md)
+for environment and origin setup.
+
+When the relay reports `status=ended`, the Listener stops audio immediately,
+shows a localized end-of-broadcast dialog for five seconds, clears its in-memory
+token, then returns to the admission form.
 
 The Listener receives a `listener_ready` JSON event containing:
 
@@ -102,6 +116,7 @@ The Listener receives a `listener_ready` JSON event containing:
   "type": "listener_ready",
   "protocol": "sermon-live/1",
   "session_id": "random-session-id",
+  "status": "live",
   "codec": "opus",
   "sample_rate": 24000,
   "channels": 1,

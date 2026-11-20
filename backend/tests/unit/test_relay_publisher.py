@@ -79,6 +79,14 @@ async def test_relay_publisher_provisions_and_sends_encoded_events(monkeypatch):
 
     await publisher.start("a" * 32, SecretStr("operator-selected-password"))
     await publisher.send_subtitle("Guten Morgen", "de")
+    await publisher.send_scripture(
+        {
+            "type": "scripture",
+            "reference": "Psalm 23:1",
+            "version": "Lutherbibel 1912",
+            "verses": [{"verse": 1, "text": "Der HERR ist mein Hirte."}],
+        }
+    )
     await publisher.send_audio(bytes(960), 24000)
     await publisher.stop("manual")
 
@@ -97,10 +105,44 @@ async def test_relay_publisher_provisions_and_sends_encoded_events(monkeypatch):
     assert json.loads(socket.sent[0])["type"] == "publisher_hello"
     assert json.loads(socket.sent[1])["status"] == "starting"
     assert json.loads(socket.sent[2])["text"] == "Guten Morgen"
-    assert isinstance(socket.sent[3], bytes)
-    assert socket.sent[3][:4] == b"SL1A"
-    assert json.loads(socket.sent[4])["type"] == "publisher_close"
+    assert json.loads(socket.sent[3])["type"] == "scripture"
+    assert isinstance(socket.sent[4], bytes)
+    assert socket.sent[4][:4] == b"SL1A"
+    assert json.loads(socket.sent[5])["type"] == "publisher_close"
     assert socket.closed
+
+
+@pytest.mark.asyncio
+async def test_oversized_scripture_is_logged_and_skipped_without_affecting_publisher(
+    caplog,
+):
+    socket = FakeSocket()
+    publisher = RelayPublisher(
+        Settings(
+            _env_file=None,
+            relay_url="https://relay.example.com",
+            relay_publisher_credential=SecretStr("p" * 40),
+            relay_listener_password=SecretStr("listener-password"),
+        )
+    )
+    publisher._session_id = "a" * 32
+    publisher._socket = socket
+
+    await publisher.send_scripture(
+        {
+            "reference": "Psalm 119:1-9",
+            "version": "Lutherbibel 1912",
+            "verses": [
+                {"verse": number, "text": "x" * 1000}
+                for number in range(1, 10)
+            ],
+        }
+    )
+    await publisher.send_status("live")
+
+    assert len(socket.sent) == 1
+    assert json.loads(socket.sent[0])["status"] == "live"
+    assert "Skipping oversized Listener scripture event" in caplog.text
 
 
 @pytest.mark.asyncio

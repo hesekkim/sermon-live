@@ -18,10 +18,9 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 
 1. `076-cloud-listener-protocol-and-codec-decision.md` — 중계 계약과 Opus 인코딩/브라우저 디코딩 실현성 검증
 2. `077-berlin-relay-session-authentication.md` — 방송별 청중 비밀번호, 단기 Listener 권한 및 Publisher 인증
-3. `081-vercel-listener-cloud-playback.md` — remote-only Vercel Listener의 인증, relay 연결 및 압축 오디오 재생
-4. `084-listener-token-renewal-and-reconnect.md` — 90분 access token 갱신과 만료 전 Listener WSS 교체
-5. `082-cloud-relay-resilience-and-load-validation.md` — 재연결·종료·백프레셔·보안 및 사용량/부하 검증
-6. `083-cloud-listener-deployment-and-operations.md` — Berlin/Render 및 Vercel 배포 설정과 운영 문서
+3. `084-listener-token-renewal-and-reconnect.md` — 90분 access token 갱신과 만료 전 Listener WSS 교체
+4. `082-cloud-relay-resilience-and-load-validation.md` — 재연결·종료·백프레셔·보안 및 사용량/부하 검증
+5. `083-cloud-listener-deployment-and-operations.md` — Berlin/Render 및 Vercel 배포 설정, 배포 후 smoke test와 운영 문서
 
 ### Windows/macOS 사용자 배포
 
@@ -121,6 +120,7 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 66. `078-berlin-live-relay-websocket.md` — Berlin Publisher/Listener WSS relay와 fan-out
 67. `079-local-cloud-publisher-and-opus-encoding.md` — Local Publisher의 Opus 압축 송출, 재접속 큐와 종료 처리
 68. `080-operator-cloud-broadcast-controls.md` — Operator의 중계 설정, 입장 비밀번호 및 Listener 링크/QR 제어
+69. `081-vercel-listener-cloud-playback.md` — remote-only Vercel Listener, live-only 입장, Opus 재생 및 종료 UX (구현·자동 검증 완료; 배포 검증은 083)
 
 ## 결정 사항
 
@@ -140,11 +140,11 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 - Translation Safety Timer 기본값은 Auto Stop 90분, Warning 5분 전, Extension 10분, Hard Limit 120분이다
 - Listener는 상태, 자막, 명시적 듣기 시작, 글자 크기, 테마만 우선 제공한다
 - 볼륨 제어는 Listener UI에 추가하지 않는다. Operator는 Input level과 Listener 수를 Broadcast 제어 sidebar에서 확인한다.
-- Operator만 앱 인증 대상으로 두고 Listen과 `/ws/listen`은 같은 Wi-Fi 청취자에게 공개한다. `/ws/operator`, Operator API 및 audio device/test API는 인증한다.
+- Local PC 앱은 Operator API와 `/ws/operator`만 제공한다. 청중 Listener는 Vercel static app에서 Berlin relay에 HTTPS/WSS로 연결하며 방송별 password/token 인증을 사용한다.
 - 기본 배포는 기존 HTTP 동작을 유지하고, 069에서 `APP_SSL_CERTFILE`/`APP_SSL_KEYFILE` 설정 시 모바일 LAN용 HTTPS/WSS 실행 경로를 추가했다. 로컬 CA의 기기별 신뢰 설치와 실기기 검증은 문서화되어 있으나 수행되지 않았다. HTTP 인증은 같은 Wi-Fi의 능동적 도청/세션 탈취를 막지 못하므로 Windows Private Network 방화벽과 port forwarding 금지를 운영 조건으로 안내한다.
 - OpenAI API key는 브라우저에 보내지 않는다. 현재 Local PC JSON store의 key-at-rest 암호화는 별도 범위로 남긴다.
 - Queue overflow 시 가장 오래된 audio chunk를 폐기해 최신 음성을 유지하고, 누적 손실과 경고를 Operator에 표시한다.
 - AudioCapture는 장치가 지원하는 입력 stream format을 확인한다. 실제 app capture format과 물리 장치의 ADC format을 구분하고, OpenAI 변환 target은 `LiveInterpreter.required_*`의 24 kHz/mono/PCM16을 사용한다.
-- Cloud Listener 목표 구성에서는 Local PC가 OpenAI 번역을 계속 소유하고 Berlin backend가 외부 청중에게 실시간 중계한다. Render egress를 줄이기 위해 Listener로 보내기 전 오디오를 압축하며, Opus 포맷·비트레이트·브라우저 디코더는 `.todo/076`에서 Windows/macOS 패키징 호환성과 지연·음성 품질을 검증해 결정한다. 제품 결정은 remote-only Listener이며, Listener UI에서 Local/LAN 청취 경로와 cloud-to-local fallback을 제거한다 (`081`).
+- Cloud Listener 구성에서 Local PC가 OpenAI 번역과 Opus 인코딩을 소유하고 Berlin backend가 외부 청중에게 실시간 중계한다. Vercel은 `listener-frontend/` static app만 제공한다. 제품 결정은 remote-only Listener이며, Local PC `/ws/listen` 및 LAN Listener fallback은 제거한다 (`081`).
 - 청중 방송별 입장 비밀번호와 Local PC Publisher 인증은 분리한다. Publisher credential은 브라우저 번들/Listener에 노출하지 않고, Listener는 비밀번호 검증 후 해당 방송에만 접근한다.
 - 다중 언어, transcript history, RAG/vector DB는 이번 범위에 포함하지 않는다

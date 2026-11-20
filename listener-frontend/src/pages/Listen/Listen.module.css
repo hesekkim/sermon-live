@@ -153,6 +153,111 @@
   pointer-events: none;
 }
 
+.admission {
+  width: min(calc(100% - 40px), 440px);
+  margin: 8vh auto 0;
+  padding: 24px;
+  border: 1px solid var(--listener-line);
+  border-radius: 16px;
+  background: var(--listener-surface);
+  box-shadow: 0 8px 24px rgb(23 23 23 / 8%);
+}
+
+.admission h2 {
+  margin: 0 0 20px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+  text-align: center;
+}
+
+.admissionForm {
+  display: grid;
+  gap: 16px;
+}
+
+.admissionForm label {
+  display: grid;
+  gap: 6px;
+  color: var(--listener-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admissionForm input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--listener-line);
+  border-radius: 10px;
+  background: var(--listener-bg);
+  color: var(--listener-ink);
+}
+
+.admissionSubmit {
+  min-height: 46px;
+  margin-top: 4px;
+  border: 1px solid #648354;
+  border-radius: 10px;
+  background: #648354;
+  color: #fff;
+  font-weight: 700;
+}
+
+.admissionSubmit:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.admissionError {
+  margin: 0 0 14px;
+  color: var(--listener-muted);
+  font-size: 13px;
+}
+
+.admissionError {
+  margin: -4px 0 0;
+  color: #ad3932;
+}
+
+.admissionHint {
+  margin: -12px 0 0;
+  color: var(--listener-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sessionEndBackdrop {
+  position: fixed;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  padding: 20px;
+  place-items: center;
+  background: rgb(0 0 0 / 48%);
+}
+
+.sessionEndDialog {
+  width: min(100%, 420px);
+  padding: 24px;
+  border: 1px solid var(--listener-line);
+  border-radius: 16px;
+  background: var(--listener-surface);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 24%);
+  text-align: center;
+}
+
+.sessionEndDialog h2 {
+  margin: 0 0 12px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 21px;
+}
+
+.sessionEndDialog p {
+  margin: 0;
+  color: var(--listener-muted);
+  line-height: 1.5;
+}
+
 .page[data-theme='dark'] .connectionHelp {
   border-color: #765d35;
   background: #392f20;
