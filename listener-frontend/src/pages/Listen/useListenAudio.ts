@@ -50,7 +50,6 @@ type RetryState = Extract<
 
 type AdmissionState =
   | 'needs_session'
-  | 'needs_password'
   | 'authenticating'
   | 'admitted'
   | 'reauthentication_required';
@@ -121,13 +120,11 @@ function initialSessionId(): string {
 export function useListenAudio() {
   const [connectionState, setConnectionState] =
     useState<ConnectionState>('idle');
-  const [admissionState, setAdmissionState] = useState<AdmissionState>(() =>
-    initialSessionId() ? 'needs_password' : 'needs_session',
-  );
+  const [admissionState, setAdmissionState] =
+    useState<AdmissionState>('needs_session');
   const [admissionError, setAdmissionError] =
     useState<AdmissionErrorKey | null>(null);
   const [sessionInput, setSessionInput] = useState(initialSessionId);
-  const [passwordInput, setPasswordInput] = useState('');
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('unknown');
   const [translationTargetLanguage, setTranslationTargetLanguage] =
     useState<TranslationTargetLanguage>('de');
@@ -283,8 +280,7 @@ export function useListenAudio() {
         sessionEndedRef.current = false;
         sessionIdRef.current = null;
         setAdmissionError(null);
-        setPasswordInput('');
-        setAdmissionState('needs_password');
+        setAdmissionState('needs_session');
         setConnectionState('idle');
         setSessionStatus('unknown');
         setSessionEnded(false);
@@ -787,16 +783,14 @@ export function useListenAudio() {
 
   const authenticate = useCallback(async () => {
     const sessionId = sessionInput.trim();
-    const password = passwordInput;
-    setPasswordInput('');
     setAdmissionError(null);
-    if (!sessionId || !password) {
-      setAdmissionError('missingCredentials');
+    if (!sessionId) {
+      setAdmissionError('missingSession');
       return;
     }
     setAdmissionState('authenticating');
     try {
-      const token = await requestListenerToken(sessionId, password);
+      const token = await requestListenerToken(sessionId);
       tokenRef.current = token;
       sessionIdRef.current = sessionId;
       sessionEndedRef.current = false;
@@ -812,11 +806,11 @@ export function useListenAudio() {
       wantsListenRef.current = true;
       connectSocketRef.current?.(false);
     } catch (error) {
-      setAdmissionState('needs_password');
+      setAdmissionState('needs_session');
       setAdmissionError(
         error instanceof ListenerAdmissionError
           ? error.kind === 'invalid'
-            ? 'invalidCredentials'
+            ? 'invalidSession'
             : error.kind === 'not_live'
               ? 'broadcastNotLive'
               : error.kind === 'rate_limited'
@@ -827,7 +821,7 @@ export function useListenAudio() {
           : 'authenticationFailed',
       );
     }
-  }, [passwordInput, sessionInput]);
+  }, [sessionInput]);
 
   const canStartListening =
     admissionState === 'admitted' &&
@@ -967,8 +961,6 @@ export function useListenAudio() {
     dismissScripture,
     interpreterReconnecting,
     isListening,
-    passwordInput,
-    setPasswordInput,
     setSessionInput,
     sessionEnded,
     sessionInput,

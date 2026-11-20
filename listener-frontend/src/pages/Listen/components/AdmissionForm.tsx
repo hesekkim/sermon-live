@@ -8,10 +8,8 @@ interface AdmissionFormProps {
   error: AdmissionErrorKey | null;
   isAuthenticating: boolean;
   onAuthenticate: () => void;
-  onPasswordChange: (value: string) => void;
   onSessionChange: (value: string) => void;
   onThemeChange: () => void;
-  password: string;
   sessionCode: string;
   theme: ListenerTheme;
 }
@@ -21,10 +19,8 @@ export function AdmissionForm({
   error,
   isAuthenticating,
   onAuthenticate,
-  onPasswordChange,
   onSessionChange,
   onThemeChange,
-  password,
   sessionCode,
   theme,
 }: AdmissionFormProps) {
@@ -69,19 +65,6 @@ export function AdmissionForm({
           <p id="listener-session-code-hint" className={styles.admissionHint}>
             {copy.admission.sessionCodeHint}
           </p>
-          <label htmlFor="listener-password">
-            <span>{copy.admission.password}</span>
-            <input
-              id="listener-password"
-              autoComplete="current-password"
-              maxLength={128}
-              minLength={8}
-              required
-              type="password"
-              value={password}
-              onChange={(event) => onPasswordChange(event.target.value)}
-            />
-          </label>
           {error ? (
             <p className={styles.admissionError} role="alert">
               {copy.admission.errors[error]}

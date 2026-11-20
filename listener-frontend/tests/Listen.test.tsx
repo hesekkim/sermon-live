@@ -154,24 +154,21 @@ function renderListener() {
   return container;
 }
 
-async function submitCredentials(
+async function submitSession(
   container: HTMLElement,
   sessionId = 'relay_session_123456',
-  password = 'audience-password',
 ) {
   const inputs = container.querySelectorAll('input');
   const setValue = Object.getOwnPropertyDescriptor(
     HTMLInputElement.prototype,
     'value',
   )?.set;
-  if (!setValue || !inputs[0] || !inputs[1]) {
+  if (!setValue || !inputs[0]) {
     throw new Error('Listener admission inputs were not rendered');
   }
   await act(async () => {
     setValue.call(inputs[0], sessionId);
     inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
-    setValue.call(inputs[1], password);
-    inputs[1].dispatchEvent(new Event('input', { bubbles: true }));
     container
       .querySelector('form')
       ?.dispatchEvent(
@@ -217,7 +214,7 @@ afterEach(() => {
 describe('remote Listener', () => {
   it('authenticates over HTTPS, sends the token in the WSS hello, and decodes Opus only after explicit audio start', async () => {
     const container = renderListener();
-    await submitCredentials(container);
+    await submitSession(container);
     const fetchMock = vi.mocked(fetch);
     expect(fetchMock).toHaveBeenCalledWith(
       'https://relay.example.test/api/v1/relay/sessions/relay_session_123456/listener-token',
@@ -289,26 +286,57 @@ describe('remote Listener', () => {
     );
   });
 
-  it('shows a generic authentication error and clears the password on denial', async () => {
+  it('shows audio frame errors in the recovery message area', async () => {
+    const container = renderListener();
+    await submitSession(container);
+    const socket = MockWebSocket.instances[0];
+
+    act(() => {
+      socket.open();
+      socket.message({
+        type: 'listener_ready',
+        protocol: 'sermon-live/1',
+        session_id: 'relay_session_123456',
+        status: 'live',
+        codec: 'opus',
+        sample_rate: 24000,
+        channels: 1,
+        packet_duration_ms: 20,
+      });
+    });
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="anhören"]')
+        ?.click();
+      await Promise.resolve();
+    });
+
+    act(() => socket.audio(new ArrayBuffer(4)));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container).toHaveTextContent('Audio frame is truncated');
+  });
+
+  it('shows a generic session error when admission is denied', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({}, 401)));
     const container = renderListener();
 
-    await submitCredentials(container, 'relay_session_123456', 'wrong-secret');
+    await submitSession(container, 'relay_session_123456');
 
     expect(container).toHaveTextContent(
-      'The session code or password is incorrect.',
+      'The session code is invalid.',
     );
-    expect(container.querySelector<HTMLInputElement>('input[type="password"]'))
-      .toHaveValue('');
     expect(MockWebSocket.instances).toHaveLength(0);
-    expect(location.href).not.toContain('wrong-secret');
   });
 
-  it('does not admit a valid password while the broadcast is not live', async () => {
+  it('does not admit a session while the broadcast is not live', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({}, 409)));
     const container = renderListener();
 
-    await submitCredentials(container);
+    await submitSession(container);
 
     expect(container).toHaveTextContent(
       'The broadcast is not live right now. Please try again later.',
@@ -316,7 +344,7 @@ describe('remote Listener', () => {
     expect(MockWebSocket.instances).toHaveLength(0);
   });
 
-  it('prefills the session code from the shared URL and explains that it is not a password', () => {
+  it('prefills the session code and explains that the shared link grants access', () => {
     vi.stubGlobal('location', {
       href: 'https://listener.example/listen?session=relay_session_123456',
       search: '?session=relay_session_123456',
@@ -327,14 +355,14 @@ describe('remote Listener', () => {
       'relay_session_123456',
     );
     expect(container).toHaveTextContent(
-      'This code identifies the broadcast; it is not a password.',
+      'Anyone with the shared link can listen. Share it only with your intended audience.',
     );
   });
 
   it('shows the end dialog and returns to admission after five seconds', async () => {
     vi.useFakeTimers();
     const container = renderListener();
-    await submitCredentials(container);
+    await submitSession(container);
     const socket = MockWebSocket.instances[0];
 
     act(() => {
@@ -379,18 +407,16 @@ describe('remote Listener', () => {
       await vi.advanceTimersByTimeAsync(1);
     });
     expect(container.querySelector('[role="alertdialog"]')).toBeNull();
-    expect(
-      container.querySelector('input[type="password"]'),
-    ).toBeInTheDocument();
+    expect(container.querySelectorAll('input')).toHaveLength(1);
     expect(container.querySelectorAll('input')[0]).toHaveValue(
       'relay_session_123456',
     );
     expect(socket.readyState).toBe(MockWebSocket.CLOSED);
   });
 
-  it('requires password re-entry when the relay expires the token', async () => {
+  it('requires reconnecting with the shared session link when the token expires', async () => {
     const container = renderListener();
-    await submitCredentials(container);
+    await submitSession(container);
     const socket = MockWebSocket.instances[0];
     act(() => {
       socket.open();
@@ -408,15 +434,15 @@ describe('remote Listener', () => {
     });
 
     expect(container).toHaveTextContent(
-      'Your Listener access expired. Enter the password again.',
+      'Your Listener access expired. Reconnect using the shared link.',
     );
-    expect(container.querySelector('input[type="password"]')).toBeInTheDocument();
+    expect(container.querySelectorAll('input')).toHaveLength(1);
   });
 
   it('reconnects to Berlin with exponential retry after a network close', async () => {
     vi.useFakeTimers();
     const container = renderListener();
-    await submitCredentials(container);
+    await submitSession(container);
     const firstSocket = MockWebSocket.instances[0];
     act(() => {
       firstSocket.open();
@@ -454,7 +480,7 @@ describe('remote Listener', () => {
         packet_duration_ms: 20,
       });
     });
-    expect(container.querySelector('input[type="password"]')).toBeNull();
+    expect(container.querySelector('form')).toBeNull();
     expect(container).toHaveTextContent(/TRANSLATION RECONNECTING|ÜBERSETZUNG WIRD/);
   });
 
@@ -465,7 +491,7 @@ describe('remote Listener', () => {
     );
     try {
       const container = renderListener();
-      await submitCredentials(container);
+      await submitSession(container);
       const socket = MockWebSocket.instances[0];
       act(() => {
         socket.open();

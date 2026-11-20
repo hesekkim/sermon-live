@@ -3,6 +3,8 @@
 상태: 완료
 우선순위: 높음
 
+현재 적용 정책: 이 티켓의 방송별 Listener password UI/API 범위는 후속 변경으로 제거되었다. 현재 공유 session ID가 Listener bearer access이며, Publisher credential은 계속 backend 전용이다.
+
 ## Goal
 
 Operator가 Berlin relay를 설정하고, 방송별 청중 입장 비밀번호를 지정하며, 연결 상태와 청중에게 공유할 Vercel Listener 주소/QR을 관리할 수 있게 한다.

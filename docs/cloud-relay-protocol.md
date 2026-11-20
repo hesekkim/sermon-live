@@ -4,9 +4,9 @@
 
 - The Local PC owns the Operator UI, OpenAI Translation session, microphone capture, and audio encoding.
 - The Local PC opens an outbound WebSocket to the Berlin relay.
-- Berlin validates Publisher and Listener access, relays already-encoded frames, and does not re-encode audio.
+- Berlin validates Publisher access, treats the session ID as bearer access for Listeners, relays already-encoded frames, and does not re-encode audio.
 - The Listener UI is served statically by Vercel. It connects only to the Berlin relay.
-- A Listener password authenticates audience access; it is separate from the Publisher service credential.
+- Anyone with the shared Listener link can listen. Share it only with the intended audience.
 - The Vercel project root is `sermon-live/listener-frontend`; the Operator app is a separate Local PC frontend.
 
 Listener delivery is remote-only through Berlin. Cloud relay mode is opt-in on the Local PC Publisher: setting `APP_RELAY_URL` enables it. If the relay is disabled or unavailable, Listener sharing is unavailable; there is no LAN/local fallback.
@@ -17,9 +17,8 @@ Set these server-side values in `sermon-live/backend/.env` to opt in:
 
 - `APP_RELAY_URL`: Berlin API relay base URL, ending in `/api/v1/relay`.
 - `APP_RELAY_PUBLISHER_CREDENTIAL`: the same randomly generated value configured on Berlin; at least 32 characters.
-- `APP_RELAY_LISTENER_PASSWORD`: the audience password, 8-128 characters.
 
-The Publisher credential and Listener password stay in the Local PC backend. The password is sent only in the HTTPS session-upsert request; neither secret is placed in a URL or returned to the frontend. Leave `APP_RELAY_URL` empty for local-only operation. When it is configured, missing credentials or an unavailable relay fail the translation session instead of silently falling back to another route.
+The Publisher credential stays in the Local PC backend and is never returned to the frontend. The Listener session ID is a random bearer secret included in the shared link. Leave `APP_RELAY_URL` empty for local-only operation. When it is configured, missing Publisher credentials or an unavailable relay fail the translation session instead of silently falling back to another route.
 
 ## Publisher handshake
 
@@ -93,15 +92,14 @@ Raw Opus packets are preferred over an Ogg container for WebSockets. One WebSock
 
 ## Listener admission
 
-Before audio/text admission, the Listener authenticates by the session-specific HTTP password-check flow specified in ticket 077. A valid password receives a token only while the Publisher reports the broadcast as live; a valid password for an inactive broadcast receives HTTP 409. Invalid credentials retain the generic HTTP 401 response. After admission, the Listener opens a WebSocket and sends no credentials in the URL.
+The session ID is the Listener's bearer access credential. The Listener requests a short-lived token with `POST {APP_RELAY_URL}/sessions/{sessionId}/listener-token` and no request body. The relay issues a token only while the Publisher reports the broadcast as live; an inactive broadcast receives HTTP 409. The session ID is random and must only be shared with the intended audience. After admission, the Listener opens a WebSocket and sends no credentials in the URL.
 
-The Listener requests a token with `POST {APP_RELAY_URL}/sessions/{sessionId}/listener-token`, then opens `WSS {APP_RELAY_URL}/ws/listener/{sessionId}`. The first WebSocket text message is `{"type":"listener_hello","session_id":"...","listener_token":"..."}`. The relay validates the token before registering the Listener or sending `listener_ready`; the token is never placed in a query parameter.
+The Listener then opens `WSS {APP_RELAY_URL}/ws/listener/{sessionId}`. The first WebSocket text message is `{"type":"listener_hello","session_id":"...","listener_token":"..."}`. The relay validates the token before registering the Listener or sending `listener_ready`; the token is never placed in a query parameter.
 
 The standalone Vercel Listener receives its public relay API base through
 `VITE_RELAY_API_BASE_URL` (ending in `/api/v1/relay`). It is a public endpoint,
-not a secret. The password is sent only in the HTTPS admission request body;
-the issued token stays in browser memory and is sent only in the first
-WebSocket message. Vercel serves static assets only and does not proxy relay
+not a secret. The issued token stays in browser memory and is sent only in the
+first WebSocket message. Vercel serves static assets only and does not proxy relay
 HTTP or WebSocket traffic. See [Listener Vercel deployment](../listener-frontend/DEPLOY.md)
 for environment and origin setup.
 
@@ -128,7 +126,7 @@ The Listener receives a `listener_ready` JSON event containing:
 
 Publisher reconnection uses the same session ID and `publisher_hello`, then resumes with a new, explicitly increasing epoch in the upper sequence space. The exact epoch layout is deferred to implementation in ticket 079. The relay closes the listener session if Publisher ends normally or expires, and sends `status=ended` with `reason=publisher_closed|idle_timeout|publisher_error|server_shutdown`.
 
-Listener reconnection may reuse the Listener admission token for up to 90 minutes from issuance; the relay closes the WebSocket when it expires. Automatic token refresh is not implemented yet, so a Listener must authenticate again after expiry. No password or credential is placed in the query string. If codec/session metadata changed, Listener fails `codec_mismatch` or `session_mismatch` instead of mixing frames.
+Listener reconnection may reuse the Listener admission token for up to 90 minutes from issuance; the relay closes the WebSocket when it expires. Automatic token refresh is not implemented yet, so a Listener must reconnect through the shared link after expiry. The short-lived token and Publisher credential are never placed in the query string; the session ID is included in the shared Listener link by design and acts as bearer access. If codec/session metadata changed, Listener fails `codec_mismatch` or `session_mismatch` instead of mixing frames.
 
 ## Codec decision
 

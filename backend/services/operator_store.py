@@ -4,7 +4,6 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from pydantic import SecretStr
 
 from core.config import (
     DEFAULT_TRANSLATION_TARGET_LANGUAGE,
@@ -29,13 +28,11 @@ class OperatorRecord:
     translation_session_warning_minutes: int | None = None
     translation_session_extension_minutes: int | None = None
     translation_session_hard_limit_minutes: int | None = None
-    relay_listener_password: str = ""
 
 
 class OperatorSettingsStore:
     def __init__(self, path: Path = STORE_PATH) -> None:
         self._path = path
-        self._relay_listener_password_runtime: str = ""
 
     def load(self) -> OperatorRecord:
         if not self._path.is_file():
@@ -70,7 +67,6 @@ class OperatorSettingsStore:
             translation_session_hard_limit_minutes=_as_optional_int(
                 raw.get("translation_session_hard_limit_minutes")
             ),
-            relay_listener_password=self._relay_listener_password_runtime,
         )
 
     def save(
@@ -86,7 +82,6 @@ class OperatorSettingsStore:
         translation_session_warning_minutes: int | None = None,
         translation_session_extension_minutes: int | None = None,
         translation_session_hard_limit_minutes: int | None = None,
-        relay_listener_password: str | None = None,
     ) -> OperatorRecord:
         current = self.load()
         openai = current.openai_api_key
@@ -155,19 +150,11 @@ class OperatorSettingsStore:
             ),
             translation_target_language=target_language,
             **timer_updates,
-            relay_listener_password=(
-                relay_listener_password
-                if relay_listener_password not in (None, "")
-                else self._relay_listener_password_runtime
-            ),
         )
         if is_packaged() and self._path.parent == app_data_dir():
             ensure_user_data_dir(self._path.parent)
         else:
             self._path.parent.mkdir(parents=True, exist_ok=True)
-        if relay_listener_password not in (None, ""):
-            self._relay_listener_password_runtime = relay_listener_password
-            record.relay_listener_password = relay_listener_password
         payload: dict[str, Any] = {
             "interpreter": record.interpreter,
             "openai_api_key": record.openai_api_key,
@@ -206,9 +193,6 @@ class OperatorSettingsStore:
         openai_status = _normalize_key_status(
             openai_raw[0] if openai_raw else None, bool(openai_key)
         )
-        relay_password = record.relay_listener_password
-        if not relay_password and settings.relay_listener_password:
-            relay_password = settings.relay_listener_password.get_secret_value()
         return {
             "interpreter": interpreter,
             "audio_device": audio_device,
@@ -238,10 +222,6 @@ class OperatorSettingsStore:
             "openai_key_masked": _mask_key(openai_key),
             "openai_key_status": openai_status,
             "openai_key_warning": _warning_for_key("openai", openai_status),
-            "relay_listener_password_set": bool(relay_password),
-            "relay_listener_password_masked": (
-                _mask_secret(relay_password) if relay_password else ""
-            ),
         }
 
     def set_key_status(
@@ -310,10 +290,6 @@ class OperatorSettingsStore:
             value = getattr(record, field)
             if value is not None:
                 updates[field] = value
-        if record.relay_listener_password:
-            updates["relay_listener_password"] = _secret(
-                record.relay_listener_password
-            )
         if not updates:
             return settings
         return Settings.model_validate({**settings.model_dump(), **updates})
@@ -351,16 +327,6 @@ def _mask_key(value: str) -> str:
     if len(value) <= 8:
         return f"{value[:2]}...{value[-2:]}"
     return f"{value[:4]}...{value[-4:]}"
-
-
-def _mask_secret(value: str) -> str:
-    if not value:
-        return ""
-    return "*" * min(16, max(8, len(value)))
-
-
-def _secret(value: str) -> SecretStr:
-    return SecretStr(value)
 
 
 def _normalize_key_status(status: str | None, has_value: bool) -> str:

@@ -26,7 +26,6 @@ class OperatorSettingsBody(BaseModel):
     translation_session_warning_minutes: int | None = Field(default=None, gt=0)
     translation_session_extension_minutes: int | None = Field(default=None, gt=0)
     translation_session_hard_limit_minutes: int | None = Field(default=None, gt=0)
-    relay_listener_password: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class OperatorListenerShareResponse(BaseModel):
@@ -137,14 +136,6 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
         and body.translation_target_language
         != current_view["translation_target_language"]
     )
-    relay_changed = (
-        body.relay_listener_password not in (None, "")
-    )
-    if relay_changed and session_busy:
-        raise HTTPException(
-            status_code=409,
-            detail="Stop the translation session before changing cloud relay settings",
-        )
     protected_settings_changed = api_model_changed or target_language_changed
     for field in timer_fields:
         requested = getattr(body, field)
@@ -188,7 +179,6 @@ async def put_operator_settings(body: OperatorSettingsBody) -> dict[str, object]
             translation_session_hard_limit_minutes=(
                 body.translation_session_hard_limit_minutes
             ),
-            relay_listener_password=body.relay_listener_password,
         )
     except OSError as exc:
         raise HTTPException(

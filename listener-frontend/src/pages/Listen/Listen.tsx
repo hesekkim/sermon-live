@@ -43,14 +43,12 @@ export default function Listen() {
     dismissScripture,
     interpreterReconnecting,
     isListening,
-    passwordInput,
     recoverAudio,
     sessionEnded,
     sessionInput,
     sessionKey,
     sessionStatus,
     scripture,
-    setPasswordInput,
     setSessionInput,
     startListening,
     stopListening,
@@ -82,10 +80,8 @@ export default function Listen() {
         error={admissionError}
         isAuthenticating={admissionState === 'authenticating'}
         onAuthenticate={() => void authenticate()}
-        onPasswordChange={setPasswordInput}
         onSessionChange={setSessionInput}
         onThemeChange={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-        password={passwordInput}
         sessionCode={sessionInput}
         theme={theme}
       />

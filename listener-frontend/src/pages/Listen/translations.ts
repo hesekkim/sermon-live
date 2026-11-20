@@ -3,8 +3,8 @@ import type { TranslationTargetLanguage } from '../../shared/types/translation';
 type ListenerLanguage = TranslationTargetLanguage;
 
 export type AdmissionErrorKey =
-  | 'missingCredentials'
-  | 'invalidCredentials'
+  | 'missingSession'
+  | 'invalidSession'
   | 'broadcastNotLive'
   | 'rateLimited'
   | 'relayUnavailable'
@@ -21,13 +21,12 @@ const listenerCopy = {
       title: 'Sendung beitreten',
       sessionCode: 'Sendungscode',
       sessionCodeHint:
-        'Der Code identifiziert die Sendung, ist aber kein Passwort. Über den geteilten Link wird er automatisch eingetragen.',
-      password: 'Zuschauer-Passwort',
+        'Jeder mit dem geteilten Link kann zuhören. Teilen Sie ihn nur mit den gewünschten Zuhörern.',
       submit: 'Verbinden',
       submitting: 'Wird geprüft...',
       errors: {
-        missingCredentials: 'Bitte geben Sie Sendungscode und Passwort ein.',
-        invalidCredentials: 'Sendungscode oder Passwort ist nicht korrekt.',
+        missingSession: 'Bitte geben Sie den Sendungscode ein.',
+        invalidSession: 'Der Sendungscode ist ungültig.',
         broadcastNotLive: 'Die Sendung ist derzeit nicht live. Bitte versuchen Sie es später erneut.',
         rateLimited: 'Zu viele Versuche. Bitte warten Sie einen Moment.',
         relayUnavailable: 'Der Berlin-Relay ist vorübergehend nicht erreichbar.',
@@ -35,8 +34,8 @@ const listenerCopy = {
         authenticationFailed: 'Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut.',
         invalidRelayMessage: 'Der Berlin-Relay hat eine ungültige Nachricht gesendet.',
         unsupportedRelayFormat: 'Das Audioformat des Berlin-Relays wird nicht unterstützt.',
-        accessExpired: 'Ihr Listener-Zugang ist abgelaufen. Bitte geben Sie das Passwort erneut ein.',
-        accessRejected: 'Der Listener-Zugang wurde abgelehnt. Bitte geben Sie das Passwort erneut ein.',
+        accessExpired: 'Ihr Listener-Zugang ist abgelaufen. Verbinden Sie sich erneut über den geteilten Link.',
+        accessRejected: 'Der Listener-Zugang wurde abgelehnt. Verbinden Sie sich erneut über den geteilten Link.',
       },
     },
     sessionEnded: {
@@ -98,13 +97,12 @@ const listenerCopy = {
       title: 'Join broadcast',
       sessionCode: 'Session code',
       sessionCodeHint:
-        'This code identifies the broadcast; it is not a password. A shared link fills it in automatically.',
-      password: 'Listener password',
+        'Anyone with the shared link can listen. Share it only with your intended audience.',
       submit: 'Connect',
       submitting: 'Checking...',
       errors: {
-        missingCredentials: 'Enter the session code and password.',
-        invalidCredentials: 'The session code or password is incorrect.',
+        missingSession: 'Enter the session code.',
+        invalidSession: 'The session code is invalid.',
         broadcastNotLive: 'The broadcast is not live right now. Please try again later.',
         rateLimited: 'Too many attempts. Wait a moment and try again.',
         relayUnavailable: 'The Berlin relay is temporarily unavailable.',
@@ -112,8 +110,8 @@ const listenerCopy = {
         authenticationFailed: 'Listener authentication failed. Try again.',
         invalidRelayMessage: 'The Berlin relay sent an invalid message.',
         unsupportedRelayFormat: 'The Berlin relay audio format is not supported.',
-        accessExpired: 'Your Listener access expired. Enter the password again.',
-        accessRejected: 'Listener access was rejected. Enter the password again.',
+        accessExpired: 'Your Listener access expired. Reconnect using the shared link.',
+        accessRejected: 'Listener access was rejected. Reconnect using the shared link.',
       },
     },
     sessionEnded: {

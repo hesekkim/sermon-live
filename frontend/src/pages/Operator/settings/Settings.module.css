@@ -170,18 +170,6 @@
   gap: var(--cf-space-12);
 }
 
-.cloudGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--cf-space-12);
-}
-
-@media (max-width: 900px) {
-  .cloudGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
 .timerHint {
   margin: 0;
   color: var(--cms-text);

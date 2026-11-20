@@ -89,7 +89,7 @@ def make_service(
 ):
     hub = FakeHub()
     service = SessionService(
-        settings or Settings(interpreter="echo"),
+        settings or Settings(_env_file=None, interpreter="echo"),
         hub,
         audio or FakeAudioRuntime(),
         operator_store=operator_store or OperatorSettingsStore(tmp_path / "operator.json"),
@@ -99,7 +99,7 @@ def make_service(
 
 
 @pytest.mark.asyncio
-async def test_start_passes_operator_listener_password_to_relay(tmp_path):
+async def test_start_starts_relay_using_session_id_only(tmp_path):
     class CapturingRelayPublisher:
         enabled = True
         active = False
@@ -107,10 +107,10 @@ async def test_start_passes_operator_listener_password_to_relay(tmp_path):
         listener_count = 0
         last_error = None
         queue_duration_seconds = 0.0
-        listener_password = None
+        started_with = None
 
-        async def start(self, _session_id, listener_password=None):
-            self.listener_password = listener_password
+        async def start(self, session_id):
+            self.started_with = session_id
 
         async def send_status(self, _status):
             return None
@@ -119,10 +119,7 @@ async def test_start_passes_operator_listener_password_to_relay(tmp_path):
             return None
 
     operator_store = OperatorSettingsStore(tmp_path / "operator.json")
-    operator_store.save(
-        interpreter="echo",
-        relay_listener_password="operator-selected-password",
-    )
+    operator_store.save(interpreter="echo")
     relay = CapturingRelayPublisher()
     service, _hub = make_service(
         tmp_path,
@@ -132,7 +129,7 @@ async def test_start_passes_operator_listener_password_to_relay(tmp_path):
 
     await service.start()
 
-    assert relay.listener_password.get_secret_value() == "operator-selected-password"
+    assert relay.started_with == service._session_id
     await service.stop()
 
 
@@ -243,7 +240,7 @@ async def test_shutdown_stops_relay_when_start_is_cancelled_during_relay_setup(
         active = False
         stopped_with = []
 
-        async def start(self, _session_id, _listener_password=None):
+        async def start(self, _session_id):
             self.active = True
             relay_starting.set()
             await asyncio.Event().wait()
@@ -303,7 +300,11 @@ async def test_normal_stop_bounds_audio_drain_and_reports_discarded_chunks(
         "create_interpreter",
         lambda _settings, **_kwargs: interpreter,
     )
-    settings = Settings(interpreter="echo", translation_drain_timeout_seconds=0.01)
+    settings = Settings(
+        _env_file=None,
+        interpreter="echo",
+        translation_drain_timeout_seconds=0.01,
+    )
     audio = FakeAudioRuntime()
     service, hub = make_service(tmp_path, audio=audio, settings=settings)
     await service.start()
@@ -460,7 +461,7 @@ async def test_extension_is_rejected_after_auto_stop_deadline(tmp_path):
 async def test_operator_timer_settings_are_used_for_session_deadline(
     tmp_path, caplog
 ):
-    settings = Settings(interpreter="echo")
+    settings = Settings(_env_file=None, interpreter="echo")
     operator_store = OperatorSettingsStore(tmp_path / "operator.json")
     operator_store.save(
         interpreter="echo",
@@ -620,14 +621,21 @@ async def test_failed_openai_start_records_missing_key_without_ending_event(tmp_
     store = OperatorSettingsStore(tmp_path / "operator.json")
     store.save(interpreter="openai")
     service, hub = make_service(
-        tmp_path, operator_store=store, settings=Settings(interpreter="echo")
+        tmp_path,
+        operator_store=store,
+        settings=Settings(_env_file=None, interpreter="echo"),
     )
 
     with pytest.raises(RuntimeError, match="OpenAI API key is not set"):
         await service.start()
 
     assert service.state == "error"
-    assert store.public_view(Settings(interpreter="echo"))["openai_key_status"] == "missing"
+    assert (
+        store.public_view(Settings(_env_file=None, interpreter="echo"))[
+            "openai_key_status"
+        ]
+        == "missing"
+    )
     assert not any(event.get("type") == "session_ended" for event in hub.operator_events)
 
 

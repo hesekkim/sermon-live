@@ -31,7 +31,7 @@ afterEach(() => {
 });
 
 describe('Listener relay protocol', () => {
-  it('sends the password only in the HTTPS admission body and returns a bounded memory token', async () => {
+  it('requests a bounded memory token using only the shared session code', async () => {
     vi.stubEnv(
       'VITE_RELAY_API_BASE_URL',
       'https://relay.example.test/api/v1/relay/',
@@ -40,26 +40,17 @@ describe('Listener relay protocol', () => {
       response({ listener_token: 'opaque-token', expires_in_seconds: 90 }),
     );
 
-    const token = await requestListenerToken(
-      'relay_session_123456',
-      'audience-password',
-      fetchMock,
-    );
+    const token = await requestListenerToken('relay_session_123456', fetchMock);
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://relay.example.test/api/v1/relay/sessions/relay_session_123456/listener-token',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listener_password: 'audience-password' }),
-      },
+      { method: 'POST' },
     );
     expect(token.value).toBe('opaque-token');
     expect(token.expiresAt).toBeGreaterThan(Date.now());
-    expect(JSON.stringify(token)).not.toContain('audience-password');
   });
 
-  it('does not expose failed passwords in admission errors', async () => {
+  it('rejects invalid session codes without sending them as credentials in a request body', async () => {
     vi.stubEnv(
       'VITE_RELAY_API_BASE_URL',
       'https://relay.example.test/api/v1/relay',
@@ -67,7 +58,7 @@ describe('Listener relay protocol', () => {
     const fetchMock = vi.fn().mockResolvedValue(response({}, 401));
 
     await expect(
-      requestListenerToken('relay_session_123456', 'wrong-password', fetchMock),
+      requestListenerToken('relay_session_123456', fetchMock),
     ).rejects.toMatchObject({
       name: 'ListenerAdmissionError',
       kind: 'invalid',
@@ -75,7 +66,7 @@ describe('Listener relay protocol', () => {
     });
   });
 
-  it('distinguishes a valid password when the broadcast is not live', async () => {
+  it('reports when the broadcast is not live', async () => {
     vi.stubEnv(
       'VITE_RELAY_API_BASE_URL',
       'https://relay.example.test/api/v1/relay',
@@ -83,7 +74,7 @@ describe('Listener relay protocol', () => {
     const fetchMock = vi.fn().mockResolvedValue(response({}, 409));
 
     await expect(
-      requestListenerToken('relay_session_123456', 'audience-password', fetchMock),
+      requestListenerToken('relay_session_123456', fetchMock),
     ).rejects.toMatchObject({
       name: 'ListenerAdmissionError',
       kind: 'not_live',
@@ -104,7 +95,7 @@ describe('Listener relay protocol', () => {
     );
 
     await expect(
-      requestListenerToken('relay_session_123456', 'audience-password', fetchMock),
+      requestListenerToken('relay_session_123456', fetchMock),
     ).rejects.toMatchObject({ kind: 'unavailable' });
   });
 
@@ -137,7 +128,7 @@ describe('Listener relay protocol', () => {
     vi.stubEnv('VITE_RELAY_API_BASE_URL', 'http://relay.example.test/relay');
 
     await expect(
-      requestListenerToken('relay_session_123456', 'audience-password'),
+      requestListenerToken('relay_session_123456'),
     ).rejects.toBeInstanceOf(ListenerAdmissionError);
   });
 });

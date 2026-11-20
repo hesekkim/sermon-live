@@ -73,11 +73,10 @@ async def test_relay_publisher_provisions_and_sends_encoded_events(monkeypatch):
         _env_file=None,
         relay_url="https://relay.example.com/api/v1/relay",
         relay_publisher_credential=SecretStr("p" * 40),
-        relay_listener_password=SecretStr("listener-password"),
     )
     publisher = RelayPublisher(settings)
 
-    await publisher.start("a" * 32, SecretStr("operator-selected-password"))
+    await publisher.start("a" * 32)
     await publisher.send_subtitle("Guten Morgen", "de")
     await publisher.send_scripture(
         {
@@ -93,7 +92,7 @@ async def test_relay_publisher_provisions_and_sends_encoded_events(monkeypatch):
     assert FakeHttpClient.requests[0] == (
         "https://relay.example.com/api/v1/relay/sessions/" + "a" * 32,
         {"X-Publisher-Credential": "p" * 40},
-        {"listener_password": "operator-selected-password"},
+        None,
     )
     assert FakeHttpClient.requests[-1][0].endswith("/sessions/" + "a" * 32 + "/end")
     assert connect_args[0][0] == (
@@ -122,7 +121,6 @@ async def test_oversized_scripture_is_logged_and_skipped_without_affecting_publi
             _env_file=None,
             relay_url="https://relay.example.com",
             relay_publisher_credential=SecretStr("p" * 40),
-            relay_listener_password=SecretStr("listener-password"),
         )
     )
     publisher._session_id = "a" * 32
@@ -160,7 +158,6 @@ async def test_start_cancellation_ends_provisioned_remote_session(monkeypatch):
         _env_file=None,
         relay_url="https://relay.example.com/api/v1/relay",
         relay_publisher_credential=SecretStr("p" * 40),
-        relay_listener_password=SecretStr("listener-password"),
     )
     publisher = RelayPublisher(settings)
 
@@ -195,7 +192,6 @@ async def test_provision_request_cancellation_attempts_remote_session_end(monkey
         _env_file=None,
         relay_url="https://relay.example.com/api/v1/relay",
         relay_publisher_credential=SecretStr("p" * 40),
-        relay_listener_password=SecretStr("listener-password"),
     )
     publisher = RelayPublisher(settings)
 
@@ -232,7 +228,6 @@ def test_cloud_relay_rejects_non_https_url_outside_debug():
             _env_file=None,
             relay_url="http://relay.example.com",
             relay_publisher_credential=SecretStr("p" * 40),
-            relay_listener_password=SecretStr("listener-password"),
         )
     )
 
@@ -265,7 +260,6 @@ def test_relay_audio_queue_keeps_only_configured_duration():
         _env_file=None,
         relay_url="https://relay.example.com",
         relay_publisher_credential=SecretStr("p" * 40),
-        relay_listener_password=SecretStr("listener-password"),
         relay_queue_max_seconds=0.04,
     )
     publisher = RelayPublisher(settings)
@@ -283,7 +277,6 @@ async def test_relay_send_failures_start_reconnect_without_raising(monkeypatch):
         _env_file=None,
         relay_url="https://relay.example.com",
         relay_publisher_credential=SecretStr("p" * 40),
-        relay_listener_password=SecretStr("listener-password"),
     )
     publisher = RelayPublisher(settings)
 
@@ -322,7 +315,6 @@ async def test_reconnect_drains_queued_audio_before_sending_new_audio(monkeypatc
         _env_file=None,
         relay_url="https://relay.example.com",
         relay_publisher_credential=SecretStr("p" * 40),
-        relay_listener_password=SecretStr("listener-password"),
     )
     publisher = RelayPublisher(settings)
     queued_send_started = asyncio.Event()
@@ -378,7 +370,6 @@ async def test_reconnect_surfaces_http_authentication_rejection(monkeypatch):
         _env_file=None,
         relay_url="https://relay.example.com",
         relay_publisher_credential=SecretStr("p" * 40),
-        relay_listener_password=SecretStr("listener-password"),
     )
     publisher = RelayPublisher(settings)
     publisher._session_id = "a" * 32

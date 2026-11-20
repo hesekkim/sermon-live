@@ -100,6 +100,7 @@ export function ListenerFooter({
           {audioRecoveryRequired || audioError ? (
             <p>{copy.recoveryMessage}</p>
           ) : null}
+          {audioError ? <p>{audioError}</p> : null}
         </div>
       ) : null}
       <div className={styles.powered}>POWERED BY CHURCHTRANSLATOR.AT</div>

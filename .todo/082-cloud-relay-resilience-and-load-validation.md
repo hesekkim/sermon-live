@@ -17,8 +17,8 @@ Local Publisher, Berlin relay, Vercel Listener를 연결한 실제 cloud 흐름�
 
 ## Scope
 
-- 세션 시작부터 청중 인증, compressed audio/text playback, reconnect, 정상/오류 종료까지 자동화 가능한 E2E 흐름을 검증한다.
-- 느린 Listener, 갑작스러운 네트워크 단절, Publisher 재연결, Render deploy/restart, 잘못된 비밀번호, token 만료, session 종료, Origin 오류를 검증한다.
+- 세션 시작부터 공유 session link admission, compressed audio/text playback, reconnect, 정상/오류 종료까지 자동화 가능한 E2E 흐름을 검증한다.
+- 느린 Listener, 갑작스러운 네트워크 단절, Publisher 재연결, Render deploy/restart, 잘못되거나 종료된 session ID, token 만료, session 종료, Origin 오류를 검증한다.
 - 동시 Listener 수를 단계적으로 늘려 Berlin CPU/RAM, event loop 지연, 송신 queue, 오디오 bitrate, bytes per listener-hour, reconnect behavior를 수집한다.
 - Render Starter의 실제 사양(0.5 CPU/512 MB) 및 account/workspace egress 포함량에 맞춰 작은 규모부터 시험한다. 자동 테스트가 Render 유료 리소스를 무제한 생성하지 않게 한다.
 - 개인정보/음성 내용을 기록하지 않고 집계 가능한 연결·오류·대역폭 metadata만 계측한다.
@@ -33,7 +33,7 @@ Local Publisher, Berlin relay, Vercel Listener를 연결한 실제 cloud 흐름�
 
 ## Acceptance criteria
 
-- [ ] E2E가 인증된 청중에게만 해당 session의 자막/압축 오디오가 전달되는지 검증한다.
+- [ ] E2E가 공유 session link로 권한을 가진 청중에게만 해당 session의 자막/압축 오디오가 전달되는지 검증한다.
 - [ ] 중단/재시작 후 자동 재연결과 종료/만료 동작이 정의되고, stale session 및 queue leak이 없다.
 - [ ] queue, connection, payload 및 session 수 제한에서 과부하가 명시적으로 거부/회복되고 기존 CMS 응답성이 유지된다.
 - [ ] 압축 bitrate와 listener-hour egress가 측정되며 PCM baseline 추정 대비 실제 절감률을 보고한다.

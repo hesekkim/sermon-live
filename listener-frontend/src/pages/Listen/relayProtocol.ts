@@ -50,15 +50,10 @@ export function getRelayApiBaseUrl(): string {
 
 export async function requestListenerToken(
   sessionId: string,
-  password: string,
   request: typeof fetch = fetch,
 ): Promise<ListenerToken> {
   const normalizedSessionId = sessionId.trim();
-  if (
-    !/^[A-Za-z0-9_-]{16,128}$/.test(normalizedSessionId) ||
-    password.length < 8 ||
-    password.length > 128
-  ) {
+  if (!/^[A-Za-z0-9_-]{16,128}$/.test(normalizedSessionId)) {
     throw new ListenerAdmissionError('invalid');
   }
 
@@ -69,8 +64,6 @@ export async function requestListenerToken(
       `${baseUrl}/sessions/${encodeURIComponent(normalizedSessionId)}/listener-token`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listener_password: password }),
       },
     );
   } catch {

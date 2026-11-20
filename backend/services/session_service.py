@@ -278,9 +278,7 @@ class _TranslationSessionService:
             await interpreter.start()
             if runtime.interpreter == "openai":
                 self._store.set_key_status(runtime.interpreter, "valid")
-            await self._relay.start(
-                self._session_id, runtime.relay_listener_password
-            )
+            await self._relay.start(self._session_id)
 
             self._scripture_stream.reset()
             audio_queue = self._audio.attach_translation(interpreter)
@@ -698,7 +696,6 @@ class _TranslationSessionService:
         for secret in (
             api_key,
             getattr(settings, "relay_publisher_credential", None),
-            getattr(settings, "relay_listener_password", None),
         ):
             if secret:
                 value = (

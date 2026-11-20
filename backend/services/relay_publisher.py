@@ -172,9 +172,7 @@ class RelayPublisher:
     def listener_count(self) -> int:
         return self._listener_count
 
-    async def start(
-        self, session_id: str, listener_password: SecretStr | None = None
-    ) -> None:
+    async def start(self, session_id: str) -> None:
         if not self.enabled:
             return
         self._stopping = False
@@ -185,17 +183,11 @@ class RelayPublisher:
         self._background_error = None
         try:
             credential = self._secret(self._settings.relay_publisher_credential)
-            password = self._secret(
-                listener_password
-                if listener_password is not None
-                else self._settings.relay_listener_password
-            )
             base_url = self._validate_base_url(self._settings.relay_url)
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.post(
                     f"{base_url}/sessions/{session_id}",
                     headers={"X-Publisher-Credential": credential},
-                    json={"listener_password": password},
                 )
                 if response.status_code != 200:
                     if response.status_code in {401, 403}:
@@ -771,7 +763,4 @@ class RelayPublisher:
         credential = self._secret(self._settings.relay_publisher_credential)
         if len(credential) < 32:
             raise RelayPublisherError("Cloud relay Publisher credential is too weak")
-        password = self._secret(self._settings.relay_listener_password)
-        if len(password) > 128:
-            raise RelayPublisherError("Cloud relay Listener password is too long")
         return value.strip().rstrip("/")

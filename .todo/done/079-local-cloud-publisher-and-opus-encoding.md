@@ -3,6 +3,8 @@
 상태: 완료
 우선순위: 높음
 
+현재 적용 정책: Listener password 설정 기능은 후속 변경으로 제거되었다. 현재 청취 권한은 공유 session ID에 있으며, 이 티켓의 Publisher 송출 동작은 유지된다.
+
 ## Goal
 
 Sermon Live backend가 기존 OpenAI Translation 출력을 받아 압축 오디오와 자막을 Berlin relay에 안전하게 송출한다. 인코딩은 Local PC에서 수행해 Render Listener egress의 압축 효과를 얻는다.

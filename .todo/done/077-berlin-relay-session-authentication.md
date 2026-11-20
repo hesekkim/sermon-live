@@ -3,6 +3,8 @@
 상태: 완료
 우선순위: 높음
 
+현재 적용 정책: 이 문서는 당시 구현 요구를 기록한 역사 문서다. 후속 변경으로 Listener password/hash-check 기능은 제거되었으며, 현재는 공유 session ID가 Listener bearer access다. 단기 Listener token, session 상태 검사, Origin 검증, 요청 rate limit은 유지한다.
+
 ## Goal
 
 청중은 Operator가 설정한 방송별 비밀번호로 입장하고, Local PC Publisher만 방송 데이터와 제어 이벤트를 송신하도록 Berlin backend에 별도 인증 체계를 추가한다.
