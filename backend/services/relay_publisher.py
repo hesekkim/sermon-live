@@ -138,9 +138,11 @@ class RelayPublisher:
         self._sequence = 0
         self._send_lock = asyncio.Lock()
         self._encoder_lock = asyncio.Lock()
+        self._session_provision_lock = asyncio.Lock()
         self._encoder: OpusPacketEncoder | None = None
         self._last_audio_timestamp_us = 0
         self._http: httpx.AsyncClient | None = None
+        self._remote_session_prepared = False
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._status_task: asyncio.Task[None] | None = None
         self._reconnect_task: asyncio.Task[None] | None = None
@@ -192,6 +194,58 @@ class RelayPublisher:
     def listener_count(self) -> int:
         return self._listener_count
 
+    async def prepare_session(self, session_id: str) -> None:
+        if not self.enabled:
+            return
+        if (
+            self._remote_session_prepared
+            and self._session_id == session_id
+        ):
+            return
+
+        self._last_error = None
+        try:
+            credential = self._secret(self._settings.relay_publisher_credential)
+            base_url = self._validate_base_url(self._settings.relay_url)
+            client = await self._http_client()
+            await self._ensure_remote_session(
+                client, base_url, session_id, credential
+            )
+            if not self.active:
+                self._state = "idle"
+        except asyncio.CancelledError:
+            await self._close_http_client()
+            raise
+        except Exception as error:
+            relay_error = (
+                error
+                if isinstance(error, RelayPublisherError)
+                else RelayPublisherError("Could not connect to the cloud relay")
+            )
+            self._last_error = str(relay_error)
+            self._state = "error"
+            await self._close_http_client()
+            if isinstance(error, RelayPublisherError):
+                raise
+            raise relay_error from error
+
+    async def shutdown(self) -> None:
+        if self.active:
+            await self.stop("server_shutdown")
+            return
+        try:
+            if self._remote_session_prepared and self._session_id is not None:
+                credential = self._secret(
+                    self._settings.relay_publisher_credential
+                )
+                base_url = self._validate_base_url(self._settings.relay_url)
+                await self._end_remote_session(
+                    base_url, self._session_id, credential
+                )
+        finally:
+            self._remote_session_prepared = False
+            await self._close_http_client()
+
     async def start(self, session_id: str) -> None:
         if not self.enabled:
             return
@@ -206,18 +260,9 @@ class RelayPublisher:
             credential = self._secret(self._settings.relay_publisher_credential)
             base_url = self._validate_base_url(self._settings.relay_url)
             client = await self._http_client()
-            response = await client.post(
-                f"{base_url}/sessions/{session_id}",
-                headers={"X-Publisher-Credential": credential},
+            await self._ensure_remote_session(
+                client, base_url, session_id, credential
             )
-            if response.status_code != 200:
-                if response.status_code in {401, 403}:
-                    raise RelayPublisherError(
-                        "Cloud relay Publisher authentication failed"
-                    )
-                raise RelayPublisherError(
-                    f"Cloud relay session setup failed (HTTP {response.status_code})"
-                )
 
             parsed = urlparse(base_url)
             websocket_scheme = "wss" if parsed.scheme == "https" else "ws"
@@ -231,7 +276,6 @@ class RelayPublisher:
                 open_timeout=10,
                 max_size=2 * 1024 * 1024,
             )
-            self._session_id = session_id
             self._encoder = self._new_encoder()
             await self._socket.send(
                 json.dumps(
@@ -280,6 +324,7 @@ class RelayPublisher:
                             "Cloud relay session shutdown failed after Publisher startup cancellation"
                         )
             finally:
+                self._remote_session_prepared = False
                 await self._close_http_client()
             raise
         except Exception as error:
@@ -303,6 +348,7 @@ class RelayPublisher:
                             f"{cleanup_error}"
                         ) from error
             finally:
+                self._remote_session_prepared = False
                 await self._close_http_client()
             if isinstance(error, RelayPublisherError):
                 raise
@@ -460,6 +506,7 @@ class RelayPublisher:
             base_url = self._validate_base_url(self._settings.relay_url)
             await self._end_remote_session(base_url, session_id, credential)
         finally:
+            self._remote_session_prepared = False
             await self._close_http_client()
         self._state = "ended"
         if send_error is not None:
@@ -511,6 +558,45 @@ class RelayPublisher:
         self._http = None
         if client is not None:
             await client.aclose()
+
+    async def _upsert_remote_session(
+        self,
+        client: httpx.AsyncClient,
+        base_url: str,
+        session_id: str,
+        credential: str,
+    ) -> None:
+        response = await client.post(
+            f"{base_url}/sessions/{session_id}",
+            headers={"X-Publisher-Credential": credential},
+        )
+        if response.status_code != 200:
+            if response.status_code in {401, 403}:
+                raise RelayPublisherError(
+                    "Cloud relay Publisher authentication failed"
+                )
+            raise RelayPublisherError(
+                f"Cloud relay session setup failed (HTTP {response.status_code})"
+            )
+        self._session_id = session_id
+        self._remote_session_prepared = True
+
+    async def _ensure_remote_session(
+        self,
+        client: httpx.AsyncClient,
+        base_url: str,
+        session_id: str,
+        credential: str,
+    ) -> None:
+        async with self._session_provision_lock:
+            if (
+                self._remote_session_prepared
+                and self._session_id == session_id
+            ):
+                return
+            await self._upsert_remote_session(
+                client, base_url, session_id, credential
+            )
 
     @staticmethod
     async def _run_encoder_work(operation: Callable[[], list[bytes]]) -> list[bytes]:

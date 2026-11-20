@@ -94,6 +94,8 @@ Raw Opus packets are preferred over an Ogg container for WebSockets. One WebSock
 
 The session ID is the Listener's bearer access credential. The Listener requests a short-lived token with `POST {APP_RELAY_URL}/sessions/{sessionId}/listener-token` and no request body. The relay issues a token only while the Publisher reports the broadcast as live; an inactive broadcast receives HTTP 409. The session ID is random and must only be shared with the intended audience. After admission, the Listener opens a WebSocket and sends no credentials in the URL.
 
+The Local Operator allocates one session ID when its server process starts. Opening the Operator's Listener QR share provisions that ID on the relay even before a Publisher connects, so the QR can be displayed before the broadcast. Listener admission remains unavailable until the broadcast is live. Starting a broadcast reuses the process's session ID. Stopping a broadcast ends its relay session generation; a subsequent broadcast re-registers the same ID. Shutting down the Operator ends any prepared relay session.
+
 The Listener then opens `WSS {APP_RELAY_URL}/ws/listener/{sessionId}`. The first WebSocket text message is `{"type":"listener_hello","session_id":"...","listener_token":"..."}`. The relay validates the token before registering the Listener or sending `listener_ready`; the token is never placed in a query parameter.
 
 The standalone Vercel Listener receives its public relay API base through

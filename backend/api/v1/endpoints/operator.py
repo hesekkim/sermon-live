@@ -9,6 +9,7 @@ from services.operator_store import store
 from services.runtime import audio, session
 from services.session_service import SessionTransitionError
 from services.operator_auth import require_http_operator, require_websocket_operator
+from services.relay_publisher import RelayPublisherError
 
 router = APIRouter()
 
@@ -38,17 +39,14 @@ class OperatorListenerShareResponse(BaseModel):
     response_model=OperatorListenerShareResponse,
     dependencies=[Depends(require_http_operator)],
 )
-def get_operator_listener_share() -> OperatorListenerShareResponse:
+async def get_operator_listener_share() -> OperatorListenerShareResponse:
     settings = get_settings()
     listener_url = settings.relay_listener_url
     session_status = session.status()
     session_id = session_status.get("session_id")
-    relay_is_live = (
-        session_status.get("session_status") == "live"
-        and session_status.get("relay_status") == "live"
-    )
     if (
-        not relay_is_live
+        not settings.relay_url.strip()
+        or not listener_url
         or not isinstance(session_id, str)
         or not session_id
     ):
@@ -56,23 +54,30 @@ def get_operator_listener_share() -> OperatorListenerShareResponse:
             listener_url=None,
             session_id=None,
         )
-    if listener_url and session_id:
-        from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
+    try:
+        await session.prepare_listener_share()
+    except RelayPublisherError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Cloud Listener sharing is unavailable",
+        ) from exc
 
-        parsed = urlsplit(listener_url)
-        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
-        query["session"] = session_id
-        listener_url = urlunsplit(
-            (
-                parsed.scheme,
-                parsed.netloc,
-                parsed.path or "/listen",
-                urlencode(query),
-                "",
-            )
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+    parsed = urlsplit(listener_url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query["session"] = session_id
+    listener_url = urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path or "/listen",
+            urlencode(query),
+            "",
         )
+    )
     return OperatorListenerShareResponse(
-        listener_url=listener_url or None,
+        listener_url=listener_url,
         session_id=session_id,
     )
 

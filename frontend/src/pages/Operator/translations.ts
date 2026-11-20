@@ -194,6 +194,7 @@ export interface OperatorCopy {
   listenQrTitle: string;
   listenQrLoading: string;
   listenQrUnavailable: string;
+  listenQrRelayUnavailable: string;
   listenQrAddress: string;
   listenQrCopy: string;
   listenQrCopied: string;
@@ -408,6 +409,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     listenQrLoading: '접속 주소를 확인하는 중입니다',
     listenQrUnavailable:
       '접속 가능한 LAN 주소를 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.',
+    listenQrRelayUnavailable:
+      'Cloud Listener 중계 세션을 준비하지 못했습니다. 중계 서버 설정과 연결 상태를 확인한 후 다시 시도하세요.',
     listenQrAddress: '청취 주소',
     listenQrCopy: '주소 복사',
     listenQrCopied: '주소를 복사했습니다',
@@ -622,6 +625,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     listenQrLoading: 'Checking the listener address',
     listenQrUnavailable:
       'A reachable LAN address could not be found. Check the network and try again.',
+    listenQrRelayUnavailable:
+      'Could not prepare the Cloud Listener relay session. Check the relay configuration and connection, then try again.',
     listenQrAddress: 'Listener address',
     listenQrCopy: 'Copy address',
     listenQrCopied: 'Address copied',
@@ -837,6 +842,8 @@ export const operatorCopy: Record<UiLanguage, OperatorCopy> = {
     listenQrLoading: 'Höreradresse wird geprüft',
     listenQrUnavailable:
       'Es wurde keine erreichbare LAN-Adresse gefunden. Netzwerk prüfen und erneut versuchen.',
+    listenQrRelayUnavailable:
+      'Die Cloud-Listener-Relaysitzung konnte nicht vorbereitet werden. Relay-Konfiguration und Verbindung prüfen und erneut versuchen.',
     listenQrAddress: 'Höreradresse',
     listenQrCopy: 'Adresse kopieren',
     listenQrCopied: 'Adresse kopiert',

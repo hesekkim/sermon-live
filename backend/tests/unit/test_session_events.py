@@ -316,7 +316,9 @@ async def test_interpreter_reconnect_is_published_without_ending_session(
 
 
 @pytest.mark.asyncio
-async def test_each_session_start_gets_a_new_session_id(tmp_path, monkeypatch):
+async def test_operator_session_id_is_available_before_broadcast_and_reused(
+    tmp_path, monkeypatch
+):
     store = OperatorSettingsStore(tmp_path / "session-id.json")
     store.save(interpreter="openai", openai_api_key="test-key")
     hub = FakeHub()
@@ -326,10 +328,13 @@ async def test_each_session_start_gets_a_new_session_id(tmp_path, monkeypatch):
         lambda _settings, **_kwargs: FakeOpenAIInterpreter(),
     )
     service = SessionService(Settings(interpreter="echo"), hub, FakeAudioRuntime(), store)
-    assert service.status()["session_id"] is None
+    initial_id = service.status()["session_id"]
+    assert isinstance(initial_id, str)
+    assert len(initial_id) == 32
 
     await service.start()
     first_id = service.status()["session_id"]
+    assert first_id == initial_id
     await service.stop()
     assert service.status()["session_id"] == first_id
     assert hub.operator[-1] == {**hub.operator[-1], "session_id": first_id}
@@ -338,7 +343,7 @@ async def test_each_session_start_gets_a_new_session_id(tmp_path, monkeypatch):
     second_id = service.status()["session_id"]
     await service.stop()
 
-    assert first_id and second_id and first_id != second_id
+    assert second_id == first_id
 
 
 @pytest.mark.asyncio

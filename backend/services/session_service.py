@@ -12,7 +12,7 @@ from services.broadcast import BroadcastHub
 from services.interpreters.factory import create_interpreter
 from services.interpreters.protocol import KeyValidationError, LiveInterpreter
 from services.operator_store import OperatorSettingsStore, store as default_store
-from services.relay_publisher import RelayPublisher
+from services.relay_publisher import RelayPublisher, RelayPublisherError
 from services.scripture import (
     GermanScriptureReferenceStream,
     get_luther_1912_corpus,
@@ -52,7 +52,7 @@ class _TranslationSessionService:
         self._state: SessionState = "off"
         self._error: str | None = None
         self._last_termination_reason: str | None = None
-        self._session_id: str | None = None
+        self._session_id: str | None = uuid.uuid4().hex
         self._interpreter_reconnecting = False
         self._interpreter: LiveInterpreter | None = None
         self._audio_task: asyncio.Task[None] | None = None
@@ -139,6 +139,11 @@ class _TranslationSessionService:
         payload = self.status()
         payload["type"] = "translation_status"
         return payload
+
+    async def prepare_listener_share(self) -> None:
+        if self._session_id is None:
+            raise RuntimeError("Listener session is unavailable")
+        await self._relay.prepare_session(self._session_id)
 
     def _auto_stop_seconds(self) -> float:
         settings = self._active_settings or self._settings
@@ -244,7 +249,6 @@ class _TranslationSessionService:
                 raise RuntimeError(message)
             self._state = "starting"
             self._start_task = asyncio.current_task()
-            self._session_id = uuid.uuid4().hex
             self._interpreter_reconnecting = False
             self._error = None
             self._last_termination_reason = None
@@ -405,6 +409,10 @@ class _TranslationSessionService:
             await asyncio.gather(start_task, return_exceptions=True)
         if self._state == "live":
             await self.stop("server_shutdown")
+        try:
+            await self._relay.shutdown()
+        except RelayPublisherError:
+            logger.exception("Cloud relay session shutdown failed")
 
     async def _abort_start(self, interpreter: LiveInterpreter | None) -> None:
         async with self._transition_lock:

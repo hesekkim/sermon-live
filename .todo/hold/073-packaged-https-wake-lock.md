@@ -1,6 +1,6 @@
 # 073 패키지의 HTTPS/Wake Lock 설정과 검증
 
-상태: 진행
+상태: 보류
 우선순위: 보통
 
 ## Goal
@@ -40,12 +40,12 @@ Windows와 macOS 패키지에서 기존 HTTPS/WSS 설정을 사용할 수 있게
 ## Acceptance criteria
 
 - [ ] Windows/macOS 패키지에서 인증서와 키 경로를 설정해 HTTPS 서버를 시작할 수 있다.
-- [x] 인증서/키가 한쪽만 설정된 경우 명시적 오류가 발생하고, 둘 다 없으면 기존 HTTP 동작이 유지된다.
-- [x] HTTPS Listener origin의 WebSocket 연결이 WSS를 사용한다.
+- [X] 인증서/키가 한쪽만 설정된 경우 명시적 오류가 발생하고, 둘 다 없으면 기존 HTTP 동작이 유지된다.
+- [X] HTTPS Listener origin의 WebSocket 연결이 WSS를 사용한다.
 - [ ] 신뢰된 인증서가 설치된 지원 모바일 브라우저에서 `window.isSecureContext`가 true이고, 지원 시 Screen Wake Lock 요청이 동작한다.
-- [x] HTTP 또는 신뢰되지 않은 origin을 Wake Lock 활성 상태로 표시하지 않는다.
+- [X] HTTP 또는 신뢰되지 않은 origin을 Wake Lock 활성 상태로 표시하지 않는다.
 - [ ] 인증서 private key가 저장소, 패키지, 로그, 청중 기기 전달 자료에 포함되지 않는다.
-- [x] 문서에 인증서 신뢰 요건, LAN IP/DNS 이름 일치, 로컬 CA 공개 인증서와 private key의 구분을 안내한다.
+- [X] 문서에 인증서 신뢰 요건, LAN IP/DNS 이름 일치, 로컬 CA 공개 인증서와 private key의 구분을 안내한다.
 
 ## Tests and verification
 

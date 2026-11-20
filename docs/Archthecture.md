@@ -305,7 +305,7 @@ Listener가 Berlin relay로 보내는 message는 다음 두 가지다.
 | `{"type":"ping"}` | heartbeat. 서버는 `{"type":"pong"}`으로 응답한다. |
 | `{"type":"audio","enabled":true\|false}` | 이 연결로 바이너리 audio를 받을지 여부. 연결 기본값은 `false`. |
 
-`session_id`는 Translation Session을 시작할 때마다 새로 발급된다. Listener access token은 session별 최대 90분이며 자동 갱신은 `.todo/084` 범위다.
+`session_id`는 Operator 서버 프로세스 시작 시 발급되고, Listener QR을 열면 방송 시작 전에도 relay에 등록된다. 방송 시작 시에는 같은 ID를 재사용하며 Operator 프로세스 종료 시 세션을 종료한다. Listener access token은 relay session generation별 최대 90분이며 자동 갱신은 `.todo/084` 범위다.
 
 HTTP status와 WebSocket 종료 이벤트의 도착 순서가 달라도 Operator의 최종 UI 상태는 일관돼야 한다. `session_ended`를 받은 뒤 정상 종료는 OFF, fatal error 종료는 error로 정규화한다. `auto_stop` 같은 내부 code는 UI에서 localization된 label로 변환한다.
 

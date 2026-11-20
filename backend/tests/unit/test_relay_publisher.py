@@ -87,6 +87,8 @@ async def test_relay_publisher_provisions_and_sends_encoded_events(monkeypatch):
     )
     publisher = RelayPublisher(settings)
 
+    await publisher.prepare_session("a" * 32)
+    assert publisher.state == "idle"
     await publisher.start("a" * 32)
     await publisher.send_subtitle("Guten Morgen", "de")
     await publisher.send_scripture(
@@ -146,6 +148,31 @@ async def test_listener_status_polling_reuses_one_http_client(monkeypatch):
 
     assert publisher.listener_count == 1
     assert len(FakeHttpClient.instances) == 1
+
+
+@pytest.mark.asyncio
+async def test_shutdown_ends_a_prepared_session_without_a_publisher_socket(
+    monkeypatch,
+):
+    FakeHttpClient.requests = []
+    FakeHttpClient.instances = []
+    monkeypatch.setattr(relay_module.httpx, "AsyncClient", FakeHttpClient)
+    publisher = RelayPublisher(
+        Settings(
+            _env_file=None,
+            relay_url="https://relay.example.com/api/v1/relay",
+            relay_publisher_credential=SecretStr("p" * 40),
+        )
+    )
+
+    await publisher.prepare_session("a" * 32)
+    await publisher.shutdown()
+
+    assert FakeHttpClient.requests[0][0].endswith("/sessions/" + "a" * 32)
+    assert FakeHttpClient.requests[1][0].endswith(
+        "/sessions/" + "a" * 32 + "/end"
+    )
+    assert FakeHttpClient.instances[0].closed
 
 
 @pytest.mark.asyncio

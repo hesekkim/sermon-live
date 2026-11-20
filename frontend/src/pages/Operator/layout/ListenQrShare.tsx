@@ -33,7 +33,7 @@ export default function ListenQrShare({ labels }: { labels: OperatorCopy }) {
   const [copyStatus, setCopyStatus] = useState<'copied' | 'failed' | null>(
     null,
   );
-  const { url, isLoading, hasError, refresh } = useListenQr();
+  const { url, isLoading, hasError, hasRelayError, refresh } = useListenQr();
 
   const openDialog = () => {
     setIsOpen(true);
@@ -79,7 +79,11 @@ export default function ListenQrShare({ labels }: { labels: OperatorCopy }) {
           {isLoading ? <p role="status">{labels.listenQrLoading}</p> : null}
           {hasError ? (
             <div className={styles.error}>
-              <p role="alert">{labels.listenQrUnavailable}</p>
+              <p role="alert">
+                {hasRelayError
+                  ? labels.listenQrRelayUnavailable
+                  : labels.listenQrUnavailable}
+              </p>
               <Button
                 variant="secondary"
                 icon={<LuRefreshCw size={16} />}

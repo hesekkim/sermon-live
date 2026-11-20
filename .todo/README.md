@@ -26,7 +26,6 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 
 1. `071-windows-installable-package.md` — Windows 자체 포함 패키지와 LAN 운영 안내 (`070` 공통 기반 완료)
 2. `072-macos-installable-package.md` — macOS `.app`/DMG, CoreAudio와 마이크 권한 (`070` 공통 기반 완료)
-3. `073-packaged-https-wake-lock.md` — 두 OS 패키지의 HTTPS/WSS 및 모바일 Screen Wake Lock 검증 (`071`, `072` 이후)
 
 첫 대상은 Windows와 macOS다. `build.bat`은 개발자용으로 유지하며, OS별 패키지는 해당 OS에서 빌드·검증한다. HTTPS는 기존 인증서/키 설정을 유지하고, 자동 발급·갱신이나 로컬 CA 자동 생성은 범위에서 제외한다. 코드 서명·공증은 Wake Lock 조건이 아니며, 외부 일반 공개 배포 범위가 정해지면 별도로 결정한다.
 
@@ -47,6 +46,7 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 3. `021-frontend-glossary-ui.md` — Settings의 Global Glossary와 Sermon의 Today's Glossary UI
 4. `022-backend-runtime-instruction-wiring.md` — runtime context 지원 확인 후 주입 경계 구현 (현재 보류)
 5. `023-backend-sermon-session-runtime-context.md` — 실제 Sermon Session 필드 기반 context (현재 보류)
+6. `073-packaged-https-wake-lock.md` — 두 OS 패키지의 HTTPS/WSS 및 모바일 Screen Wake Lock 검증 (`071`, `072` 이후)
 
 ## 완료 및 폐기 기록 (`done/`)
 
@@ -121,6 +121,7 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 67. `079-local-cloud-publisher-and-opus-encoding.md` — Local Publisher의 Opus 압축 송출, 재접속 큐와 종료 처리
 68. `080-operator-cloud-broadcast-controls.md` — Operator의 중계 설정, 입장 비밀번호 및 Listener 링크/QR 제어
 69. `081-vercel-listener-cloud-playback.md` — remote-only Vercel Listener, live-only 입장, Opus 재생 및 종료 UX (구현·자동 검증 완료; 배포 검증은 083)
+70. `085-operator-listen-qr-before-broadcast.md` — Operator 시작 시 Listener 세션 사전 발급, 방송 전 QR 공유 (구현·자동 검증 완료)
 
 ## 결정 사항
 

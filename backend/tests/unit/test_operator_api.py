@@ -13,16 +13,20 @@ def test_session_is_idle_until_started(operator_client):
     response = operator_client.get("/api/v1/session")
     assert response.status_code == 200
     assert response.json()["running"] is False
+    assert len(response.json()["session_id"]) == 32
     assert "sermon_session_id" not in response.json()
 
 
-def test_listener_share_requires_a_live_cloud_relay(
+def test_listener_share_is_unavailable_without_cloud_relay_configuration(
     operator_client, monkeypatch
 ):
     monkeypatch.setattr(
         operator_endpoint,
         "get_settings",
-        lambda: Settings(relay_listener_url="https://listener.example"),
+        lambda: Settings(
+            relay_url="",
+            relay_listener_url="https://listener.example",
+        ),
     )
     monkeypatch.setattr(
         operator_endpoint.session,
@@ -40,20 +44,33 @@ def test_listener_share_requires_a_live_cloud_relay(
     assert response.json() == {"listener_url": None, "session_id": None}
 
 
-def test_listener_share_includes_session_only_for_live_cloud_relay(
+def test_listener_share_is_available_before_broadcast_starts(
     operator_client, monkeypatch
 ):
+    prepared = []
+
+    async def record_prepare_share():
+        prepared.append(True)
+
     monkeypatch.setattr(
         operator_endpoint,
         "get_settings",
-        lambda: Settings(relay_listener_url="https://listener.example"),
+        lambda: Settings(
+            relay_url="https://relay.example/api/v1/relay",
+            relay_listener_url="https://listener.example",
+        ),
+    )
+    monkeypatch.setattr(
+        operator_endpoint.session,
+        "prepare_listener_share",
+        record_prepare_share,
     )
     monkeypatch.setattr(
         operator_endpoint.session,
         "status",
         lambda: {
-            "session_status": "live",
-            "relay_status": "live",
+            "session_status": "off",
+            "relay_status": "idle",
             "session_id": "session-123",
         },
     )
@@ -61,6 +78,7 @@ def test_listener_share_includes_session_only_for_live_cloud_relay(
     response = operator_client.get("/api/v1/operator/listener-share")
 
     assert response.status_code == 200
+    assert prepared == [True]
     assert response.json() == {
         "listener_url": "https://listener.example/listen?session=session-123",
         "session_id": "session-123",
@@ -73,7 +91,10 @@ def test_listener_share_is_unavailable_without_a_session_id(
     monkeypatch.setattr(
         operator_endpoint,
         "get_settings",
-        lambda: Settings(relay_listener_url="https://listener.example"),
+        lambda: Settings(
+            relay_url="https://relay.example/api/v1/relay",
+            relay_listener_url="https://listener.example",
+        ),
     )
     monkeypatch.setattr(
         operator_endpoint.session,
@@ -89,6 +110,37 @@ def test_listener_share_is_unavailable_without_a_session_id(
 
     assert response.status_code == 200
     assert response.json() == {"listener_url": None, "session_id": None}
+
+
+def test_listener_share_reports_relay_preparation_errors(
+    operator_client, monkeypatch
+):
+    async def fail_prepare_share():
+        raise operator_endpoint.RelayPublisherError("relay unavailable")
+
+    monkeypatch.setattr(
+        operator_endpoint,
+        "get_settings",
+        lambda: Settings(
+            relay_url="https://relay.example/api/v1/relay",
+            relay_listener_url="https://listener.example",
+        ),
+    )
+    monkeypatch.setattr(
+        operator_endpoint.session,
+        "prepare_listener_share",
+        fail_prepare_share,
+    )
+    monkeypatch.setattr(
+        operator_endpoint.session,
+        "status",
+        lambda: {"session_id": "session-123"},
+    )
+
+    response = operator_client.get("/api/v1/operator/listener-share")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Cloud Listener sharing is unavailable"
 
 
 def test_sermon_session_routes_are_not_registered(operator_client):

@@ -249,6 +249,9 @@ async def test_shutdown_stops_relay_when_start_is_cancelled_during_relay_setup(
             self.stopped_with.append(reason)
             self.active = False
 
+        async def shutdown(self):
+            return None
+
         async def send_status(self, _status):
             return None
 

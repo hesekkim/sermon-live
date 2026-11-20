@@ -9,13 +9,20 @@ export function useListenQr() {
   const [url, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [hasRelayError, setHasRelayError] = useState(false);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
     setHasError(false);
+    setHasRelayError(false);
     setUrl(null);
     try {
       const shareResponse = await operatorFetch('/api/v1/operator/listener-share');
+      if (shareResponse.status === 503) {
+        setHasError(true);
+        setHasRelayError(true);
+        return;
+      }
       if (shareResponse.ok) {
         const share = (await shareResponse.json()) as OperatorListenerShareResponse;
         if (share.listener_url) {
@@ -31,5 +38,5 @@ export function useListenQr() {
     }
   }, []);
 
-  return { url, isLoading, hasError, refresh };
+  return { url, isLoading, hasError, hasRelayError, refresh };
 }

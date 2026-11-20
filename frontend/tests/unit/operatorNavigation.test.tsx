@@ -93,6 +93,7 @@ let logoutUnavailable = false;
 let logoutForbidden = false;
 let protectedApiForbidden = false;
 let listenerShareUrl = 'https://listener.example/listen?session=session-123';
+let listenerShareFailureStatus: number | null = null;
 let relayStatus = 'disabled';
 let relayError: string | null = null;
 let inputTranscriptEnabled = false;
@@ -108,6 +109,7 @@ beforeEach(() => {
   logoutForbidden = false;
   protectedApiForbidden = false;
   listenerShareUrl = 'https://listener.example/listen?session=session-123';
+  listenerShareFailureStatus = null;
   relayStatus = 'disabled';
   relayError = null;
   inputTranscriptEnabled = false;
@@ -147,6 +149,13 @@ beforeEach(() => {
           translation_target_language: 'de',
         };
       } else if (url.includes('/operator/listener-share')) {
+        if (listenerShareFailureStatus !== null) {
+          return {
+            ok: false,
+            status: listenerShareFailureStatus,
+            json: async () => ({ detail: 'Cloud Listener sharing is unavailable' }),
+          } as Response;
+        }
         payload = {
           listener_url: listenerShareUrl,
           session_id: 'session-123',
@@ -245,6 +254,29 @@ describe('Operator navigation', () => {
     expect((dialog.querySelector('input') as HTMLInputElement).value).toBe(
       listenerShareUrl,
     );
+
+    page.cleanup();
+  });
+
+  it('shows a cloud relay error when Listener share preparation returns 503', async () => {
+    listenerShareFailureStatus = 503;
+    const page = await renderApp('/operator');
+
+    await act(async () => {
+      (
+        page.container.querySelector(
+          'button[aria-label="청취 QR"]',
+        ) as HTMLButtonElement
+      ).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog).toHaveTextContent(
+      'Cloud Listener 중계 세션을 준비하지 못했습니다',
+    );
+    expect(dialog).not.toHaveTextContent('접속 가능한 LAN 주소를 확인하지 못했습니다');
 
     page.cleanup();
   });
