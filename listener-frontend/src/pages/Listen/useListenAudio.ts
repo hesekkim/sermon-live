@@ -382,7 +382,6 @@ export function useListenAudio() {
           }
           await decoder.ready;
           if (hasSequenceGap || hasTimestampGap) {
-            clearScheduledAudio(audioContextRef.current ?? undefined);
             await decoder.reset();
           }
           const decoded = decoder.decodeFrame(parsed.payload);
@@ -686,7 +685,6 @@ export function useListenAudio() {
           subtitleGapRef.current = true;
           decoderQueueRef.current = decoderQueueRef.current.then(async () => {
             await decoderRef.current?.reset();
-            clearScheduledAudio(audioContextRef.current ?? undefined);
           });
           return;
         }

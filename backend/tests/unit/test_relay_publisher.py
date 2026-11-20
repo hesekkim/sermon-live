@@ -27,22 +27,22 @@ class FakeResponse:
 
 class FakeHttpClient:
     requests = []
+    instances = []
     status_payload = {"status": "live", "listener_count": 1}
 
     def __init__(self, timeout):
         self.timeout = timeout
+        self.closed = False
+        self.instances.append(self)
 
-    async def __aenter__(self):
-        return self
+    async def aclose(self):
+        self.closed = True
 
-    async def __aexit__(self, *_args):
-        return None
-
-    async def post(self, url, *, headers, json=None):
+    async def post(self, url, *, headers, json=None, **_kwargs):
         self.requests.append((url, headers, json))
         return FakeResponse()
 
-    async def get(self, _url, *, headers):
+    async def get(self, _url, *, headers, **_kwargs):
         return FakeResponse(payload=self.status_payload)
 
 
@@ -70,6 +70,7 @@ class FakeSocket:
 @pytest.mark.asyncio
 async def test_relay_publisher_provisions_and_sends_encoded_events(monkeypatch):
     FakeHttpClient.requests = []
+    FakeHttpClient.instances = []
     socket = FakeSocket()
     connect_args = []
 
@@ -119,6 +120,32 @@ async def test_relay_publisher_provisions_and_sends_encoded_events(monkeypatch):
     assert socket.sent[4][:4] == b"SL1A"
     assert json.loads(socket.sent[5])["type"] == "publisher_close"
     assert socket.closed
+    assert len(FakeHttpClient.instances) == 1
+    assert FakeHttpClient.instances[0].closed
+
+
+@pytest.mark.asyncio
+async def test_listener_status_polling_reuses_one_http_client(monkeypatch):
+    FakeHttpClient.instances = []
+    monkeypatch.setattr(relay_module.httpx, "AsyncClient", FakeHttpClient)
+    monkeypatch.setattr(RelayPublisher, "_LISTENER_POLL_INTERVAL_SECONDS", 0)
+    publisher = RelayPublisher(
+        Settings(
+            _env_file=None,
+            relay_url="https://relay.example.com",
+            relay_publisher_credential=SecretStr("p" * 40),
+        )
+    )
+    publisher._socket = FakeSocket()
+    publisher._session_id = "a" * 32
+    status_task = asyncio.create_task(publisher._poll_listener_status())
+    for _ in range(20):
+        await asyncio.sleep(0.01)
+    status_task.cancel()
+    await asyncio.gather(status_task, return_exceptions=True)
+
+    assert publisher.listener_count == 1
+    assert len(FakeHttpClient.instances) == 1
 
 
 @pytest.mark.asyncio
@@ -142,7 +169,10 @@ async def test_send_audio_skips_encoding_when_status_confirms_no_listeners(
     publisher._socket = socket
     publisher._session_id = "a" * 32
     status_task = asyncio.create_task(publisher._poll_listener_status())
-    await asyncio.sleep(0)
+    for _ in range(100):
+        if publisher._listener_status_known:
+            break
+        await asyncio.sleep(0.01)
 
     await publisher.send_audio(bytes(960), 24000)
 
@@ -252,7 +282,7 @@ async def test_start_cancellation_ends_provisioned_remote_session(monkeypatch):
 @pytest.mark.asyncio
 async def test_start_error_reports_provision_and_cleanup_failures(monkeypatch):
     class RejectingHttpClient(FakeHttpClient):
-        async def post(self, url, *, headers, json=None):
+        async def post(self, url, *, headers, json=None, **_kwargs):
             self.requests.append((url, headers, json))
             return FakeResponse(422 if not url.endswith("/end") else 401)
 
@@ -282,7 +312,7 @@ async def test_provision_request_cancellation_attempts_remote_session_end(monkey
     provisioning = asyncio.Event()
 
     class BlockingProvisionClient(FakeHttpClient):
-        async def post(self, url, *, headers, json=None):
+        async def post(self, url, *, headers, json=None, **_kwargs):
             self.requests.append((url, headers, json))
             if url.endswith("/end"):
                 return FakeResponse()
@@ -322,6 +352,37 @@ def test_opus_encoder_emits_protocol_audio_frames():
     assert payload_length == len(frame) - 20
     assert payload_length <= 1275
     assert int.from_bytes(frame[16:20], "big") == 0
+
+
+def test_opus_frame_timestamps_follow_media_time_across_encode_calls():
+    encoder = OpusPacketEncoder(timestamp_base_us=1_000_000)
+
+    frames = encoder.encode(bytes(960 * 3), 24000)
+    frames += encoder.encode(bytes(960 * 2), 24000)
+
+    assert [int.from_bytes(frame[8:16], "big") for frame in frames] == [
+        1_000_000 + index * 20_000 for index in range(5)
+    ]
+    assert encoder.next_timestamp_us == 1_100_000
+
+
+def test_replacement_encoder_never_moves_timestamps_backwards():
+    publisher = RelayPublisher(
+        Settings(
+            _env_file=None,
+            relay_url="https://relay.example.com",
+            relay_publisher_credential=SecretStr("p" * 40),
+        )
+    )
+    far_future = relay_module.time.monotonic_ns() // 1000 + 60_000_000
+    publisher._encoder = OpusPacketEncoder(timestamp_base_us=far_future)
+    publisher._encoder.encode(bytes(960), 24000)
+    publisher._audio_epoch = 1
+
+    replacement = publisher._new_encoder()
+
+    assert replacement.next_sequence == 1 << 28
+    assert replacement.next_timestamp_us == far_future + 20_000
 
 
 def test_cloud_relay_rejects_non_https_url_outside_debug():

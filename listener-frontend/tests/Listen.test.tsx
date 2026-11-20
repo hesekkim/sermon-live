@@ -281,6 +281,8 @@ describe('remote Listener', () => {
     });
     expect(decoderMock.instances[0]?.reset).toHaveBeenCalledOnce();
     expect(decoderMock.instances[0]?.decodeFrame).toHaveBeenCalledTimes(2);
+    expect(MockAudioContext.sources[0]?.stop).not.toHaveBeenCalled();
+    expect(MockAudioContext.sources).toHaveLength(2);
     expect(localStorage.getItem('sermon-listener-preferences')).not.toContain(
       'opaque-listener-token',
     );

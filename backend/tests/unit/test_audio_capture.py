@@ -457,10 +457,11 @@ async def test_audio_capture_bounds_queue_and_keeps_latest_chunks():
 
 
 @pytest.mark.asyncio
-async def test_audio_capture_coalesces_callbacks_while_event_loop_is_busy():
+async def test_audio_capture_buffers_callbacks_while_event_loop_is_busy():
     settings = Settings(input_sample_rate=16000, audio_chunk_frames=1024)
     capture = AudioCapture(settings)
     capture._input_format = (16000, 1, 2)
+    capture._resize_buffers(16000)
     capture._loop = asyncio.get_running_loop()
     capture._accept_chunks = True
     chunks = [value.to_bytes(2, "little") * settings.audio_chunk_frames for value in range(8)]
@@ -469,12 +470,35 @@ async def test_audio_capture_coalesces_callbacks_while_event_loop_is_busy():
         capture._on_chunk(chunk, settings.audio_chunk_frames, None, 0)
     await asyncio.sleep(0)
 
-    assert capture._queue.qsize() == 1
-    assert capture._queue.get_nowait() == chunks[-1]
-    assert capture.dropped_chunks == len(chunks) - 1
-    assert capture.dropped_duration_seconds == pytest.approx(
-        (len(chunks) - 1) * settings.audio_chunk_frames / 16000
-    )
+    retained = [capture._queue.get_nowait() for _ in range(capture._queue.qsize())]
+    assert retained == chunks
+    assert capture.dropped_chunks == 0
+    await capture.stop()
+
+
+@pytest.mark.asyncio
+async def test_audio_capture_bounds_pending_callbacks_to_one_second():
+    settings = Settings(input_sample_rate=48000, audio_chunk_frames=1024)
+    capture = AudioCapture(settings)
+    capture._input_format = (48000, 1, 2)
+    capture._resize_buffers(48000)
+    capture._loop = asyncio.get_running_loop()
+    capture._accept_chunks = True
+    limit = capture._max_buffered_chunks
+    chunks = [
+        (value % 65536).to_bytes(2, "little") * settings.audio_chunk_frames
+        for value in range(limit + 4)
+    ]
+
+    for chunk in chunks:
+        capture._on_chunk(chunk, settings.audio_chunk_frames, None, 0)
+    await asyncio.sleep(0)
+
+    retained = [capture._queue.get_nowait() for _ in range(capture._queue.qsize())]
+    assert limit == 46
+    assert retained == chunks[-limit:]
+    assert capture.dropped_chunks == 4
+    assert capture.dropped_duration_seconds == pytest.approx(4 * 1024 / 48000)
     await capture.stop()
 
 

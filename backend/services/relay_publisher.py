@@ -22,6 +22,7 @@ from core.config import Settings
 PROTOCOL = "sermon-live/1"
 SAMPLE_RATE = 24000
 FRAME_SAMPLES = 480
+PACKET_DURATION_US = FRAME_SAMPLES * 1_000_000 // SAMPLE_RATE
 MAX_OPUS_PACKET_BYTES = 1275
 MAX_SCRIPTURE_EVENT_BYTES = 8 * 1024
 
@@ -33,7 +34,9 @@ class RelayPublisherError(RuntimeError):
 
 
 class OpusPacketEncoder:
-    def __init__(self, sequence_base: int = 0) -> None:
+    def __init__(
+        self, sequence_base: int = 0, timestamp_base_us: int | None = None
+    ) -> None:
         self._codec = av.CodecContext.create("libopus", "w")
         self._codec.sample_rate = SAMPLE_RATE
         self._codec.layout = "mono"
@@ -46,10 +49,19 @@ class OpusPacketEncoder:
         )
         self._pending = np.empty(0, dtype=np.int16)
         self._sequence = sequence_base
+        self._timestamp_us = (
+            time.monotonic_ns() // 1000
+            if timestamp_base_us is None
+            else timestamp_base_us
+        )
 
     @property
     def next_sequence(self) -> int:
         return self._sequence
+
+    @property
+    def next_timestamp_us(self) -> int:
+        return self._timestamp_us
 
     def encode(self, pcm: bytes, sample_rate: int) -> list[bytes]:
         if not pcm or sample_rate <= 0 or len(pcm) % 2:
@@ -84,15 +96,15 @@ class OpusPacketEncoder:
     def _header(self, payload: bytes) -> bytes:
         if self._sequence >= 2**32:
             raise RelayPublisherError("Opus packet sequence exhausted")
-        timestamp_us = time.monotonic_ns() // 1000
         header = (
             b"SL1A"
             + bytes((1, 0))
             + len(payload).to_bytes(2, "little")
-            + timestamp_us.to_bytes(8, "big")
+            + self._timestamp_us.to_bytes(8, "big")
             + self._sequence.to_bytes(4, "big")
         )
         self._sequence += 1
+        self._timestamp_us += PACKET_DURATION_US
         return header + payload
 
     def flush(self) -> list[bytes]:
@@ -127,6 +139,8 @@ class RelayPublisher:
         self._send_lock = asyncio.Lock()
         self._encoder_lock = asyncio.Lock()
         self._encoder: OpusPacketEncoder | None = None
+        self._last_audio_timestamp_us = 0
+        self._http: httpx.AsyncClient | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._status_task: asyncio.Task[None] | None = None
         self._reconnect_task: asyncio.Task[None] | None = None
@@ -191,19 +205,19 @@ class RelayPublisher:
         try:
             credential = self._secret(self._settings.relay_publisher_credential)
             base_url = self._validate_base_url(self._settings.relay_url)
-            async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.post(
-                    f"{base_url}/sessions/{session_id}",
-                    headers={"X-Publisher-Credential": credential},
-                )
-                if response.status_code != 200:
-                    if response.status_code in {401, 403}:
-                        raise RelayPublisherError(
-                            "Cloud relay Publisher authentication failed"
-                        )
+            client = await self._http_client()
+            response = await client.post(
+                f"{base_url}/sessions/{session_id}",
+                headers={"X-Publisher-Credential": credential},
+            )
+            if response.status_code != 200:
+                if response.status_code in {401, 403}:
                     raise RelayPublisherError(
-                        f"Cloud relay session setup failed (HTTP {response.status_code})"
+                        "Cloud relay Publisher authentication failed"
                     )
+                raise RelayPublisherError(
+                    f"Cloud relay session setup failed (HTTP {response.status_code})"
+                )
 
             parsed = urlparse(base_url)
             websocket_scheme = "wss" if parsed.scheme == "https" else "ws"
@@ -218,7 +232,7 @@ class RelayPublisher:
                 max_size=2 * 1024 * 1024,
             )
             self._session_id = session_id
-            self._encoder = OpusPacketEncoder(self._audio_epoch << 28)
+            self._encoder = self._new_encoder()
             await self._socket.send(
                 json.dumps(
                     {
@@ -255,13 +269,18 @@ class RelayPublisher:
         except asyncio.CancelledError:
             await self._close_socket()
             self._state = "ended"
-            if base_url is not None and credential is not None:
-                try:
-                    await self._end_remote_session(base_url, session_id, credential)
-                except RelayPublisherError:
-                    logger.exception(
-                        "Cloud relay session shutdown failed after Publisher startup cancellation"
-                    )
+            try:
+                if base_url is not None and credential is not None:
+                    try:
+                        await self._end_remote_session(
+                            base_url, session_id, credential
+                        )
+                    except RelayPublisherError:
+                        logger.exception(
+                            "Cloud relay session shutdown failed after Publisher startup cancellation"
+                        )
+            finally:
+                await self._close_http_client()
             raise
         except Exception as error:
             await self._close_socket()
@@ -272,14 +291,19 @@ class RelayPublisher:
             )
             self._last_error = str(relay_error)
             self._state = "error"
-            if base_url is not None and credential is not None:
-                try:
-                    await self._end_remote_session(base_url, session_id, credential)
-                except RelayPublisherError as cleanup_error:
-                    raise RelayPublisherError(
-                        f"{relay_error}; remote session cleanup also failed: "
-                        f"{cleanup_error}"
-                    ) from error
+            try:
+                if base_url is not None and credential is not None:
+                    try:
+                        await self._end_remote_session(
+                            base_url, session_id, credential
+                        )
+                    except RelayPublisherError as cleanup_error:
+                        raise RelayPublisherError(
+                            f"{relay_error}; remote session cleanup also failed: "
+                            f"{cleanup_error}"
+                        ) from error
+            finally:
+                await self._close_http_client()
             if isinstance(error, RelayPublisherError):
                 raise
             raise relay_error from error
@@ -344,7 +368,7 @@ class RelayPublisher:
         try:
             async with self._encoder_lock:
                 if self._encoder is None:
-                    self._encoder = OpusPacketEncoder(self._audio_epoch << 28)
+                    self._encoder = self._new_encoder()
                 encoder = self._encoder
                 packets = await self._run_encoder_work(
                     lambda: encoder.encode(pcm, sample_rate)
@@ -431,9 +455,12 @@ class RelayPublisher:
             send_error = error
         finally:
             await self._close_socket()
-        credential = self._secret(self._settings.relay_publisher_credential)
-        base_url = self._validate_base_url(self._settings.relay_url)
-        await self._end_remote_session(base_url, session_id, credential)
+        try:
+            credential = self._secret(self._settings.relay_publisher_credential)
+            base_url = self._validate_base_url(self._settings.relay_url)
+            await self._end_remote_session(base_url, session_id, credential)
+        finally:
+            await self._close_http_client()
         self._state = "ended"
         if send_error is not None:
             raise send_error
@@ -464,6 +491,27 @@ class RelayPublisher:
         self._sequence += 1
         return value
 
+    def _new_encoder(self) -> OpusPacketEncoder:
+        timestamp_base_us = max(
+            time.monotonic_ns() // 1000,
+            self._last_audio_timestamp_us,
+            getattr(self._encoder, "next_timestamp_us", 0),
+        )
+        return OpusPacketEncoder(self._audio_epoch << 28, timestamp_base_us)
+
+    async def _http_client(self) -> httpx.AsyncClient:
+        if self._http is None:
+            # Building the client loads the CA bundle synchronously (~400 ms on
+            # Windows), which would starve the audio capture callback handoff.
+            self._http = await asyncio.to_thread(httpx.AsyncClient, timeout=10)
+        return self._http
+
+    async def _close_http_client(self) -> None:
+        client = self._http
+        self._http = None
+        if client is not None:
+            await client.aclose()
+
     @staticmethod
     async def _run_encoder_work(operation: Callable[[], list[bytes]]) -> list[bytes]:
         worker = asyncio.create_task(asyncio.to_thread(operation))
@@ -492,6 +540,10 @@ class RelayPublisher:
         socket = self._socket
         self._socket = None
         async with self._encoder_lock:
+            self._last_audio_timestamp_us = max(
+                self._last_audio_timestamp_us,
+                getattr(self._encoder, "next_timestamp_us", 0),
+            )
             self._encoder = None
         self._session_id = None
         if socket is not None:
@@ -544,9 +596,7 @@ class RelayPublisher:
                             if encoder is not None
                             else []
                         )
-                        self._encoder = OpusPacketEncoder(
-                            self._audio_epoch << 28
-                        )
+                        self._encoder = self._new_encoder()
                     for packet in packets:
                             self._queue_audio_packet(packet)
                     await socket.send(
@@ -692,11 +742,12 @@ class RelayPublisher:
                 session_id = self._session_id
                 credential = self._secret(self._settings.relay_publisher_credential)
                 base_url = self._validate_base_url(self._settings.relay_url)
-                async with httpx.AsyncClient(timeout=5) as client:
-                    response = await client.get(
-                        f"{base_url}/sessions/{session_id}/status",
-                        headers={"X-Publisher-Credential": credential},
-                    )
+                client = await self._http_client()
+                response = await client.get(
+                    f"{base_url}/sessions/{session_id}/status",
+                    headers={"X-Publisher-Credential": credential},
+                    timeout=5,
+                )
                 if response.status_code == 200:
                     payload = response.json()
                     if not isinstance(payload, dict):
@@ -772,15 +823,16 @@ class RelayPublisher:
         self, base_url: str, session_id: str, credential: str
     ) -> None:
         try:
-            async with httpx.AsyncClient(timeout=5) as client:
-                response = await client.post(
-                    f"{base_url}/sessions/{session_id}/end",
-                    headers={"X-Publisher-Credential": credential},
+            client = await self._http_client()
+            response = await client.post(
+                f"{base_url}/sessions/{session_id}/end",
+                headers={"X-Publisher-Credential": credential},
+                timeout=5,
+            )
+            if response.status_code != 200:
+                raise RelayPublisherError(
+                    f"Cloud relay session shutdown failed (HTTP {response.status_code})"
                 )
-                if response.status_code != 200:
-                    raise RelayPublisherError(
-                        f"Cloud relay session shutdown failed (HTTP {response.status_code})"
-                    )
         except httpx.HTTPError as error:
             raise RelayPublisherError("Could not shut down the cloud relay session") from error
 
