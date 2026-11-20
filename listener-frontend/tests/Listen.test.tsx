@@ -401,7 +401,19 @@ describe('remote Listener', () => {
       'This must not appear after sign-out.',
     );
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(4999);
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(container.querySelector('[role="alertdialog"]')).toHaveTextContent(
+      '4 Sekunden',
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(container.querySelector('[role="alertdialog"]')).toHaveTextContent(
+      '3 Sekunden',
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2999);
     });
     expect(container.querySelector('[role="alertdialog"]')).not.toBeNull();
 

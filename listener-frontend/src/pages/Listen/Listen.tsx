@@ -173,7 +173,8 @@ export default function Listen() {
       />
       {sessionEnded ? (
         <SessionEndedDialog
-          message={copy.sessionEnded.message(SESSION_END_LOGOUT_SECONDS)}
+          message={copy.sessionEnded.message}
+          seconds={SESSION_END_LOGOUT_SECONDS}
           title={copy.sessionEnded.title}
         />
       ) : null}
