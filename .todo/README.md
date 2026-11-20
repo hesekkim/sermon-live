@@ -18,13 +18,12 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 
 1. `076-cloud-listener-protocol-and-codec-decision.md` — 중계 계약과 Opus 인코딩/브라우저 디코딩 실현성 검증
 2. `077-berlin-relay-session-authentication.md` — 방송별 청중 비밀번호, 단기 Listener 권한 및 Publisher 인증
-3. `078-berlin-live-relay-websocket.md` — Berlin backend WSS 수신, 압축 오디오·자막 fan-out
-4. `079-local-cloud-publisher-and-opus-encoding.md` — Sermon Live의 압축 오디오 인코딩과 Render로 안전한 실시간 송출
-5. `080-operator-cloud-broadcast-controls.md` — Operator의 중계 설정, 입장 비밀번호 및 Listener 링크/QR 제어
-6. `081-vercel-listener-cloud-playback.md` — remote-only Vercel Listener의 인증, relay 연결 및 압축 오디오 재생
-7. `084-listener-token-renewal-and-reconnect.md` — 90분 access token 갱신과 만료 전 Listener WSS 교체
-8. `082-cloud-relay-resilience-and-load-validation.md` — 재연결·종료·백프레셔·보안 및 사용량/부하 검증
-9. `083-cloud-listener-deployment-and-operations.md` — Berlin/Render 및 Vercel 배포 설정과 운영 문서
+3. `079-local-cloud-publisher-and-opus-encoding.md` — Sermon Live의 압축 오디오 인코딩과 Render로 안전한 실시간 송출
+4. `080-operator-cloud-broadcast-controls.md` — Operator의 중계 설정, 입장 비밀번호 및 Listener 링크/QR 제어
+5. `081-vercel-listener-cloud-playback.md` — remote-only Vercel Listener의 인증, relay 연결 및 압축 오디오 재생
+6. `084-listener-token-renewal-and-reconnect.md` — 90분 access token 갱신과 만료 전 Listener WSS 교체
+7. `082-cloud-relay-resilience-and-load-validation.md` — 재연결·종료·백프레셔·보안 및 사용량/부하 검증
+8. `083-cloud-listener-deployment-and-operations.md` — Berlin/Render 및 Vercel 배포 설정과 운영 문서
 
 ### Windows/macOS 사용자 배포
 
@@ -119,6 +118,9 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 61. `070-standalone-packaging-foundation.md` — 독립 실행 패키징 공통 기반, OS별 사용자 데이터 경로, 비파괴 설정 이전 및 Windows smoke package
 62. `074-output-language-settings-and-listener-ui.md` — 영어/독일어 출력 언어 설정, Listener UI 연동, 환경변수 경로 제거
 63. `075-neutralize-source-transcript-language-copy.md` — source transcript UI/API 문구 언어 중립화, 비활성 상태 유지
+64. `076-cloud-listener-protocol-and-codec-decision.md` — Cloud Listener 계약과 Opus 코덱 결정
+65. `077-berlin-relay-session-authentication.md` — Berlin 방송별 인증과 Listener 권한
+66. `078-berlin-live-relay-websocket.md` — Berlin Publisher/Listener WSS relay와 fan-out
 
 ## 결정 사항
 

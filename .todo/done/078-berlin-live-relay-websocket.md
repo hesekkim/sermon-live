@@ -1,6 +1,6 @@
 # 078 Berlin 실시간 Relay WebSocket
 
-상태: 대기
+상태: 완료
 우선순위: 높음
 
 ## Goal
@@ -30,13 +30,13 @@ Berlin Saenuree backend가 인증된 Local PC Publisher로부터 실시간 자�
 
 ## Acceptance criteria
 
-- [ ] 하나의 Publisher가 session을 시작하고 압축 오디오·자막·상태를 보내며 session 종료를 알릴 수 있다.
-- [ ] 두 개 이상의 승인 Listener가 올바른 순서의 동일 session 이벤트를 받고 다른 session 데이터는 받지 않는다.
-- [ ] 느린 Listener의 bounded queue가 전체 방송을 막지 않고 문서화된 backpressure 정책으로 작동한다.
-- [ ] 연결 종료, idle timeout, Server shutdown 시 socket과 session 자원이 해제되고 클라이언트가 복구 가능한 종료 상태를 받는다.
-- [ ] 연결/Listener/session 상한을 초과하면 명시적으로 거부하고 기존 Berlin HTTP API에 영향을 주지 않는다.
-- [ ] WebSocket endpoint, middleware, startup/shutdown 동작에 대한 자동 테스트가 추가된다.
-- [ ] 한 worker에서만 운영하는 조건과 수평 확장 시 공유 relay가 필요함을 배포 설정/문서에 명시한다.
+- [x] 하나의 Publisher가 session을 시작하고 압축 오디오·자막·상태를 보내며 session 종료를 알릴 수 있다.
+- [x] 두 개 이상의 승인 Listener가 올바른 순서의 동일 session 이벤트를 받고 다른 session 데이터는 받지 않는다.
+- [x] 느린 Listener의 bounded queue가 전체 방송을 막지 않고 문서화된 backpressure 정책으로 작동한다.
+- [x] 연결 종료, idle timeout, Server shutdown 시 socket과 session 자원이 해제되고 클라이언트가 복구 가능한 종료 상태를 받는다.
+- [x] 연결/Listener/session 상한을 초과하면 명시적으로 거부하고 기존 Berlin HTTP API에 영향을 주지 않는다.
+- [x] WebSocket endpoint, middleware, startup/shutdown 동작에 대한 자동 테스트가 추가된다.
+- [x] 한 worker에서만 운영하는 조건과 수평 확장 시 공유 relay가 필요함을 배포 설정/문서에 명시한다.
 
 ## Tests and verification
 
