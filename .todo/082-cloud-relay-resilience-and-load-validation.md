@@ -47,3 +47,12 @@ Local Publisher, Berlin relay, Vercel Listener를 연결한 실제 cloud 흐름�
 - CI에서는 fake relay/load를 이용한 bounded test만 실행한다.
 - 실제 Render 부하 검증은 제한된 시간/동시 접속으로 별도 수행하며 대시보드 수치와 함께 기록한다.
 - 실제 OpenAI API는 사용하지 않고 합성 오디오나 승인된 test fixture를 사용한다.
+
+## 현재 구현 상태
+
+- Berlin relay는 인증된 Publisher/Listener fan-out, 느린 Listener queue/backpressure, idle timeout, session 종료 및 기존 연결 상한을 제공한다.
+- Berlin `/api/v1/relay/metrics`에 Publisher 인증이 필요한 개인정보 없는 집계 메타데이터를 추가했다.
+- `backend/scripts/relay_load_validation.py`로 유료 리소스나 네트워크를 사용하지 않는 bounded synthetic load 검증을 제공한다.
+- Render Dashboard에서 CPU/Memory/Bandwidth와 workspace egress를 확인하는 절차와 egress 계산식을 운영 문서에 추가했다.
+- 18개 relay unit test와 bounded fake-load 스크립트의 로컬 검증이 통과했다.
+- 실제 0.5 CPU/512 MB Render 환경의 단계별 청중 부하와 대시보드 수치는 비용 발생 테스트이므로 배포 승인 후 별도 측정해야 한다.
