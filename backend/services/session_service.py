@@ -12,6 +12,7 @@ from services.broadcast import BroadcastHub
 from services.interpreters.factory import create_interpreter
 from services.interpreters.protocol import KeyValidationError, LiveInterpreter
 from services.operator_store import OperatorSettingsStore, store as default_store
+from services.relay_publisher import RelayPublisher
 from services.scripture import (
     GermanScriptureReferenceStream,
     get_luther_1912_corpus,
@@ -41,11 +42,13 @@ class _TranslationSessionService:
         hub: BroadcastHub,
         audio: AudioRuntime,
         operator_store: OperatorSettingsStore | None = None,
+        relay_publisher: RelayPublisher | None = None,
     ) -> None:
         self._settings = settings
         self._hub = hub
         self._audio = audio
         self._store = operator_store or default_store
+        self._relay = relay_publisher or RelayPublisher(settings)
         self._state: SessionState = "off"
         self._error: str | None = None
         self._last_termination_reason: str | None = None
@@ -228,7 +231,7 @@ class _TranslationSessionService:
                 raise RuntimeError(message)
             self._state = "starting"
             self._start_task = asyncio.current_task()
-            self._session_id = uuid.uuid4().hex[:12]
+            self._session_id = uuid.uuid4().hex
             self._interpreter_reconnecting = False
             self._error = None
             self._last_termination_reason = None
@@ -262,6 +265,7 @@ class _TranslationSessionService:
             await interpreter.start()
             if runtime.interpreter == "openai":
                 self._store.set_key_status(runtime.interpreter, "valid")
+            await self._relay.start(self._session_id)
 
             self._scripture_stream.reset()
             audio_queue = self._audio.attach_translation(interpreter)
@@ -301,6 +305,11 @@ class _TranslationSessionService:
             await self._abort_start(interpreter)
             raise
         except Exception as exc:
+            if self._relay.active:
+                try:
+                    await self._relay.stop("error")
+                except Exception:
+                    logger.exception("Cloud relay shutdown failed after session start error")
             if interpreter is not None:
                 await self._close_interpreter(interpreter)
             queue = await self._audio.finish_translation()
@@ -387,6 +396,16 @@ class _TranslationSessionService:
     async def _abort_start(self, interpreter: LiveInterpreter | None) -> None:
         async with self._transition_lock:
             self._state = "stopping"
+
+        if self._relay.active:
+            try:
+                await self._relay.stop("server_shutdown")
+            except Exception:
+                logger.exception(
+                    "Cloud relay shutdown failed while aborting session start"
+                )
+
+        async with self._transition_lock:
             await self._publish_status()
 
         await self._audio.finish_translation(discard_pending=True)
@@ -524,6 +543,9 @@ class _TranslationSessionService:
 
     async def _broadcast_output_text(self, text: str) -> None:
         await self._hub.broadcast_text(text)
+        await self._relay.send_subtitle(
+            text, self._store.get_translation_target_language()
+        )
         await self._hub.broadcast_operator(
             {"type": "transcript", "role": "output", "text": text}
         )
@@ -557,6 +579,7 @@ class _TranslationSessionService:
             async for event in interpreter.events():
                 if event.kind == "audio" and event.pcm:
                     await self._hub.broadcast_audio(event.pcm, event.sample_rate)
+                    await self._relay.send_audio(event.pcm, event.sample_rate)
                 elif event.kind in ("text", "output_text") and event.text:
                     await self._broadcast_output_text(event.text)
                 elif event.kind == "input_text" and event.text:
@@ -631,6 +654,14 @@ class _TranslationSessionService:
             await self._hub.broadcast_operator(payload)
         else:
             await broadcaster(payload)
+        relay_status = {
+            "starting": "starting",
+            "live": "live",
+            "stopping": "ending",
+            "error": "error",
+        }.get(self._state)
+        if relay_status is not None:
+            await self._relay.send_status(relay_status)
 
     async def _publish_error(self, message: str) -> None:
         message = self._safe_error_message(message)
@@ -658,6 +689,11 @@ class _TranslationSessionService:
         return self._safe_error_message(message)
 
     async def _publish_ended(self, reason: TerminationReason) -> None:
+        if self._relay.active:
+            try:
+                await self._relay.stop(reason)
+            except Exception:
+                logger.exception("Cloud relay session shutdown failed")
         payload = {
             "type": "session_ended",
             "reason": reason,
@@ -681,8 +717,9 @@ class SessionService(_TranslationSessionService):
         hub: BroadcastHub,
         audio: AudioRuntime,
         operator_store: OperatorSettingsStore | None = None,
+        relay_publisher: RelayPublisher | None = None,
     ) -> None:
-        super().__init__(settings, hub, audio, operator_store)
+        super().__init__(settings, hub, audio, operator_store, relay_publisher)
         self._first_audio_chunk_since_text_sent_at: float | None = None
 
     async def _pump_audio(self, queue: asyncio.Queue[bytes | None]) -> None:
@@ -716,6 +753,7 @@ class SessionService(_TranslationSessionService):
             async for event in interpreter.events():
                 if event.kind == "audio" and event.pcm:
                     await self._hub.broadcast_audio(event.pcm, event.sample_rate)
+                    await self._relay.send_audio(event.pcm, event.sample_rate)
                 elif event.kind in ("text", "output_text") and event.text:
                     if self._first_audio_chunk_since_text_sent_at is not None:
                         latency_ms = max(

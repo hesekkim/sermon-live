@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     operator_password: SecretStr | None = None
     operator_session_secret: SecretStr | None = None
+    relay_publisher_credential: SecretStr | None = None
+    relay_url: str = ""
+    relay_listener_password: SecretStr | None = None
     # Verify the model name against the official API when the OpenAI adapter is implemented.
     openai_model: str = "gpt-realtime-translate"
     translation_session_auto_stop_minutes: int = 90

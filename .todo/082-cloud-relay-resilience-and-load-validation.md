@@ -13,6 +13,7 @@ Local Publisher, Berlin relay, Vercel Listener를 연결한 실제 cloud 흐름�
 - `.todo/079-local-cloud-publisher-and-opus-encoding.md`
 - `.todo/080-operator-cloud-broadcast-controls.md`
 - `.todo/081-vercel-listener-cloud-playback.md`
+- `.todo/084-listener-token-renewal-and-reconnect.md`
 
 ## Scope
 

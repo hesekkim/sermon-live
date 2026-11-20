@@ -8,11 +8,21 @@
 - The Listener UI is served statically by Vercel. It connects only to the Berlin relay.
 - A Listener password authenticates audience access; it is separate from the Publisher service credential.
 
-LAN broadcast remains supported as a fallback. Cloud relay mode is opt-in and must be selected explicitly by the Operator. A relay failure or disabled relay never silently switches to LAN or public routing.
+LAN broadcast remains supported. Cloud relay mode is opt-in: setting `APP_RELAY_URL` enables it. A relay failure or disabled relay never silently switches to LAN or public routing.
+
+## Local Publisher configuration
+
+Set these server-side values in `sermon-live/backend/.env` to opt in:
+
+- `APP_RELAY_URL`: Berlin API relay base URL, ending in `/api/v1/relay`.
+- `APP_RELAY_PUBLISHER_CREDENTIAL`: the same randomly generated value configured on Berlin; at least 32 characters.
+- `APP_RELAY_LISTENER_PASSWORD`: the audience password, 8-128 characters.
+
+The Publisher credential and Listener password stay in the Local PC backend. The password is sent only in the HTTPS session-upsert request; neither secret is placed in a URL or returned to the frontend. Leave `APP_RELAY_URL` empty for local-only operation. When it is configured, missing credentials or an unavailable relay fail the translation session instead of silently falling back to another route.
 
 ## Publisher handshake
 
-The Publisher opens `WSS /publisher/{sessionId}` and sends a JSON text message first:
+With `APP_RELAY_URL` set to the Berlin relay API base (for example, `https://relay.example.com/api/v1/relay`), the Publisher opens `WSS {APP_RELAY_URL}/ws/publisher/{sessionId}` and sends a JSON text message first:
 
 ```json
 {
@@ -83,6 +93,8 @@ Raw Opus packets are preferred over an Ogg container for WebSockets. One WebSock
 
 Before audio/text admission, the Listener authenticates by the session-specific HTTP password-check flow specified in ticket 077. After admission, the Listener opens a WebSocket and sends no credentials in the URL.
 
+The Listener requests a token with `POST {APP_RELAY_URL}/sessions/{sessionId}/listener-token`, then opens `WSS {APP_RELAY_URL}/ws/listener/{sessionId}`. The first WebSocket text message is `{"type":"listener_hello","session_id":"...","listener_token":"..."}`. The relay validates the token before registering the Listener or sending `listener_ready`; the token is never placed in a query parameter.
+
 The Listener receives a `listener_ready` JSON event containing:
 
 ```json
@@ -101,7 +113,7 @@ The Listener receives a `listener_ready` JSON event containing:
 
 Publisher reconnection uses the same session ID and `publisher_hello`, then resumes with a new, explicitly increasing epoch in the upper sequence space. The exact epoch layout is deferred to implementation in ticket 079. The relay closes the listener session if Publisher ends normally or expires, and sends `status=ended` with `reason=publisher_closed|idle_timeout|publisher_error|server_shutdown`.
 
-Listener reconnection reuses the Listener admission token, with no password or credential in the query string. If codec/session metadata changed, Listener fails `codec_mismatch` or `session_mismatch` instead of mixing frames.
+Listener reconnection may reuse the Listener admission token for up to 90 minutes from issuance; the relay closes the WebSocket when it expires. Automatic token refresh is not implemented yet, so a Listener must authenticate again after expiry. No password or credential is placed in the query string. If codec/session metadata changed, Listener fails `codec_mismatch` or `session_mismatch` instead of mixing frames.
 
 ## Codec decision
 

@@ -21,9 +21,10 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 3. `078-berlin-live-relay-websocket.md` — Berlin backend WSS 수신, 압축 오디오·자막 fan-out
 4. `079-local-cloud-publisher-and-opus-encoding.md` — Sermon Live의 압축 오디오 인코딩과 Render로 안전한 실시간 송출
 5. `080-operator-cloud-broadcast-controls.md` — Operator의 중계 설정, 입장 비밀번호 및 Listener 링크/QR 제어
-6. `081-vercel-listener-cloud-playback.md` — Vercel Listener의 인증, 원격 연결 및 압축 오디오 재생
-7. `082-cloud-relay-resilience-and-load-validation.md` — 재연결·종료·백프레셔·보안 및 사용량/부하 검증
-8. `083-cloud-listener-deployment-and-operations.md` — Berlin/Render 및 Vercel 배포 설정과 운영 문서
+6. `081-vercel-listener-cloud-playback.md` — remote-only Vercel Listener의 인증, relay 연결 및 압축 오디오 재생
+7. `084-listener-token-renewal-and-reconnect.md` — 90분 access token 갱신과 만료 전 Listener WSS 교체
+8. `082-cloud-relay-resilience-and-load-validation.md` — 재연결·종료·백프레셔·보안 및 사용량/부하 검증
+9. `083-cloud-listener-deployment-and-operations.md` — Berlin/Render 및 Vercel 배포 설정과 운영 문서
 
 ### Windows/macOS 사용자 배포
 
@@ -142,6 +143,6 @@ Operator와 OpenAI Translation은 Local PC에 유지한다. Listener UI는 Verce
 - OpenAI API key는 브라우저에 보내지 않는다. 현재 Local PC JSON store의 key-at-rest 암호화는 별도 범위로 남긴다.
 - Queue overflow 시 가장 오래된 audio chunk를 폐기해 최신 음성을 유지하고, 누적 손실과 경고를 Operator에 표시한다.
 - AudioCapture는 장치가 지원하는 입력 stream format을 확인한다. 실제 app capture format과 물리 장치의 ADC format을 구분하고, OpenAI 변환 target은 `LiveInterpreter.required_*`의 24 kHz/mono/PCM16을 사용한다.
-- Cloud Listener 목표 구성에서는 Local PC가 OpenAI 번역을 계속 소유하고 Berlin backend가 외부 청중에게 실시간 중계한다. Render egress를 줄이기 위해 Listener로 보내기 전 오디오를 압축하며, Opus 포맷·비트레이트·브라우저 디코더는 `.todo/076`에서 Windows/macOS 패키징 호환성과 지연·음성 품질을 검증해 결정한다. 기존 LAN Listener 경로를 유지할지 여부도 해당 계약에서 명시한다.
+- Cloud Listener 목표 구성에서는 Local PC가 OpenAI 번역을 계속 소유하고 Berlin backend가 외부 청중에게 실시간 중계한다. Render egress를 줄이기 위해 Listener로 보내기 전 오디오를 압축하며, Opus 포맷·비트레이트·브라우저 디코더는 `.todo/076`에서 Windows/macOS 패키징 호환성과 지연·음성 품질을 검증해 결정한다. 제품 결정은 remote-only Listener이며, Listener UI에서 Local/LAN 청취 경로와 cloud-to-local fallback을 제거한다 (`081`).
 - 청중 방송별 입장 비밀번호와 Local PC Publisher 인증은 분리한다. Publisher credential은 브라우저 번들/Listener에 노출하지 않고, Listener는 비밀번호 검증 후 해당 방송에만 접근한다.
 - 다중 언어, transcript history, RAG/vector DB는 이번 범위에 포함하지 않는다

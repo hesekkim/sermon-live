@@ -23,6 +23,9 @@ def test_env_example_documents_server_settings_not_operator_preferences():
         "APP_ALLOWED_ORIGINS",
         "APP_OPERATOR_PASSWORD",
         "APP_OPERATOR_SESSION_SECRET",
+        "APP_RELAY_PUBLISHER_CREDENTIAL",
+        "APP_RELAY_URL",
+        "APP_RELAY_LISTENER_PASSWORD",
     }.issubset(env_names)
     assert not {
         "APP_INTERPRETER",
@@ -117,6 +120,35 @@ def test_operator_auth_secrets_have_no_development_defaults():
 
     assert settings.operator_password is None
     assert settings.operator_session_secret is None
+
+
+def test_relay_publisher_credential_is_optional_and_secret(tmp_path):
+    settings = Settings(_env_file=None)
+    assert settings.relay_publisher_credential is None
+    assert settings.relay_listener_password is None
+    assert settings.relay_url == ""
+
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "APP_RELAY_PUBLISHER_CREDENTIAL=generated-publisher-secret-at-least-32-chars\n"
+        "APP_RELAY_URL=https://relay.example.com/api/v1/relay\n"
+        "APP_RELAY_LISTENER_PASSWORD=listener-password\n",
+        encoding="utf-8",
+    )
+    settings = Settings(_env_file=env_file)
+
+    assert settings.relay_publisher_credential is not None
+    assert (
+        settings.relay_publisher_credential.get_secret_value()
+        == "generated-publisher-secret-at-least-32-chars"
+    )
+    assert settings.relay_url == "https://relay.example.com/api/v1/relay"
+    assert settings.relay_listener_password is not None
+    assert settings.relay_listener_password.get_secret_value() == "listener-password"
+    assert "generated-publisher-secret" not in repr(
+        settings.relay_publisher_credential
+    )
+    assert "listener-password" not in repr(settings.relay_listener_password)
 
 
 def test_ssl_certificate_and_key_must_be_configured_together(tmp_path):

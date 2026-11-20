@@ -92,13 +92,21 @@ class ErrorInterpreter:
         return None
 
 
-def make_service(tmp_path, *, audio=None, settings=None, operator_store=None):
+def make_service(
+    tmp_path,
+    *,
+    audio=None,
+    settings=None,
+    operator_store=None,
+    relay_publisher=None,
+):
     hub = FakeHub()
     service = SessionService(
         settings or Settings(interpreter="echo"),
         hub,
         audio or FakeAudioRuntime(),
         operator_store=operator_store or OperatorSettingsStore(tmp_path / "operator.json"),
+        relay_publisher=relay_publisher,
     )
     return service, hub
 
@@ -202,6 +210,46 @@ async def test_shutdown_cancels_and_cleans_up_session_start_in_progress(
     assert closed.is_set()
     assert service._start_task is None
     assert_session_released(service)
+
+
+@pytest.mark.asyncio
+async def test_shutdown_stops_relay_when_start_is_cancelled_during_relay_setup(
+    tmp_path, monkeypatch
+):
+    relay_starting = asyncio.Event()
+
+    class BlockingRelayPublisher:
+        active = False
+        stopped_with = []
+
+        async def start(self, _session_id):
+            self.active = True
+            relay_starting.set()
+            await asyncio.Event().wait()
+
+        async def stop(self, reason):
+            self.stopped_with.append(reason)
+            self.active = False
+
+        async def send_status(self, _status):
+            return None
+
+    monkeypatch.setattr(
+        session_service_module,
+        "create_interpreter",
+        lambda _settings, **_kwargs: ErrorInterpreter(),
+    )
+    relay = BlockingRelayPublisher()
+    service, _hub = make_service(tmp_path, relay_publisher=relay)
+    start_task = asyncio.create_task(service.start())
+    await asyncio.wait_for(relay_starting.wait(), timeout=1)
+
+    await asyncio.wait_for(service.shutdown(), timeout=1)
+
+    assert start_task.done()
+    assert service.state == "off"
+    assert relay.stopped_with == ["server_shutdown"]
+    assert not relay.active
 
 
 @pytest.mark.asyncio

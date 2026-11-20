@@ -1,0 +1,362 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+from typing import Any
+from urllib.parse import urlparse
+
+import av
+import httpx
+import numpy as np
+from av.audio.resampler import AudioResampler
+from websockets.asyncio.client import connect
+from websockets.exceptions import ConnectionClosed
+
+from core.config import Settings
+
+
+PROTOCOL = "sermon-live/1"
+SAMPLE_RATE = 24000
+FRAME_SAMPLES = 480
+MAX_OPUS_PACKET_BYTES = 1275
+
+logger = logging.getLogger(__name__)
+
+
+class RelayPublisherError(RuntimeError):
+    pass
+
+
+class OpusPacketEncoder:
+    def __init__(self) -> None:
+        self._codec = av.CodecContext.create("libopus", "w")
+        self._codec.sample_rate = SAMPLE_RATE
+        self._codec.layout = "mono"
+        self._codec.format = "s16"
+        self._codec.bit_rate = 48_000
+        self._codec.options = {"application": "voip"}
+        self._codec.open()
+        self._resampler = AudioResampler(
+            format="s16", layout="mono", rate=SAMPLE_RATE
+        )
+        self._pending = np.empty(0, dtype=np.int16)
+        self._sequence = 0
+
+    def encode(self, pcm: bytes, sample_rate: int) -> list[bytes]:
+        if not pcm or sample_rate <= 0 or len(pcm) % 2:
+            raise RelayPublisherError("Invalid PCM audio frame")
+        samples = np.frombuffer(pcm, dtype="<i2")
+        frame = av.AudioFrame.from_ndarray(
+            np.ascontiguousarray(samples.reshape(1, -1)),
+            format="s16",
+            layout="mono",
+        )
+        frame.sample_rate = sample_rate
+        packets: list[bytes] = []
+        for resampled in self._resampler.resample(frame):
+            output = resampled.to_ndarray().reshape(-1).astype(np.int16, copy=False)
+            self._pending = np.concatenate((self._pending, output))
+        while self._pending.size >= FRAME_SAMPLES:
+            samples = self._pending[:FRAME_SAMPLES]
+            self._pending = self._pending[FRAME_SAMPLES:]
+            opus_frame = av.AudioFrame.from_ndarray(
+                np.ascontiguousarray(samples.reshape(1, -1)),
+                format="s16",
+                layout="mono",
+            )
+            opus_frame.sample_rate = SAMPLE_RATE
+            for packet in self._codec.encode(opus_frame):
+                payload = bytes(packet)
+                if not payload or len(payload) > MAX_OPUS_PACKET_BYTES:
+                    raise RelayPublisherError("Invalid encoded Opus packet")
+                packets.append(self._header(payload))
+        return packets
+
+    def _header(self, payload: bytes) -> bytes:
+        if self._sequence >= 2**32:
+            raise RelayPublisherError("Opus packet sequence exhausted")
+        timestamp_us = time.monotonic_ns() // 1000
+        header = (
+            b"SL1A"
+            + bytes((1, 0))
+            + len(payload).to_bytes(2, "little")
+            + timestamp_us.to_bytes(8, "big")
+            + self._sequence.to_bytes(4, "big")
+        )
+        self._sequence += 1
+        return header + payload
+
+
+class RelayPublisher:
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+        self._socket: Any | None = None
+        self._session_id: str | None = None
+        self._sequence = 0
+        self._send_lock = asyncio.Lock()
+        self._encoder: OpusPacketEncoder | None = None
+        self._heartbeat_task: asyncio.Task[None] | None = None
+        self._background_error: RelayPublisherError | None = None
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self._settings.relay_url.strip())
+
+    @property
+    def active(self) -> bool:
+        return self._socket is not None
+
+    async def start(self, session_id: str) -> None:
+        if not self.enabled:
+            return
+        credential = self._secret(self._settings.relay_publisher_credential)
+        password = self._secret(self._settings.relay_listener_password)
+        base_url = self._validate_base_url(self._settings.relay_url)
+        self._background_error = None
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(
+                    f"{base_url}/sessions/{session_id}",
+                    headers={"X-Publisher-Credential": credential},
+                    json={"listener_password": password},
+                )
+                if response.status_code != 200:
+                    raise RelayPublisherError(
+                        f"Cloud relay session setup failed (HTTP {response.status_code})"
+                    )
+
+            parsed = urlparse(base_url)
+            websocket_scheme = "wss" if parsed.scheme == "https" else "ws"
+            socket_url = (
+                f"{websocket_scheme}://{parsed.netloc}{parsed.path.rstrip('/')}"
+                f"/ws/publisher/{session_id}"
+            )
+            self._socket = await connect(
+                socket_url,
+                additional_headers={"X-Publisher-Credential": credential},
+                open_timeout=10,
+                max_size=2 * 1024 * 1024,
+            )
+            self._session_id = session_id
+            self._encoder = OpusPacketEncoder()
+            await self._socket.send(
+                json.dumps(
+                    {
+                        "type": "publisher_hello",
+                        "protocol": PROTOCOL,
+                        "session_id": session_id,
+                        "codec": "opus",
+                        "container": "raw-opus",
+                        "sample_rate": SAMPLE_RATE,
+                        "channels": 1,
+                        "packet_duration_ms": 20,
+                        "target_bitrate": 48000,
+                    }
+                )
+            )
+            response_text = await asyncio.wait_for(self._socket.recv(), timeout=10)
+            response_payload = json.loads(response_text)
+            if (
+                not isinstance(response_payload, dict)
+                or response_payload.get("type") != "publisher_ready"
+                or response_payload.get("session_id") != session_id
+                or response_payload.get("protocol") != PROTOCOL
+            ):
+                raise RelayPublisherError("Cloud relay rejected the Publisher handshake")
+            await self.send_status("starting")
+            self._heartbeat_task = asyncio.create_task(
+                self._run_heartbeat(), name="cloud-relay-publisher-heartbeat"
+            )
+        except asyncio.CancelledError:
+            await self._close_socket()
+            try:
+                await self._end_remote_session(base_url, session_id, credential)
+            except RelayPublisherError:
+                logger.exception(
+                    "Cloud relay session shutdown failed after Publisher startup cancellation"
+                )
+            raise
+        except Exception as error:
+            await self._close_socket()
+            try:
+                await self._end_remote_session(base_url, session_id, credential)
+            except RelayPublisherError:
+                raise RelayPublisherError(
+                    "Cloud relay setup failed and the remote session could not be ended"
+                ) from error
+            if isinstance(error, RelayPublisherError):
+                raise
+            raise RelayPublisherError("Could not connect to the cloud relay") from error
+
+    async def send_status(self, session_status: str) -> None:
+        if self._socket is None or self._session_id is None:
+            return
+        await self._send_json(
+            {
+                "type": "status",
+                "session_id": self._session_id,
+                "sequence": self._next_sequence(),
+                "timestamp_ms": time.monotonic_ns() // 1_000_000,
+                "status": session_status,
+            }
+        )
+
+    async def send_subtitle(self, text: str, language: str) -> None:
+        if self._socket is None or self._session_id is None:
+            return
+        await self._send_json(
+            {
+                "type": "subtitle",
+                "session_id": self._session_id,
+                "sequence": self._next_sequence(),
+                "timestamp_ms": time.monotonic_ns() // 1_000_000,
+                "language": language,
+                "text": text,
+            }
+        )
+
+    async def send_audio(self, pcm: bytes, sample_rate: int) -> None:
+        if self._socket is None or self._encoder is None:
+            return
+        self._raise_background_error()
+        try:
+            for packet in self._encoder.encode(pcm, sample_rate):
+                async with self._send_lock:
+                    await self._socket.send(packet)
+        except (ConnectionClosed, OSError) as error:
+            raise RelayPublisherError("Cloud relay connection was lost") from error
+
+    async def stop(self, reason: str) -> None:
+        if self._socket is None or self._session_id is None:
+            return
+        session_id = self._session_id
+        send_error: Exception | None = None
+        try:
+            await self._send_json(
+                {
+                    "type": "publisher_close",
+                    "session_id": session_id,
+                    "reason": (
+                        "publisher_error"
+                        if reason in {"interpreter_error", "device_error", "error"}
+                        else "publisher_closed"
+                    ),
+                    "sequence": self._next_sequence(),
+                }
+            )
+        except Exception as error:
+            send_error = error
+        finally:
+            await self._close_socket()
+        credential = self._secret(self._settings.relay_publisher_credential)
+        base_url = self._validate_base_url(self._settings.relay_url)
+        await self._end_remote_session(base_url, session_id, credential)
+        if send_error is not None:
+            raise send_error
+
+    async def _send_json(self, payload: dict[str, object]) -> None:
+        if self._socket is None:
+            return
+        self._raise_background_error()
+        try:
+            async with self._send_lock:
+                await self._socket.send(json.dumps(payload))
+        except (ConnectionClosed, OSError) as error:
+            raise RelayPublisherError("Cloud relay connection was lost") from error
+
+    def _next_sequence(self) -> int:
+        value = self._sequence
+        self._sequence += 1
+        return value
+
+    async def _close_socket(self) -> None:
+        heartbeat_task = self._heartbeat_task
+        self._heartbeat_task = None
+        if heartbeat_task is not None and heartbeat_task is not asyncio.current_task():
+            heartbeat_task.cancel()
+            await asyncio.gather(heartbeat_task, return_exceptions=True)
+        socket = self._socket
+        self._socket = None
+        self._encoder = None
+        self._session_id = None
+        if socket is not None:
+            try:
+                await socket.close()
+            except (ConnectionClosed, OSError):
+                pass
+
+    async def _run_heartbeat(self) -> None:
+        try:
+            while self._socket is not None and self._session_id is not None:
+                await asyncio.sleep(15)
+                await self._send_json(
+                    {
+                        "type": "publisher_ping",
+                        "session_id": self._session_id,
+                        "timestamp_ms": time.monotonic_ns() // 1_000_000,
+                    }
+                )
+        except asyncio.CancelledError:
+            raise
+        except RelayPublisherError as error:
+            self._background_error = error
+
+    def _raise_background_error(self) -> None:
+        if self._background_error is not None:
+            raise self._background_error
+
+    async def _end_remote_session(
+        self, base_url: str, session_id: str, credential: str
+    ) -> None:
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                response = await client.post(
+                    f"{base_url}/sessions/{session_id}/end",
+                    headers={"X-Publisher-Credential": credential},
+                )
+                if response.status_code != 200:
+                    raise RelayPublisherError(
+                        f"Cloud relay session shutdown failed (HTTP {response.status_code})"
+                    )
+        except httpx.HTTPError as error:
+            raise RelayPublisherError("Could not shut down the cloud relay session") from error
+
+    @staticmethod
+    def _secret(value) -> str:
+        secret = value.get_secret_value() if value is not None else ""
+        if len(secret) < 8:
+            raise RelayPublisherError("Cloud relay credentials are not configured")
+        return secret
+
+    def _validate_base_url(self, value: str) -> str:
+        parsed = urlparse(value.strip().rstrip("/"))
+        try:
+            parsed.port
+        except ValueError as error:
+            raise RelayPublisherError("Cloud relay URL is invalid") from error
+        if (
+            parsed.scheme not in {"https", "http"}
+            or not parsed.netloc
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or (
+                parsed.scheme != "https"
+                and not (
+                    self._settings.debug
+                    and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+                )
+            )
+        ):
+            raise RelayPublisherError("Cloud relay URL must use HTTPS")
+        credential = self._secret(self._settings.relay_publisher_credential)
+        if len(credential) < 32:
+            raise RelayPublisherError("Cloud relay Publisher credential is too weak")
+        password = self._secret(self._settings.relay_listener_password)
+        if len(password) > 128:
+            raise RelayPublisherError("Cloud relay Listener password is too long")
+        return value.strip().rstrip("/")
